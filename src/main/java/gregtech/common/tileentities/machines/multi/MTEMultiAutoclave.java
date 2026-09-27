@@ -58,6 +58,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -85,6 +86,16 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
     private HeatingCoilLevel heatLevel;
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(12, TooltipTier.ITEM_PIPE_CASING)
+        .speedBonus(
+            in -> speedBoost(in.tier(TooltipTier.COIL) + 1),
+            tt -> tt.addDynamicSpeedBonusInfo(0.25f, TooltipTier.COIL))
+        .euModifier(
+            in -> euModifier(in.tier(TooltipTier.PIPE_CASING)),
+            tt -> tt.addDynamicEuEffInfo(0.0833f, TooltipTier.PIPE_CASING))
+        .build();
 
     protected int itemPipeTier = 0;
     protected int fluidPipeTier = 0;
@@ -206,9 +217,7 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Autoclave, IAC")
-            .addDynamicParallelInfo(12, TooltipTier.ITEM_PIPE_CASING)
-            .addDynamicSpeedBonusInfo(0.25f, TooltipTier.COIL)
-            .addDynamicEuEffInfo(0.0833f, TooltipTier.PIPE_CASING)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(7, 7, 9, true)
             .addController("Front bottom center")
             .addCasing("128-148", "Pressure Containment Casing", false)
@@ -292,24 +301,22 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
         return new MTEMultiAutoclave(this.mName);
     }
 
-    public float euModifier(int fluidPipeTier) {
+    public static float euModifier(int fluidPipeTier) {
         return (float) (12 - fluidPipeTier) / 12;
     }
 
-    public float speedBoost(int coilTier) {
+    public static float speedBoost(int coilTier) {
         return (float) 1 / (1 + 0.25f * coilTier);
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return itemPipeTier * 12;
+    protected ProcessingLogic createProcessingLogic() {
+        return new ProcessingLogic();
     }
 
     @Override
-    protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(() -> (double) euModifier(fluidPipeTier))
-            .setSpeedBonusSupplier(() -> (double) speedBoost(getCoilTier()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

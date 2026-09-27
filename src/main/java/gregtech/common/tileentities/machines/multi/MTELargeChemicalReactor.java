@@ -47,6 +47,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -61,6 +62,9 @@ public class MTELargeChemicalReactor extends MTEEnhancedMultiBlockBase<MTELargeC
 
     private static final int CASING_INDEX = 176;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .perfectOverclock()
+        .build();
     private static final IStructureDefinition<MTELargeChemicalReactor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTELargeChemicalReactor>builder()
         .addShape(
@@ -109,7 +113,7 @@ public class MTELargeChemicalReactor extends MTEEnhancedMultiBlockBase<MTELargeC
         tt.addMachineType("Chemical Reactor, LCR")
             .addInfo("Accepts fluids instead of fluid cells")
             .addInfo("Can perform several direct recipes that skip intermediate compounds")
-            .addPerfectOCInfo()
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(3, 3, 3, false)
             .addController("Front center, 2nd layer")
             .addCasing("8-22", "Chemically Inert Machine Casing", false)
@@ -152,7 +156,12 @@ public class MTELargeChemicalReactor extends MTEEnhancedMultiBlockBase<MTELargeC
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().enablePerfectOverclock();
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

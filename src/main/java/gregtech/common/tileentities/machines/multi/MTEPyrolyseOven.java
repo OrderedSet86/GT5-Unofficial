@@ -43,6 +43,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -59,6 +60,9 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
     private static final int OFFSET_X = 3;
     private static final int OFFSET_Y = 4;
     private static final int OFFSET_Z = 0;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .speedBonus(in -> 2f / (1 + in.tier(TooltipTier.COIL)), tt -> tt.addDynamicSpeedInfo(0.5f, TooltipTier.COIL))
+        .build();
     private HeatingCoilLevel coilHeat;
     private int casingAmount;
 
@@ -106,7 +110,7 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Coke Oven")
             .addInfo("Industrial Charcoal producer")
-            .addDynamicSpeedInfo(0.5f, TooltipTier.COIL)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("EU/t is not affected by Coil tier")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(7, 6, 5, true)
@@ -154,7 +158,12 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -172,10 +181,6 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
 
     private void setCoilLevel(HeatingCoilLevel aCoilLevel) {
         coilHeat = aCoilLevel;
-    }
-
-    public double getSpeedBonus() {
-        return 2f / (1 + coilHeat.getTier());
     }
 
     @Override

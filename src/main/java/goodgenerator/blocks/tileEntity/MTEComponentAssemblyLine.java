@@ -41,6 +41,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -62,6 +63,9 @@ public class MTEComponentAssemblyLine extends MTEExtendedPowerMultiBlockBase<MTE
     private int glassTier = -1;
     private double speedBonus;
     protected static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .build();
     private static final IStructureDefinition<MTEComponentAssemblyLine> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEComponentAssemblyLine>builder()
         .addShape(
@@ -221,7 +225,7 @@ public class MTEComponentAssemblyLine extends MTEExtendedPowerMultiBlockBase<MTE
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.component_assembler_coal"))
             .addMarkdown(new ResourceLocation("gregtech", "component-assembly-line"))
             .addSupportAny()
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(9, 10, 33, true)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_center_8th_layer"))
             .addCasing("516-646", StatCollector.translateToLocal("gt.blockcasings8.7.name"), false)
@@ -307,10 +311,14 @@ public class MTEComponentAssemblyLine extends MTEExtendedPowerMultiBlockBase<MTE
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(getMaxInputEu());
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override

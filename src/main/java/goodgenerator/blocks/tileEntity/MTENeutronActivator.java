@@ -52,6 +52,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.objects.XSTR;
 import gregtech.api.recipe.RecipeMap;
@@ -91,6 +92,11 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     protected int height = 0;
     private static final int MIN_HEIGHT = 4;
     private static final int MAX_HEIGHT = 254;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .speedBonus(in -> GTUtility.powInt(0.9f, in.tier(TooltipTier.LENGTH) - 4))
+        .unlimitedTierSkips()
+        .noOverclock()
+        .build();
     protected int eV = 0, mCeil = 0, mFloor = 0;
     protected static final NumberFormatMUI numberFormat;
     static {
@@ -128,9 +134,9 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
             @NotNull
             @Override
             protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setDuration((int) Math.ceil(recipe.mDuration * GTUtility.powInt(0.9f, height - 4)))
-                    .setDurationUnderOneTickSupplier(() -> recipe.mDuration * GTUtility.powInt(0.9f, height - 4));
+                double speed = speedBoost;
+                return super.createOverclockCalculator(recipe)
+                    .setDurationUnderOneTickSupplier(() -> recipe.mDuration * speed);
             }
 
             @NotNull
@@ -153,12 +159,16 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         // NA does not use power, to prevent GT_ParallelHelper from failing we trick it into thinking
         // we have infinite power
         logic.setAvailableVoltage(Long.MAX_VALUE);
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override

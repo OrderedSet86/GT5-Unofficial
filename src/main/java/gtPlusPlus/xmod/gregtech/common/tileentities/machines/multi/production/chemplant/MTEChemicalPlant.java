@@ -53,6 +53,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.GregTechTileClientEvents;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
@@ -91,6 +92,11 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     private int mCoilTier = 0;
     private static final int PIPE_CASING_MIN_META = 12;
     private static final int PIPE_CASING_MAX_META = 16;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(2, TooltipTier.PIPE_CASING)
+        // Same speed bonus as pyro oven
+        .speedBonus(in -> 2F / (1 + in.tier(TooltipTier.COIL)), tt -> tt.addDynamicSpeedInfo(0.5f, TooltipTier.COIL))
+        .build();
     private HeatingCoilLevel checkCoil;
     private final int[] checkCasing = new int[8];
     private int checkMachine;
@@ -149,10 +155,9 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
             .addInfo("Heavy Industry, now right at your doorstep!")
             .addInfo("Plant tier is determined by casing tier")
             .addInfo("Hatch tiers can't be higher than machine casing tier, UHV casing unlocks all tiers")
-            .addDynamicParallelInfo(2, TooltipTier.PIPE_CASING)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 "+20% chance of not damaging catalyst per " + TooltipHelper.tierText(TooltipTier.PIPE_CASING) + " Tier")
-            .addDynamicSpeedInfo(0.5f, TooltipTier.COIL)
             .addInfo("Any catalyst must be placed in the catalyst housing")
             .addInfo("Awakened Draconium Coils combined with Tungstensteel Pipe Casings makes catalyst unbreakable")
             .beginStructureBlock(7, 7, 7, false)
@@ -494,11 +499,6 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 2 * mPipeCasingTier;
-    }
-
-    @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
@@ -648,14 +648,12 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
                 return super.onRecipeStart(recipe);
             }
 
-        }.setMaxParallelSupplier(this::getTrueParallel);
+        };
     }
 
     @Override
-    protected void setupProcessingLogic(ProcessingLogic logic) {
-        super.setupProcessingLogic(logic);
-        // Same speed bonus as pyro oven
-        logic.setSpeedBonus(2F / (1 + this.mCoilTier));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

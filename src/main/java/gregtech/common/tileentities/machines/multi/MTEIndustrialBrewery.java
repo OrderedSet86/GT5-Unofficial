@@ -34,12 +34,14 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.misc.GTStructureChannels;
 
@@ -47,6 +49,11 @@ public class MTEIndustrialBrewery extends MTEExtendedPowerMultiBlockBase<MTEIndu
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(4, TooltipTier.VOLTAGE)
+        .speed(1.5F)
+        .euModifier(1f)
+        .build();
     private static final IStructureDefinition<MTEIndustrialBrewery> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialBrewery>builder()
         .addShape(
@@ -126,7 +133,7 @@ public class MTEIndustrialBrewery extends MTEExtendedPowerMultiBlockBase<MTEIndu
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Brewery, BBB")
-            .addBulkMachineInfo(4, 1.5F, 1F)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(3, 5, 3, true)
             .addController("Front center, 3rd layer")
             .addCasing("14-22", "Reinforced Wooden Casing", false)
@@ -174,13 +181,12 @@ public class MTEIndustrialBrewery extends MTEExtendedPowerMultiBlockBase<MTEIndu
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 1.5F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (4 * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

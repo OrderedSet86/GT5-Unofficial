@@ -87,6 +87,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
@@ -303,6 +304,11 @@ public class MTEBioVat extends MTEEnhancedMultiBlockBase<MTEBioVat>
                 return super.createParallelHelper(recipeWithMultiplier(recipe, inputFluids));
             }
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return ProcessingSpec.STANDARD;
     }
 
     protected GTRecipe recipeWithMultiplier(GTRecipe recipe, FluidStack[] fluidInputs) {

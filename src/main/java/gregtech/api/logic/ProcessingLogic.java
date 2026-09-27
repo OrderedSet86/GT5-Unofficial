@@ -57,6 +57,8 @@ public class ProcessingLogic {
     protected double overClockPowerIncrease = 4.0;
     protected boolean amperageOC = true;
     protected boolean recipeCaching = true;
+    protected ProcessingSpec spec;
+    protected Supplier<ProcessingSpec.Inputs> specInputs;
 
     // Calculated results
     protected ItemStack[] outputItems;
@@ -290,6 +292,32 @@ public class ProcessingLogic {
     public ProcessingLogic setAmperageOC(boolean amperageOC) {
         this.amperageOC = amperageOC;
         return this;
+    }
+
+    /**
+     * Runs recipes with whatever the spec sets: max parallel, speed, EU modifier, overclocks, tier skips and heat.
+     *
+     * @param inputs      Read at every recipe check
+     * @param maxParallel Used if the spec sets a parallel, which the machine may limit further
+     */
+    public ProcessingLogic applySpec(@Nonnull ProcessingSpec spec, @Nonnull Supplier<ProcessingSpec.Inputs> inputs,
+        @Nonnull Supplier<Integer> maxParallel) {
+        this.spec = spec;
+        this.specInputs = inputs;
+        if (applies(spec, ProcessingSpec.Quantity.PARALLEL)) setMaxParallelSupplier(maxParallel);
+        if (applies(spec, ProcessingSpec.Quantity.SPEED_BONUS)) {
+            setSpeedBonusSupplier(() -> spec.getSpeedBonus(inputs.get()));
+        }
+        if (applies(spec, ProcessingSpec.Quantity.EU_MODIFIER)) {
+            setEuModifierSupplier(() -> spec.getEuModifier(inputs.get()));
+        }
+        if (spec.overclockSet) setOverclock(spec.getOverclockTimeReduction(), spec.getOverclockPowerIncrease());
+        if (spec.maxTierSkips.isPresent()) setMaxTierSkips(spec.getMaxTierSkips());
+        return this;
+    }
+
+    private static boolean applies(ProcessingSpec spec, ProcessingSpec.Quantity quantity) {
+        return spec.sets(quantity) && !spec.isBestCase(quantity);
     }
 
     /**
@@ -584,16 +612,29 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-        return new OverclockCalculator().setRecipeEUt(recipe.mEUt)
+        double energyCost = spec == null ? 1 : spec.getEnergyCost(specInputs.get());
+        if (spec != null && spec.isNoOverclock()) {
+            return OverclockCalculator.ofNoOverclock(recipe)
+                .setDurationModifier(speedBoost)
+                .setEUtDiscount(euModifier * energyCost);
+        }
+        OverclockCalculator calculator = new OverclockCalculator().setRecipeEUt(recipe.mEUt)
             .setAmperage(availableAmperage)
             .setEUt(availableVoltage)
             .setMaxTierSkips(maxTierSkips)
             .setDuration(recipe.mDuration)
             .setDurationModifier(speedBoost)
-            .setEUtDiscount(euModifier)
+            .setEUtDiscount(euModifier * energyCost)
             .setAmperageOC(amperageOC)
             .setDurationDecreasePerOC(overClockTimeReduction)
             .setEUtIncreasePerOC(overClockPowerIncrease);
+        if (spec != null && (spec.isHeatOverclock() || spec.isHeatDiscount())) {
+            calculator.setMachineHeat(spec.getMachineHeat(specInputs.get()))
+                .setRecipeHeat(spec.getRecipeHeat(recipe))
+                .setHeatOC(spec.isHeatOverclock())
+                .setHeatDiscount(spec.isHeatDiscount());
+        }
+        return calculator;
     }
 
     /**

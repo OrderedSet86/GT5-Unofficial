@@ -41,6 +41,7 @@ import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
@@ -149,6 +150,11 @@ public class MTEThermalBoiler extends MTEExtendedPowerMultiBlockBase<MTEThermalB
                 return super.createParallelHelper(adjustedRecipe);
             }
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return ProcessingSpec.STANDARD;
     }
 
     @Override

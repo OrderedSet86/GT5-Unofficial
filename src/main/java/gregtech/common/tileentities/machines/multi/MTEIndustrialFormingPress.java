@@ -31,13 +31,14 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.xmod.gregtech.common.blocks.textures.TexturesGtBlock;
 
@@ -49,6 +50,11 @@ public class MTEIndustrialFormingPress extends MTEExtendedPowerMultiBlockBase<MT
     private static final int OFFSET_Y = 4;
     private static final int OFFSET_Z = 0;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(6, TooltipTier.VOLTAGE)
+        .speed(6f)
+        .euModifier(1f)
+        .build();
 
     private static final IStructureDefinition<MTEIndustrialFormingPress> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialFormingPress>builder()
@@ -86,7 +92,7 @@ public class MTEIndustrialFormingPress extends MTEExtendedPowerMultiBlockBase<MT
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Forming Press, IFP")
-            .addBulkMachineInfo(6, 6f, 1f)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 5, 3, false)
             .addController("Front bottom center")
@@ -193,13 +199,12 @@ public class MTEIndustrialFormingPress extends MTEExtendedPowerMultiBlockBase<MT
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 6F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (6 * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

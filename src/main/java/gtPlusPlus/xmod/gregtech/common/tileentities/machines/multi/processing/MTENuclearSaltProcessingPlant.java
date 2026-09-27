@@ -29,11 +29,11 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -44,8 +44,11 @@ public class MTENuclearSaltProcessingPlant extends GTPPMultiBlockBase<MTENuclear
     implements ISurvivalConstructable {
 
     private static final int BASE_PARALLEL = 2;
-    private static final float DURATION_MULTIPLIER = 2.5f;
-    private static final float EU_MULTIPLIER = 1f;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> BASE_PARALLEL * Math.max(1, in.voltageTier()), tt -> tt.addVoltageParallelInfo(BASE_PARALLEL))
+        .speed(2.5f)
+        .euModifier(1f)
+        .build();
 
     private int casing;
     private static IStructureDefinition<MTENuclearSaltProcessingPlant> STRUCTURE_DEFINITION = null;
@@ -78,7 +81,7 @@ public class MTENuclearSaltProcessingPlant extends GTPPMultiBlockBase<MTENuclear
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(getMachineType())
-            .addBulkMachineInfo(BASE_PARALLEL, DURATION_MULTIPLIER, EU_MULTIPLIER)
+            .addProcessingSpecInfo(SPEC)
             .addMarkdown(new ResourceLocation("gregtech", "nuclear-salt-processing-plant"))
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(9, 5, 3, true)
@@ -197,13 +200,12 @@ public class MTENuclearSaltProcessingPlant extends GTPPMultiBlockBase<MTENuclear
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / DURATION_MULTIPLIER)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return BASE_PARALLEL * (Math.max(1, GTUtility.getTier(getMaxInputVoltage())));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

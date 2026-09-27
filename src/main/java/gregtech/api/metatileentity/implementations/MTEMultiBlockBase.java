@@ -105,6 +105,7 @@ import gregtech.api.interfaces.modularui.IBindPlayerInventoryUI;
 import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -1139,6 +1140,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         logic.setBatchSize(isBatchModeEnabled() ? getMaxBatchSize() : 1);
         logic.setRecipeLocking(this, isRecipeLockingEnabled());
         setProcessingLogicPower(logic);
+        ProcessingSpec spec = getProcessingSpec();
+        if (spec != null) logic.applySpec(spec, this::getProcessingSpecInputs, this::getTrueParallel);
     }
 
     /**
@@ -2109,6 +2112,14 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
+     * The recipe map this machine runs in a mode, as {@link #getMachineMode()} numbers it. A machine whose recipe map
+     * depends on its mode overrides this, and its {@link #getRecipeMap()} returns the map for the current mode.
+     */
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return getRecipeMap();
+    }
+
+    /**
      * Creates logic to run recipe check based on recipemap. This runs only once, on class instantiation.
      * <p>
      * If this machine doesn't use recipemap or does some complex things, override {@link #checkProcessing()}.
@@ -2116,6 +2127,35 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @ApiStatus.OverrideOnly
     protected ProcessingLogic createProcessingLogic() {
         return null;
+    }
+
+    /**
+     * What this machine does to the recipes it runs. {@link #setupProcessingLogic} applies it to the logic from
+     * {@link #createProcessingLogic()} and {@link #getMaxParallelRecipes()} reads it, so a machine that declares one
+     * sets none of its numbers anywhere else.
+     * Return a static constant: external tools such as factory planners read it from the prototypes in
+     * {@link gregtech.api.GregTechAPI#METATILEENTITIES}.
+     *
+     * @return null if this machine's numbers are its own code
+     */
+    @Nullable
+    public ProcessingSpec getProcessingSpec() {
+        return null;
+    }
+
+    /**
+     * What {@link #getProcessingSpec()} reads while this machine runs: the tier of its best energy hatch, its mode, and
+     * its {@link #getStructureParametersForInspection() structure parameters}.
+     */
+    @Nonnull
+    protected ProcessingSpec.Inputs getProcessingSpecInputs() {
+        List<StructureParameter> parameters = getStructureParametersForInspection();
+        return new ProcessingSpec.Inputs(GTUtility.getTier(getMaxInputVoltage()), getMachineMode(), kind -> {
+            for (StructureParameter parameter : parameters) {
+                if (parameter.kind == kind) return parameter.get();
+            }
+            throw new IllegalArgumentException(getClass().getSimpleName() + " has no structure parameter " + kind);
+        });
     }
 
     /**
@@ -2146,12 +2186,13 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For external tools such as factory planners, which inspect a {@link #newMetaEntity} copy without a world. Machine
-     * code must not call this.
+     * The values this machine's structure check finds that its recipe numbers read, which is what a
+     * {@link #getProcessingSpec()} reads them through. Empty when no recipe number depends on the structure.
      * <p>
-     * The values this machine's structure check finds that its recipe numbers read, each settable as if the check had
-     * found it. Setters may derive other values from the energy hatches, so add those first. Empty when no recipe
-     * number depends on the structure.
+     * External tools such as factory planners read the ranges from the prototypes in
+     * {@link gregtech.api.GregTechAPI#METATILEENTITIES}, and may set values on a {@link #newMetaEntity} copy as if the
+     * check had found them; setters may derive other values from the energy hatches, so add those first. Machine code
+     * must not call {@link StructureParameter#set}.
      * <p>
      * Override this when a recipe number reads a field that {@link #checkMachine} sets.
      */
@@ -3268,7 +3309,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * @return The absolute maximum number of parallels possible right now.
      */
     public int getMaxParallelRecipes() {
-        return 1;
+        ProcessingSpec spec = getProcessingSpec();
+        return spec == null ? 1 : spec.getMaxParallel(getProcessingSpecInputs());
     }
 
     /**
@@ -3332,6 +3374,19 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Override
     public int getMachineMode() {
         return machineMode;
+    }
+
+    /**
+     * Whether this is a superseded structure, kept registered so existing worlds load but no longer buildable. External
+     * tools such as factory planners leave these out.
+     */
+    public boolean isStructureDeprecated() {
+        return false;
+    }
+
+    /** How many modes {@link #nextMachineMode()} cycles through; 1 for a machine without modes. */
+    public int getMachineModeCount() {
+        return supportsMachineModeSwitch() ? 2 : 1;
     }
 
     @Override

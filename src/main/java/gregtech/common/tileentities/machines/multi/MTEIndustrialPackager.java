@@ -46,6 +46,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
@@ -74,9 +75,14 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Y = 1;
     private static final int OFFSET_Z = 0;
 
-    private static final int PARALLEL_PER_TIER = 16;
     private static final float SPEED_INCREASE_TIER = 1f;
-    private static final float EU_EFFICIENCY = 0.75f;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(16, TooltipTier.VOLTAGE)
+        .speedBonus(
+            in -> 1F / (SPEED_INCREASE_TIER * (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)),
+            tt -> tt.addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .euModifier(0.75f)
+        .build();
 
     public MTEIndustrialPackager(final int aID, final String aName, final String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -158,9 +164,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
         tt.addMachineType("Packager, Unpackager, AWD")
             .addInfo("This Multiblock is used for EXTREME packaging requirements")
             .addInfo("Can be configured to work as an Unpackager in controller")
-            .addVoltageParallelInfo(PARALLEL_PER_TIER)
-            .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticEuEffInfo(EU_EFFICIENCY)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 3, 3, true)
             .addController("Front right, 2nd layer")
@@ -193,9 +197,12 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
                 GTRecipe schematicRecipe = findSchematicRecipe(inputItems);
                 return schematicRecipe == null ? recipes : Stream.concat(recipes, Stream.of(schematicRecipe));
             }
-        }.setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(EU_EFFICIENCY)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     private static GTRecipe findSchematicRecipe(ItemStack[] inputs) {
@@ -231,15 +238,6 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
                 .orElse(null);
         }
         return null;
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return (PARALLEL_PER_TIER * GTUtility.getTier(this.getMaxInputVoltage()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (SPEED_INCREASE_TIER * (itemPipeTier + 1));
     }
 
     private int casingAmount;
@@ -324,7 +322,12 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_PACKAGER) ? RecipeMaps.packagerRecipes : RecipeMaps.unpackagerRecipes;
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return (mode == MACHINEMODE_PACKAGER) ? RecipeMaps.packagerRecipes : RecipeMaps.unpackagerRecipes;
     }
 
     @Nonnull

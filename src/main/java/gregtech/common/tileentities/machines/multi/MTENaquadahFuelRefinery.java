@@ -43,6 +43,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -66,6 +67,14 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
     private static final int OFFSET_X = 13;
     private static final int OFFSET_Y = 13;
     private static final int OFFSET_Z = 0;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> 4 * Math.max(1, in.tier(TooltipTier.STRUCTURE)),
+            tt -> tt.addInfo(
+                "Gains " + TooltipHelper.parallelText(4) + " Parallels per " + EnumChatFormatting.WHITE + "Coil Tier"))
+        .perfectOverclock()
+        .unlimitedTierSkips()
+        .build();
     // Total casing without hatch = 483
     private static final int MIN_CASINGS = 470;
     private static int casingAmount;
@@ -210,12 +219,10 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Naquadah Fuel Refinery, NFR")
             .addInfo("Produces naquadah fuels")
-            .addInfo(
-                "Gains " + TooltipHelper.parallelText(4) + " Parallels per " + EnumChatFormatting.WHITE + "Coil Tier")
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Needs field restriction coils to control the fatal radiation")
             .addInfo("Use higher tier coils to unlock more fuel types and perform more perfect overclocks")
             .addSupportAny()
-            .addUnlimitedTierSkips()
             .beginStructureBlock(27, 27, 5, false)
             .addController("Front center, 14th layer")
             .addCasing("470-483", "Naquadah Fuel Refinery Casing", false)
@@ -288,19 +295,12 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
             protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
                 return super.createOverclockCalculator(recipe).setMaxOverclocks(tier - recipe.mSpecialValue);
             }
-        }.enablePerfectOverclock()
-            .setMaxParallelSupplier(this::getTrueParallel);
+        };
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 4 * Math.max(1, tier);
-    }
-
-    @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        super.setProcessingLogicPower(logic);
-        logic.setUnlimitedTierSkips();
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

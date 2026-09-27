@@ -53,6 +53,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.recipe.RecipeMap;
@@ -72,6 +73,25 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
+
+    // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
+    private static final float DISTILLERY_SPEED = 2f;
+    private static final float DISTILLERY_EU_EFFICIENCY = 0.5f;
+
+    // same here, still worse than dangote but with laser
+    private static final float TOWER_SPEED = 1.5f;
+
+    private static final float TOWER_EU_EFFICIENCY = 0.9f;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        // 512 - 1024 parallels min to max height in distillery mode
+        .parallel(
+            in -> Configuration.Multiblocks.megaMachinesMax
+                * (in.mode() == MACHINEMODE_DISTILLERY ? 1 + (in.tier(TooltipTier.LENGTH) + 1) / 2 : 1))
+        .speedBonus(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1f / DISTILLERY_SPEED : 1f / TOWER_SPEED)
+        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? DISTILLERY_EU_EFFICIENCY : TOWER_EU_EFFICIENCY)
+        .unlimitedTierSkips()
+        .build();
 
     protected final List<List<MTEHatchOutput>> outputHatchesPerLayer = new ArrayList<>();
 
@@ -517,7 +537,12 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return machineMode == MACHINEMODE_TOWER ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return mode == MACHINEMODE_TOWER ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
     }
 
     @Override
@@ -531,39 +556,19 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
-            // 512 - 1024 parallels min to max height
-            return Configuration.Multiblocks.megaMachinesMax * (1 + this.height / 2);
-        }
-        return Configuration.Multiblocks.megaMachinesMax;
+    protected ProcessingLogic createProcessingLogic() {
+        return new ProcessingLogic();
     }
 
     @Override
-    protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
-
-    private static final float DISTILLERY_SPEED = 2f;
-    private static final float DISTILLERY_EU_EFFICIENCY = 0.5f;
-
-    private static final float TOWER_SPEED = 1.5f;
-    private static final float TOWER_EU_EFFICIENCY = 0.9f;
 
     @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(this.getMaxInputEu());
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
-            // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
-            logic.setSpeedBonus(1f / DISTILLERY_SPEED);
-            logic.setEuModifier(DISTILLERY_EU_EFFICIENCY);
-        } else {
-            // same here, still worse than dangote but with laser
-            logic.setSpeedBonus(1f / TOWER_SPEED);
-            logic.setEuModifier(TOWER_EU_EFFICIENCY);
-        }
     }
 
     @Override
@@ -610,7 +615,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addStaticEuEffInfo(TOWER_EU_EFFICIENCY)
             .addSeparator()
             .addSupportAny()
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .addInfo(EnumChatFormatting.GOLD + "Big Oil will be pleased with this!")
             .beginVariableStructureBlock(15, 15, 30, 54, 9, 9, true)
             .addController("Front center, 3rd Layer")

@@ -25,11 +25,11 @@ import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -39,6 +39,11 @@ public class MTEAutoCrafter extends GTPPMultiBlockBase<MTEAutoCrafter> implement
 
     private int casing;
     private static IStructureDefinition<MTEAutoCrafter> STRUCTURE_DEFINITION = null;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> 2 * Math.max(1, in.voltageTier()), tt -> tt.addVoltageParallelInfo(2))
+        .speed(3f)
+        .euModifier(1f)
+        .build();
 
     public MTEAutoCrafter(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -68,7 +73,7 @@ public class MTEAutoCrafter extends GTPPMultiBlockBase<MTEAutoCrafter> implement
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo("Highly Advanced Assembling Machine")
-            .addBulkMachineInfo(2, 3f, 1f)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 3, 3, true)
             .addController("Front center, 2nd layer")
@@ -159,13 +164,12 @@ public class MTEAutoCrafter extends GTPPMultiBlockBase<MTEAutoCrafter> implement
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 3F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 2 * (Math.max(1, GTUtility.getTier(getMaxInputVoltage())));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

@@ -202,7 +202,12 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        switch (machineMode) {
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        switch (mode) {
             case MACHINEMODE_OREWASH -> {
                 return RecipeMaps.oreWasherRecipes;
             }
@@ -213,6 +218,11 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
                 return RecipeMaps.chemicalBathRecipes;
             }
         }
+    }
+
+    @Override
+    public int getMachineModeCount() {
+        return 3;
     }
 
     @Nonnull

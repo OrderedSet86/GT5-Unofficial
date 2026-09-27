@@ -49,6 +49,7 @@ import gregtech.api.interfaces.IOutputHatch;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
@@ -78,6 +79,13 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
 
     private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> in.mode() == MACHINEMODE_TOWER ? DT_MODE_MAX_PARALLELS
+                : (int) (2 * Math.floor((in.tier(TooltipTier.LENGTH) + 1) / 3f)) * in.voltageTier())
+        .speedBonus(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1F / 2F : 1F / 3F)
+        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 0.15F : 1F)
+        .build();
 
     protected final List<List<MTEHatchOutput>> mOutputHatchesByLayer = new ArrayList<>();
     protected int mCasing;
@@ -314,7 +322,12 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_TOWER) ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return (mode == MACHINEMODE_TOWER) ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
     }
 
     @Nonnull
@@ -398,20 +411,12 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    protected void setupProcessingLogic(ProcessingLogic logic) {
-        super.setupProcessingLogic(logic);
-        logic.setEuModifier(machineMode == MACHINEMODE_DISTILLERY ? 0.15F : 1F);
-        logic.setSpeedBonus(machineMode == MACHINEMODE_DISTILLERY ? 1F / 2F : 1F / 3F);
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return machineMode == MACHINEMODE_TOWER ? DT_MODE_MAX_PARALLELS
-            : (int) (2 * Math.floor((mHeight + 1) / 3f)) * GTUtility.getTier(this.getMaxInputVoltage());
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

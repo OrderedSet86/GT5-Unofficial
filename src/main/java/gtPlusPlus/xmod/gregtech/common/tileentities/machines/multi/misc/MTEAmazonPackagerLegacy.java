@@ -149,7 +149,12 @@ public class MTEAmazonPackagerLegacy extends GTPPMultiBlockBase<MTEAmazonPackage
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_PACKAGER) ? RecipeMaps.packagerRecipes : RecipeMaps.unpackagerRecipes;
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return (mode == MACHINEMODE_PACKAGER) ? RecipeMaps.packagerRecipes : RecipeMaps.unpackagerRecipes;
     }
 
     @Nonnull

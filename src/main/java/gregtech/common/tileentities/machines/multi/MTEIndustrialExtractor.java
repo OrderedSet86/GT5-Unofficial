@@ -33,6 +33,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -48,6 +49,11 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.ITEM_PIPE_CASING)
+        .speed(3F)
+        .euModifier(0.85F)
+        .build();
     private static final IStructureDefinition<MTEIndustrialExtractor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialExtractor>builder()
         .addShape(
@@ -148,9 +154,7 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Extractor")
-            .addDynamicParallelInfo(8, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticSpeedInfo(3F)
-            .addStaticEuEffInfo(0.85F)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(5, 5, 5, false)
             .addController("Front bottom center")
             .addCasing("45-57", "Stainless Steel Machine Casing", false)
@@ -198,16 +202,12 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 3F)
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.85F);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        // Max call to prevent seeing -16 parallels in waila for unformed multi
-        return Math.max(8 * itemPipeTier, 0);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

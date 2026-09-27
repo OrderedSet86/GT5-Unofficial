@@ -26,18 +26,25 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings2;
 
 public class MTEMultiCanner extends MTEExtendedPowerMultiBlockBase<MTEMultiCanner>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .speed(2f)
+        .euModifier(1f)
+        .build();
     private static final IStructureDefinition<MTEMultiCanner> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMultiCanner>builder()
         .addShape(
@@ -100,7 +107,7 @@ public class MTEMultiCanner extends MTEExtendedPowerMultiBlockBase<MTEMultiCanne
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Canner, TCP")
-            .addBulkMachineInfo(8, 2f, 1)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(EnumChatFormatting.BLUE + "It's uncanny!")
             .beginStructureBlock(7, 5, 7, true)
             .addController("Front center, 3rd layer")
@@ -145,13 +152,12 @@ public class MTEMultiCanner extends MTEExtendedPowerMultiBlockBase<MTEMultiCanne
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 2F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (8 * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

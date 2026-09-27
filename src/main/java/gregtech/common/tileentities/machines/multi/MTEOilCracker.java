@@ -43,6 +43,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchMultiInput;
@@ -65,6 +66,12 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
 
     private static final byte CASING_INDEX = 49;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .euModifier(
+            in -> 1.0F - Math.min(0.1F * (in.tier(TooltipTier.COIL) + 1), 0.5F),
+            tt -> tt.addDynamicEuEffInfo(0.1f, TooltipTier.COIL)
+                .addInfo("Maximum of " + TooltipHelper.effText(0.5f) + " EU discount"))
+        .build();
     private static final IStructureDefinition<MTEOilCracker> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEOilCracker>builder()
         .addShape(
@@ -128,8 +135,7 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
     protected MultiblockTooltipBuilder createTooltip() {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Cracker, OCU")
-            .addDynamicEuEffInfo(0.1f, TooltipTier.COIL)
-            .addInfo("Maximum of " + TooltipHelper.effText(0.5f) + " EU discount")
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Thermally cracks heavy hydrocarbons into lighter fractions")
             .addInfo("More efficient than the Chemical Reactor")
             .addInfo("Gives different benefits whether it hydro or steam-cracks:")
@@ -180,7 +186,12 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setEuModifierSupplier(this::getEuModifier);
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -194,10 +205,6 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
 
     public void setCoilLevel(HeatingCoilLevel aCoilLevel) {
         heatLevel = aCoilLevel;
-    }
-
-    public double getEuModifier() {
-        return 1.0F - Math.min(0.1F * (heatLevel.getTier() + 1), 0.5F);
     }
 
     private boolean addMiddleInputToMachineList(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {

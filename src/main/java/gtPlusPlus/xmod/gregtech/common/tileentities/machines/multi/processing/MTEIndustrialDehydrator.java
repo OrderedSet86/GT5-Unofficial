@@ -44,6 +44,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -55,8 +56,8 @@ import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -74,6 +75,15 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
     private static IStructureDefinition<MTEIndustrialDehydrator> STRUCTURE_DEFINITION = null;
     private static final int MACHINEMODE_VACUUMFURNACE = 0;
     private static final int MACHINEMODE_DEHYDRATOR = 1;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(4)
+        .speed(2.2f)
+        .euModifier(0.5f)
+        .heatOverclock(
+            in -> (int) HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
+                .getHeat())
+        .heatDiscount()
+        .build();
 
     public MTEIndustrialDehydrator(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -95,9 +105,7 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo("Factory Grade Vacuum Furnace")
-            .addStaticParallelInfo(4)
-            .addStaticSpeedInfo(2.2f)
-            .addStaticEuEffInfo(0.5f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Can toggle the operation temperature with a Screwdriver")
             .addInfo("All Dehydrator recipes are Low Temp recipes")
             .addInfo(
@@ -220,7 +228,12 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_VACUUMFURNACE) ? RecipeMaps.vacuumFurnaceRecipes
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return (mode == MACHINEMODE_VACUUMFURNACE) ? RecipeMaps.vacuumFurnaceRecipes
             : RecipeMaps.chemicalDehydratorNonCellRecipes;
     }
 
@@ -241,33 +254,22 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 4;
-    }
-
-    @Override
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic() {
 
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                return recipe.mSpecialValue <= getCoilLevel().getHeat() ? CheckRecipeResultRegistry.SUCCESSFUL
+                return recipe.mSpecialValue <= SPEC.getMachineHeat(getProcessingSpecInputs())
+                    ? CheckRecipeResultRegistry.SUCCESSFUL
                     : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
+        }.noRecipeCaching();
+    }
 
-            @NotNull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setHeatOC(true)
-                    .setHeatDiscount(true)
-                    .setRecipeHeat(recipe.mSpecialValue)
-                    .setMachineHeat((int) getCoilLevel().getHeat());
-            }
-        }.noRecipeCaching()
-            .setSpeedBonus(1F / 2.2F)
-            .setEuModifier(0.5F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

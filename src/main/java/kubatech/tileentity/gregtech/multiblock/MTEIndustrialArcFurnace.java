@@ -74,6 +74,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.objects.ItemData;
 import gregtech.api.recipe.RecipeMap;
@@ -121,6 +122,17 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int ARC_SURGE_CHANCE_PERCENT = 5;
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .speedBonus(in -> {
+            ArcFurnaceElectrode electrode = ArcFurnaceElectrode.getById(in.tier(TooltipTier.ELECTRODE));
+            return electrode == null ? 1 : 1d / electrode.speedModifier;
+        })
+        .euModifier(in -> {
+            ArcFurnaceElectrode electrode = ArcFurnaceElectrode.getById(in.tier(TooltipTier.ELECTRODE));
+            return electrode == null ? 1 : electrode.euModifier;
+        })
+        .maxTierSkips(0)
+        .build();
 
     public MTEIndustrialArcFurnace(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -515,8 +527,14 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return mode == ArcFurnaceMode.Normal ? arcFurnaceRecipes
-            : (mode == ArcFurnaceMode.Blast ? blastFurnaceRecipes : furnaceRecipes);
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int index) {
+        ArcFurnaceMode arcMode = ArcFurnaceMode.modes[index];
+        return arcMode == ArcFurnaceMode.Normal ? arcFurnaceRecipes
+            : (arcMode == ArcFurnaceMode.Blast ? blastFurnaceRecipes : furnaceRecipes);
     }
 
     @Override
@@ -537,6 +555,11 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     public void setMachineMode(int index) {
         mode = ArcFurnaceMode.modes[index];
+    }
+
+    @Override
+    public int getMachineModeCount() {
+        return ArcFurnaceMode.modes.length;
     }
 
     @Override
@@ -608,13 +631,10 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         if (electrode == null) return;
-        logic.setSpeedBonus(1d / electrode.speedModifier);
         logic.setMaxParallel(electrode.parallelLimit);
         logic.setOverclock(electrode.OCSpeedFactor, electrode.OCPowerFactor);
-        logic.setEuModifier(electrode.euModifier);
         logic.setAvailableVoltage(getAverageInputVoltage());
         logic.setAvailableAmperage(getMaxInputAmps());
-        logic.setMaxTierSkips(0);
         logic.noRecipeCaching();
         applySpecialEffect(new ArcFurnaceProcessingEvent.EventConfigureProcessing(this, logic));
     }
@@ -1029,6 +1049,11 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             }
 
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     enum ArcFurnaceHatches implements IHatchElement<MTEIndustrialArcFurnace> {

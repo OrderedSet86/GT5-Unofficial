@@ -40,6 +40,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -69,6 +70,10 @@ public class MTEIsaMill extends GTPPMultiBlockBase<MTEIsaMill> implements ISurvi
 
     private static final Set<GTUtility.ItemId> MILLING_BALLS = new HashSet<>();
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .perfectOverclock()
+        .build();
+
     private static final IIconContainer frontFaceActive = new CustomIcon("iconsets/Grinder/GRINDER_ACTIVE5");
     private static final IIconContainer frontFace = new CustomIcon("iconsets/Grinder/GRINDER5");
 
@@ -88,7 +93,7 @@ public class MTEIsaMill extends GTPPMultiBlockBase<MTEIsaMill> implements ISurvi
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo(EnumChatFormatting.GREEN + "G.O.G, Grinds Ores Good")
-            .addPerfectOCInfo()
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .addInfo(EnumChatFormatting.GREEN + "It'sa mill!")
             .beginStructureBlock(3, 3, 7, false)
@@ -499,6 +504,11 @@ public class MTEIsaMill extends GTPPMultiBlockBase<MTEIsaMill> implements ISurvi
                 return super.onRecipeStart(recipe);
             }
 
-        }.enablePerfectOverclock();
+        };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 }

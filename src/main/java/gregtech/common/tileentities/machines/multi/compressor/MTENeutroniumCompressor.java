@@ -39,6 +39,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -54,6 +55,9 @@ import gregtech.common.misc.GTStructureChannels;
 public class MTENeutroniumCompressor extends MTEExtendedPowerMultiBlockBase<MTENeutroniumCompressor>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTENeutroniumCompressor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTENeutroniumCompressor>builder()
@@ -129,7 +133,7 @@ public class MTENeutroniumCompressor extends MTEExtendedPowerMultiBlockBase<MTEN
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Neutronium Compressor")
-            .addStaticParallelInfo(8)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Capable of compressing matter into " + EnumChatFormatting.GOLD + "singularities")
             .addInfo("More advanced singularities will require even stronger compression...")
             .beginStructureBlock(11, 11, 11, true)
@@ -190,13 +194,12 @@ public class MTENeutroniumCompressor extends MTEExtendedPowerMultiBlockBase<MTEN
                 }
                 return super.validateRecipe(recipe);
             }
-        }.noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel);
+        }.noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

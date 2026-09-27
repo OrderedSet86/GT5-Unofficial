@@ -49,6 +49,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -80,6 +81,33 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int PARALLELS_T2 = 32;
     private static final int SLICE_PARALLELS_T1 = 8;
     private static final int SLICE_PARALLELS_T2 = 16;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> {
+            boolean heatResistant = in.tier(TooltipTier.STRUCTURE) == HEAT_RESISTANT_TIER;
+            int base = heatResistant ? PARALLELS_T1 : PARALLELS_T2;
+            int perSlice = heatResistant ? SLICE_PARALLELS_T1 : SLICE_PARALLELS_T2;
+            return base + in.tier(TooltipTier.LENGTH) * perSlice;
+        },
+            tt -> tt
+                .addInfo(
+                    TooltipHelper.parallelText(PARALLELS_T1) + " base and +"
+                        + TooltipHelper.parallelText(SLICE_PARALLELS_T1)
+                        + " Parallels per extra slice with Heat Resistant Casing")
+                .addInfo(
+                    TooltipHelper.parallelText(PARALLELS_T2) + " base and +"
+                        + TooltipHelper.parallelText(SLICE_PARALLELS_T2)
+                        + " Parallels per extra slice with Heat Proof Casing"))
+        .euModifier(
+            in -> euModifier(in.tier(TooltipTier.COIL) + 1),
+            tt -> tt.addInfo(
+                EnumChatFormatting.AQUA + "-2% "
+                    + EnumChatFormatting.GRAY
+                    + "EU Usage per "
+                    + EnumChatFormatting.WHITE
+                    + "Heating Coil"
+                    + EnumChatFormatting.GRAY
+                    + " Tier (multiplicatively)"))
+        .build();
 
     private static final int OFFSET_X_MAIN = 1;
     private static final int OFFSET_Y_MAIN = 5;
@@ -109,22 +137,7 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Coke Oven, ICO")
             .addInfo("Processes Logs and Coal into Charcoal and Coal Coke.")
-            .addInfo(
-                TooltipHelper.parallelText(PARALLELS_T1) + " base and +"
-                    + TooltipHelper.parallelText(SLICE_PARALLELS_T1)
-                    + " Parallels per extra slice with Heat Resistant Casing")
-            .addInfo(
-                TooltipHelper.parallelText(PARALLELS_T2) + " base and +"
-                    + TooltipHelper.parallelText(SLICE_PARALLELS_T2)
-                    + " Parallels per extra slice with Heat Proof Casing")
-            .addInfo(
-                EnumChatFormatting.AQUA + "-2% "
-                    + EnumChatFormatting.GRAY
-                    + "EU Usage per "
-                    + EnumChatFormatting.WHITE
-                    + "Heating Coil"
-                    + EnumChatFormatting.GRAY
-                    + " Tier (multiplicatively)")
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Max 15 additional slices, eternal coils unlock unlimited slices")
             .addInfo("Infinity Coils and higher allow for single multi-amp energy hatch")
             .addMultiAmpHatchInfo()
@@ -372,19 +385,12 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEuModifier);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        int base = (tier == 0) ? PARALLELS_T1 : PARALLELS_T2;
-        int perSlice = (tier == 0) ? SLICE_PARALLELS_T1 : SLICE_PARALLELS_T2;
-        return base + (width * perSlice);
-    }
-
-    public double getEuModifier() {
-        return Math.pow(EU_MODIFIER, getCoilTier());
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -404,8 +410,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         return this.coilLevel;
     }
 
-    public float euModifier(int coilTier) {
-        return (float) Math.pow(EU_MODIFIER, coilTier);
+    private static double euModifier(int coilTier) {
+        return Math.pow(EU_MODIFIER, coilTier);
     }
 
     @Override

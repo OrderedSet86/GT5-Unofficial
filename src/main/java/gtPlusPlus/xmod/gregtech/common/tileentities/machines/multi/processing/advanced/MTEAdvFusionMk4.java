@@ -12,7 +12,6 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
-import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -49,6 +48,7 @@ public class MTEAdvFusionMk4 extends MTEFusionComputer {
             .addInfo("If the recipe has a startup cost greater than the")
             .addInfo("number of energy hatches * cap, you can't do it")
             .addInfo("Performs 4/4 overclocks")
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(15, 3, 15, false)
             .addController("Middle center, 2nd layer")
             .addCasing("79-123", "Fusion Machine Casing Mk-III", false)
@@ -103,11 +103,6 @@ public class MTEAdvFusionMk4 extends MTEFusionComputer {
     @Override
     public int getFusionCoilMeta() {
         return 13;
-    }
-
-    @Override
-    protected ProcessingLogic createProcessingLogic() {
-        return super.createProcessingLogic().enablePerfectOverclock();
     }
 
     @Override

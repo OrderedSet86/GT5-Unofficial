@@ -32,12 +32,12 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
@@ -54,9 +54,14 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 0;
 
-    private static final int PARALLEL_PER_TIER = 4;
     private static final float SPEED_INCREASE_TIER = 0.5f;
-    private static final float EU_EFFICIENCY = 0.75f;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(4, TooltipTier.VOLTAGE)
+        .speedBonus(
+            in -> 1F / (SPEED_INCREASE_TIER * in.tier(TooltipTier.ITEM_PIPE_CASING)),
+            tt -> tt.addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .euModifier(0.75f)
+        .build();
 
     public MTEIndustrialWireMill(final int aID, final String aName, final String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -135,9 +140,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Wiremill, IWF")
-            .addVoltageParallelInfo(PARALLEL_PER_TIER)
-            .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticEuEffInfo(EU_EFFICIENCY)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 3, 7, false)
             .addController("Front bottom center")
@@ -158,18 +161,12 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(EU_EFFICIENCY)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (PARALLEL_PER_TIER * GTUtility.getTier(this.getMaxInputVoltage()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (SPEED_INCREASE_TIER * itemPipeTier);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     private int mCasingAmount;

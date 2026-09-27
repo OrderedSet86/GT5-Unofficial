@@ -58,6 +58,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -87,6 +88,16 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     private static final int VERTICAL_OFFSET = 7;
     private static final int HORIZONTAL_OFFSET = 6;
     private static final int DEPTH_OFFSET = 0;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> Configuration.Multiblocks.megaMachinesMax,
+            tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
+        .euModifier(
+            in -> GTUtility.powInt(0.9, in.tier(TooltipTier.COIL) + 1),
+            tt -> tt.addInfo(
+                "EU Usage = " + TooltipHelper.effText("0.9^") + TooltipHelper.tierText(TooltipTier.COIL) + " Tier"))
+        .unlimitedTierSkips()
+        .build();
     private static final IStructureDefinition<MTEMegaOilCracker> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaOilCracker>builder()
         .addShape(
@@ -201,8 +212,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
                 TooltipHelper.coloredText(
                     TooltipHelper.italicText("\"Thermally cracks heavy hydrocarbons into lighter fractions\""),
                     EnumChatFormatting.DARK_GRAY))
-            .addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax)
-            .addInfo("EU Usage = " + TooltipHelper.effText("0.9^") + TooltipHelper.tierText(TooltipTier.COIL) + " Tier")
+            .addProcessingSpecInfo(SPEC)
             .addSeparator()
             .addInfo("Gives different benefits whether it hydro or steam-cracks:")
             .addInfo(
@@ -218,7 +228,6 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
             .addSupportAny()
             .addMinGlassForLaser(VoltageIndex.UV)
             .addGlassEnergyLimitInfo()
-            .addUnlimitedTierSkips()
             .beginStructureBlock(13, 8, 9, true)
             .addController("Front bottom center")
             .addCasing("162", "Any Tiered Glass", true)
@@ -459,23 +468,16 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(this.getMaxInputEu());
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEuModifier);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return Configuration.Multiblocks.megaMachinesMax;
-    }
-
-    public double getEuModifier() {
-
-        return GTUtility.powInt(0.9, this.heatLevel.getTier() + 1);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -511,14 +513,14 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
         list.add(
             StatCollector.translateToLocal("GT5U.multiblock.euModifier") + ": "
                 + EnumChatFormatting.WHITE
-                + dfTwo.format(GTUtility.powInt(0.9, tag.getInteger("coilTier") + 1) * 100)
+                + dfTwo.format(tag.getDouble("euModifier") * 100)
                 + "%");
     }
 
     @Override
     public void getExtraWailaNBT(EntityPlayerMP playerMP, TileEntity tileEntity, NBTTagCompound tag, World world, int x,
         int y, int z) {
-        tag.setInteger("coilTier", this.heatLevel.getTier());
+        tag.setDouble("euModifier", SPEC.getEuModifier(getProcessingSpecInputs()));
     }
 
     @Override

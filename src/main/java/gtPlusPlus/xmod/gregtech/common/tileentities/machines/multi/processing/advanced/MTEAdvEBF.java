@@ -50,6 +50,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -60,9 +61,9 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -80,6 +81,15 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     public static String mCasingName = "Volcanus Casing";
     public static String mHatchName = "Pyrotheum Hatch";
     private static IStructureDefinition<MTEAdvEBF> STRUCTURE_DEFINITION = null;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .speed(2.2f)
+        .euModifier(0.9f)
+        .heatOverclock(
+            in -> (int) HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
+                .getHeat())
+        .heatDiscount()
+        .build();
     private int mCasing;
 
     private HeatingCoilLevel mHeatingCapacity = HeatingCoilLevel.None;
@@ -109,9 +119,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo("Factory Grade Advanced Blast Furnace")
-            .addStaticParallelInfo(8)
-            .addStaticSpeedInfo(2.2f)
-            .addStaticEuEffInfo(0.9f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Consumes 10L of " + mHotFuelName + " per second during operation")
             .addInfo("Constructed exactly the same as a normal EBF")
             .addInfo(
@@ -264,21 +272,16 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                return recipe.mSpecialValue <= getCoilLevel().getHeat() ? CheckRecipeResultRegistry.SUCCESSFUL
+                return recipe.mSpecialValue <= SPEC.getMachineHeat(getProcessingSpecInputs())
+                    ? CheckRecipeResultRegistry.SUCCESSFUL
                     : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
+        };
+    }
 
-            @NotNull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setHeatOC(true)
-                    .setHeatDiscount(true)
-                    .setRecipeHeat(recipe.mSpecialValue)
-                    .setMachineHeat((int) getCoilLevel().getHeat());
-            }
-        }.setSpeedBonus(1F / 2.2F)
-            .setEuModifier(0.9F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -319,11 +322,6 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
     public void onModeChangeByScrewdriver(ForgeDirection side, EntityPlayer aPlayer, float aX, float aY, float aZ) {
         inputSeparation = !inputSeparation;
         aPlayer.addChatMessage(
@@ -361,7 +359,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
-        tag.setInteger("heatingCapacity", (int) mHeatingCapacity.getHeat());
+        tag.setInteger("heatingCapacity", SPEC.getMachineHeat(getProcessingSpecInputs()));
     }
 
     @Override

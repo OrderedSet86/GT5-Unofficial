@@ -42,6 +42,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -49,13 +50,16 @@ import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.common.misc.GTStructureChannels;
 import gtnhlanth.api.recipe.LanthanidesRecipeMaps;
 
 @IMetaTileEntity.SkipGenerateDescription
 public class MTEDigester extends MTEEnhancedMultiBlockBase<MTEDigester>
     implements ISurvivalConstructable, ICasingTextureProvider {
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .perfectOverclock()
+        .build();
 
     protected int casingAmount = 0;
     protected int height = 0;
@@ -128,12 +132,6 @@ public class MTEDigester extends MTEEnhancedMultiBlockBase<MTEDigester>
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic() {
 
-            @Nonnull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).enablePerfectOC();
-            }
-
             @Override
             protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
                 return recipe.mSpecialValue <= MTEDigester.this.getCoilLevel()
@@ -142,6 +140,11 @@ public class MTEDigester extends MTEEnhancedMultiBlockBase<MTEDigester>
             }
 
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -204,7 +207,7 @@ public class MTEDigester extends MTEEnhancedMultiBlockBase<MTEDigester>
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(StatCollector.translateToLocal("gtnhlanth.tt.digester.machinetype"))
             .addMarkdown(new ResourceLocation("gregtech", "digester"))
-            .addPerfectOCInfo()
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(7, 4, 7, true)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_bottom_center"))

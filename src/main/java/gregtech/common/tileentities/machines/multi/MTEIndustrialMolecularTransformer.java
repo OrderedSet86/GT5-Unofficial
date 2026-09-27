@@ -29,6 +29,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -183,6 +184,11 @@ public class MTEIndustrialMolecularTransformer extends MTEExtendedPowerMultiBloc
     @Override
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic().noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return ProcessingSpec.STANDARD;
     }
 
     @Override

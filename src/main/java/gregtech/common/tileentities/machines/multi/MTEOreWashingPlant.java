@@ -47,6 +47,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
@@ -54,8 +55,8 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.render.TextureFactory;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTStructureUtility;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -72,6 +73,11 @@ public class MTEOreWashingPlant extends MTEExtendedPowerMultiBlockBase<MTEOreWas
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final int MACHINEMODE_OREWASH = 0;
     private static final int MACHINEMODE_SIMPLEWASH = 1;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(4, TooltipTier.VOLTAGE)
+        .speed(5f)
+        .euModifier(1f)
+        .build();
     private static final String[][] structure = new String[][] { { "     ", " CCC ", " C~C ", " CCC " },
         { "   B ", "CDADC", "CBDDC", "CCCCC" }, { "  B  ", "CDADC", "CDBDC", "CCCCC" },
         { " B   ", "CDADC", "CDDBC", "CCCCC" }, { "C   C", "CBABC", "CDBDC", "CCCCC" },
@@ -110,7 +116,7 @@ public class MTEOreWashingPlant extends MTEExtendedPowerMultiBlockBase<MTEOreWas
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Ore Washer, Simple Washer, OWP")
-            .addBulkMachineInfo(4, 5f, 1f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Can be configured with a screwdriver to also be used as Simple Washer")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 4, 9, false)
@@ -208,7 +214,12 @@ public class MTEOreWashingPlant extends MTEExtendedPowerMultiBlockBase<MTEOreWas
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        if (machineMode == MACHINEMODE_OREWASH) return RecipeMaps.oreWasherRecipes;
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        if (mode == MACHINEMODE_OREWASH) return RecipeMaps.oreWasherRecipes;
         return RecipeMaps.simpleWasherRecipes;
     }
 
@@ -225,14 +236,12 @@ public class MTEOreWashingPlant extends MTEExtendedPowerMultiBlockBase<MTEOreWas
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 5F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (4 * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

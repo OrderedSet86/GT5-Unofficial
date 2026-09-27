@@ -47,6 +47,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
@@ -70,9 +71,18 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final int MAX_PARALLELS = 256;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> MAX_PARALLELS, tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
+        .speedBonus(
+            in -> in.tier(TooltipTier.COIL) > 3 ? 1 - 0.05f * (in.tier(TooltipTier.COIL) - 3) : 1,
+            tt -> tt.addInfo(
+                TooltipHelper.speedText("-5%") + " Recipe Time per "
+                    + TooltipHelper.tierText(TooltipTier.COIL)
+                    + " Tier above TPV (additive)"))
+        .unlimitedTierSkips()
+        .build();
     private HeatingCoilLevel coilLevel;
     private int glassTier = -1;
-    private double speedBonus = 1;
     private double energyDiscount = 1;
     private CoilType coilType = CoilType.Unknown;
 
@@ -187,22 +197,20 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
             @Override
             protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
                 calculateEnergyDiscount(coilLevel, recipe);
-                return super.createOverclockCalculator(recipe).setDurationModifier(speedBonus)
-                    .setEUtDiscount(energyDiscount);
+                return super.createOverclockCalculator(recipe).setEUtDiscount(energyDiscount);
             }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+        };
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return MAX_PARALLELS;
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(getMaxInputEu());
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override
@@ -234,18 +242,6 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
                 }
             }
         }
-        if (errors.isEmpty()) {
-            calculateSpeedBonus(coilLevel);
-        }
-    }
-
-    private void calculateSpeedBonus(HeatingCoilLevel lvl) {
-        int bonusTier = lvl != null ? lvl.getTier() - 3 : 0;
-        if (bonusTier <= 0) {
-            speedBonus = 1;
-            return;
-        }
-        speedBonus = 1 - 0.05f * bonusTier;
     }
 
     @Override
@@ -254,7 +250,6 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
         return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
             setCoilLevel(coil);
             coilType = CoilType.HeatingCoil;
-            calculateSpeedBonus(coil);
         }));
     }
 
@@ -286,11 +281,7 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
                 TooltipHelper.coloredText(
                     TooltipHelper.italicText("\"all it does is make metals hot\""),
                     EnumChatFormatting.DARK_GRAY))
-            .addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax)
-            .addInfo(
-                TooltipHelper.speedText("-5%") + " Recipe Time per "
-                    + TooltipHelper.tierText(TooltipTier.COIL)
-                    + " Tier above TPV (additive)")
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 TooltipHelper.effText("-5%") + " EU Usage per "
                     + TooltipHelper.tierText(TooltipTier.COIL)
@@ -325,7 +316,7 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
         long storedEnergy = 0;
         long maxEnergy = 0;
         int paras = getBaseMetaTileEntity().isActive() ? processingLogic.getCurrentParallels() : 0;
-        int moreSpeed = (int) ((1 - speedBonus) * 100);
+        int moreSpeed = (int) ((1 - SPEC.getSpeedBonus(getProcessingSpecInputs())) * 100);
         int lessEnergy = (int) ((1 - energyDiscount) * 100);
         for (MTEHatch tHatch : validMTEList(mExoticEnergyHatches)) {
             storedEnergy += tHatch.getBaseMetaTileEntity()

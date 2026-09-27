@@ -29,6 +29,7 @@ import com.gtnewhorizon.structurelib.StructureLibAPI;
 import gregtech.GTMod;
 import gregtech.api.enums.GTAuthors;
 import gregtech.api.enums.GTValues;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.structure.IStructureChannels;
 import gregtech.api.util.tooltip.MarkdownTooltipLoader;
 import gregtech.api.util.tooltip.TooltipHelper;
@@ -109,6 +110,7 @@ public class MultiblockTooltipBuilder {
     private static final String TT_StructureAuthor = StatCollector.translateToLocal("GT5U.MBTT.StructureBy");
 
     private List<String> iLines;
+    private boolean structureDeprecated;
     private List<String> sLines;
     private List<String> hLines;
     private List<String> authors;
@@ -174,7 +176,13 @@ public class MultiblockTooltipBuilder {
     public MultiblockTooltipBuilder addStructureDeprecatedLine() {
         this.addDeprecatedLine(translateToLocal("GT5U.MBTT.Deprecated.Removal"));
         iLines.add(translateToLocal("GT5U.MBTT.Deprecated.NEI"));
+        structureDeprecated = true;
         return this;
+    }
+
+    /** Whether {@link #addStructureDeprecatedLine()} was called. */
+    public boolean isStructureDeprecated() {
+        return structureDeprecated;
     }
 
     /**
@@ -286,6 +294,17 @@ public class MultiblockTooltipBuilder {
         iLines.add(
             String
                 .format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier.getValue()));
+        return this;
+    }
+
+    /**
+     * Add the lines for everything the spec can describe: parallel, speed, EU, overclocks and tier skips, in that
+     * order.
+     *
+     * @return Instance this method was called on.
+     */
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
+        spec.describe(this);
         return this;
     }
 

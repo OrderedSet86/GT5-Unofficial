@@ -66,6 +66,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
@@ -80,6 +81,7 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.IGTHatchAdder;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.tileentities.machines.IRecipeProcessingAwareHatch;
 import gregtech.common.tileentities.render.RenderingTileEntityBlackhole;
@@ -90,6 +92,14 @@ import tectech.thing.metaTileEntity.multi.base.SoundLoopAnyBlock;
 public class MTEBlackHoleCompressor extends MTEExtendedPowerMultiBlockBase<MTEBlackHoleCompressor>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
+    private static final int PARALLEL_PER_TIER = 8;
+    // Planners assume a stable black hole; the parallel grows as stability falls.
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(PARALLEL_PER_TIER, TooltipTier.VOLTAGE)
+        .speed(5f)
+        .euModifier(0.7f)
+        .bestCase(ProcessingSpec.Quantity.PARALLEL)
+        .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEBlackHoleCompressor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEBlackHoleCompressor>builder()
@@ -397,7 +407,7 @@ public class MTEBlackHoleCompressor extends MTEExtendedPowerMultiBlockBase<MTEBl
             .addInfo("To restore stability and reset spacetime costs, close the black hole and open a new one")
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Use circuit 20 for Compressor and 21 for Neutronium Compressor")
-            .addBulkMachineInfo(8, 5f, 0.7f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 EnumChatFormatting.RED + "2x/4x"
                     + EnumChatFormatting.GRAY
@@ -629,9 +639,12 @@ public class MTEBlackHoleCompressor extends MTEExtendedPowerMultiBlockBase<MTEBl
                 return result;
             }
         }.noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.7F)
-            .setSpeedBonus(0.2F);
+            .setMaxParallelSupplier(this::getTrueParallel);
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -762,7 +775,7 @@ public class MTEBlackHoleCompressor extends MTEExtendedPowerMultiBlockBase<MTEBl
 
     @Override
     public int getMaxParallelRecipes() {
-        int parallels = (8 * GTUtility.getTierExtended(this.getMaxInputEu()));
+        int parallels = (PARALLEL_PER_TIER * GTUtility.getTierExtended(this.getMaxInputEu()));
         if (blackHoleStatus == 4) {
             if (isNotBlackHoleRecipe) return Integer.MAX_VALUE;
             parallels *= 4;

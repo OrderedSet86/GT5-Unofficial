@@ -46,6 +46,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -75,6 +76,16 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     private static final double SPEED_PER_COIL = 0.1;
     private static final int PARALLELS_PER_SOLENOID = 8;
     private static final double HEATING_COIL_EU_MULTIPLIER = 0.9;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
+        .speedBonus(
+            in -> 1F / (BASE_SPEED_BONUS + (float) (SPEED_PER_COIL * in.tier(TooltipTier.COIL))),
+            tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
+        .euModifier(
+            in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)),
+            tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
+        .build();
 
     // spotless:off
     private static final IStructureDefinition<MTELargeFluidExtractor> STRUCTURE_DEFINITION = StructureDefinition
@@ -211,10 +222,12 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEUMultiplier)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic().noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -273,9 +286,7 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fluid Extractor, LFE")
-            .addDynamicParallelInfo(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-            .addStaticSpeedInfo((float) BASE_SPEED_BONUS)
-            .addStaticEuEffInfo((float) BASE_EU_MULTIPLIER)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 String.format(
                     "Every coil tier gives a %s speed bonus and a %s EU/t discount (multiplicative)",
@@ -342,6 +353,8 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     public String[] getInfoData() {
 
         ArrayList<String> data = new ArrayList<>(Arrays.asList(super.getInfoData()));
+        ProcessingSpec.Inputs inputs = getProcessingSpecInputs();
+        double totalSpeed = 1 / SPEC.getSpeedBonus(inputs);
 
         data.add(
             IGregTechDeviceInformation
@@ -350,41 +363,18 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
             IGregTechDeviceInformation.encode(
                 "GT5U.infodata.large_fluid_extractor.heating_coil_speed_bonus",
                 YELLOW,
-                getCoilSpeedBonus() * 100,
+                (totalSpeed - BASE_SPEED_BONUS) * 100,
                 RESET));
         data.add(
-            IGregTechDeviceInformation.encode(
-                "GT5U.infodata.large_fluid_extractor.total_speed_multiplier",
-                YELLOW,
-                (BASE_SPEED_BONUS + getCoilSpeedBonus()) * 100,
-                RESET));
+            IGregTechDeviceInformation
+                .encode("GT5U.infodata.large_fluid_extractor.total_speed_multiplier", YELLOW, totalSpeed * 100, RESET));
         data.add(
             IGregTechDeviceInformation.encode(
                 "GT5U.infodata.large_fluid_extractor.total_eu_multiplier",
                 YELLOW,
-                getEUMultiplier() * 100,
+                SPEC.getEuModifier(inputs) * 100,
                 RESET));
 
         return data.toArray(new String[0]);
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return Math.max(1, solenoidLevel == null ? 0 : (PARALLELS_PER_SOLENOID * solenoidLevel));
-    }
-
-    public float getCoilSpeedBonus() {
-        return (float) ((coilLevel == null ? 0 : SPEED_PER_COIL * coilLevel.getTier()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (BASE_SPEED_BONUS + getCoilSpeedBonus());
-    }
-
-    public double getEUMultiplier() {
-        double heatingBonus = (coilLevel == null ? 0
-            : GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, coilLevel.getTier()));
-
-        return (BASE_EU_MULTIPLIER * heatingBonus);
     }
 }

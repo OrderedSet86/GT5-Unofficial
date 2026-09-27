@@ -44,6 +44,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -67,6 +68,13 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private static final long RECIPE_EUT = 4;
     private static final int RECIPE_DURATION = 128;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> 4 << (in.tier(TooltipTier.COIL) + 1),
+            tt -> tt.addStaticParallelInfo(4)
+                .addDynamicMultiplicativeParallelInfo(2, TooltipTier.COIL))
+        .recipeOverride((int) RECIPE_EUT, RECIPE_DURATION)
+        .build();
     private static final int CASING_INDEX = 11;
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEMultiFurnace> STRUCTURE_DEFINITION = StructureDefinition
@@ -110,8 +118,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Furnace")
-            .addStaticParallelInfo(4)
-            .addDynamicMultiplicativeParallelInfo(2, TooltipTier.COIL)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 3, 3, true)
             .addController("Front bottom center")
@@ -300,7 +307,12 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     }
 
     private void updateParallel() {
-        this.mLevel = 4 << (getCoilLevel().ordinal() - 1);
+        this.mLevel = SPEC.getMaxParallel(getProcessingSpecInputs());
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

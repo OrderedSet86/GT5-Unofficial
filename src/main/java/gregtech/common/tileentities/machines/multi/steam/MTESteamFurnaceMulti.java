@@ -51,18 +51,20 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -109,6 +111,12 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .speedBonus(in -> 1.6 / in.tier(TooltipTier.STRUCTURE), tt -> tt.addStaticSpeedInfo(1.25f))
+        .energyCost(in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * (in.mode() == MACHINEMODE_FURNACE ? 1 : 2))
+        .noOverclock()
+        .build();
 
     private IStructureDefinition<MTESteamFurnaceMulti> STRUCTURE_DEFINITION = null;
 
@@ -176,7 +184,8 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f);
+            .addProcessingSpecInfo(SPEC)
+            .addStaticSteamEffInfo(0.625f);
         if (EtFuturumRequiem.isModLoaded()) {
             tt.addInfo(
                 "Can operate in " + EnumChatFormatting.RED
@@ -352,11 +361,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
     public boolean supportsMachineModeSwitch() {
         return EtFuturumRequiem.isModLoaded();
     }
@@ -385,13 +389,23 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
 
     @Override
     public RecipeMap<?> getRecipeMap() {
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
         if (!EtFuturumRequiem.isModLoaded()) return RecipeMaps.furnaceRecipes;
-        return switch (machineMode) {
+        return switch (mode) {
             case MACHINEMODE_SMOKER -> RecipeMaps.efrSmokingRecipes;
             case MACHINEMODE_BLASTING -> RecipeMaps.efrBlastingRecipes;
             default -> RecipeMaps.furnaceRecipes;
         };
 
+    }
+
+    @Override
+    public int getMachineModeCount() {
+        return 3;
     }
 
     @Override
@@ -417,15 +431,18 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
                 }
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
+        };
+    }
 
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine * (machineMode == MACHINEMODE_FURNACE ? 1 : 2))
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tierMachine, t -> tierMachine = t));
     }
 
     @Override

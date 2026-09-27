@@ -20,6 +20,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.Block;
@@ -50,10 +51,12 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.GregTechTileClientEvents;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
@@ -78,6 +81,11 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final String STRUCTURE_PIECE_BODY = "body";
     private static final String STRUCTURE_PIECE_BODY_ALT = "body_alt";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.ITEM_PIPE_CASING)
+        .speed(4f)
+        .euModifier(0.8f)
+        .build();
 
     protected int pipeTier = -1;
 
@@ -175,9 +183,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Lathe, IPL")
-            .addDynamicParallelInfo(8, TooltipTier.PIPE_CASING)
-            .addStaticSpeedInfo(4f)
-            .addStaticEuEffInfo(0.8f)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(7, 5, 5, true)
             .addController("Front bottom center")
             .addCasing("42-55", "Solid Steel Machine Casing", false)
@@ -255,15 +261,19 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 4F)
-            .setEuModifier(0.8F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (getPipeTier() * 8);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List
+            .of(new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getPipeTier, this::setPipeTier));
     }
 
     @Override

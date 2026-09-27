@@ -52,13 +52,13 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
@@ -95,6 +95,18 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     private static final int PARALLEL_T1 = 2;
     private static final int PARALLEL_T2 = 8;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> (in.tier(TooltipTier.MACHINE) == TIER_BASE ? PARALLEL_T1 : PARALLEL_T2)
+                * Math.max(1, in.voltageTier()),
+            tt -> tt.addInfo(TooltipHelper.parallelText("Voltage Tier * n") + " Parallels")
+                .addInfo(
+                    "n=" + PARALLEL_T1 + " initially. n=" + PARALLEL_T2 + " after inserting Maceration Upgrade Chip"))
+        .speedBonus(
+            in -> 1F / (in.tier(TooltipTier.MACHINE) == TIER_UPGRADED ? 6.4f : 1.6f),
+            tt -> tt.addInfo("Tier 1: " + EnumChatFormatting.GREEN + "160% speed")
+                .addInfo("Tier 2: " + EnumChatFormatting.GREEN + "640% speed"))
+        .build();
     // Lazy allocation since GTPP blocks are not loaded during init
     private static IStructureDefinition<MTEIndustrialMacerator> STRUCTURE_DEFINITION = null;
 
@@ -115,10 +127,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Macerator, IMS")
-            .addInfo(TooltipHelper.parallelText("Voltage Tier * n") + " Parallels")
-            .addInfo("n=" + PARALLEL_T1 + " initially. n=" + PARALLEL_T2 + " after inserting Maceration Upgrade Chip")
-            .addInfo("Tier 1: " + EnumChatFormatting.GREEN + "160% speed")
-            .addInfo("Tier 2: " + EnumChatFormatting.GREEN + "640% speed")
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 7, 5, false)
             .addController("Front bottom center")
@@ -411,16 +420,12 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        final long tVoltage = getMaxInputVoltage();
-        final byte tTier = (byte) Math.max(1, GTUtility.getTier(tVoltage));
-        return Math.max(1, (controllerTier == 1 ? PARALLEL_T1 : PARALLEL_T2) * tTier);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -481,9 +486,5 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         if (b == Casings.MacerationStackCasing.getBlock() && m == Casings.MacerationStackCasing.getBlockMeta())
             return TIER_UPGRADED;
         return null;
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (structureTier == 2 ? 6.4f : 1.6f);
     }
 }

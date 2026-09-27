@@ -53,6 +53,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
@@ -60,12 +61,13 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.gui.modularui.multiblock.base.MTESteamMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
@@ -94,6 +96,12 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .speedBonus(in -> 1.6 / in.tier(TooltipTier.STRUCTURE), tt -> tt.addStaticSpeedInfo(1.25f))
+        .energyCost(in -> 1.25 * in.tier(TooltipTier.STRUCTURE))
+        .noOverclock()
+        .build();
 
     private IStructureDefinition<MTESteamWasher> STRUCTURE_DEFINITION = null;
 
@@ -288,13 +296,13 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
+    public RecipeMap<?> getRecipeMap() {
+        return getRecipeMapForMode(getMachineMode());
     }
 
     @Override
-    public RecipeMap<?> getRecipeMap() {
-        if (machineMode == MACHINEMODE_SIMPLEWASH) {
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        if (mode == MACHINEMODE_SIMPLEWASH) {
             return RecipeMaps.simpleWasherRecipes;
         }
         return RecipeMaps.oreWasherRecipes;
@@ -322,16 +330,18 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
                 } else return CheckRecipeResultRegistry.SUCCESSFUL;
                 return SimpleCheckRecipeResult.ofFailure("no_water");
             }
+        }.noRecipeCaching();
+    }
 
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine)
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tierMachine, t -> tierMachine = t));
     }
 
     @Override
@@ -343,7 +353,8 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f)
+            .addProcessingSpecInfo(SPEC)
+            .addStaticSteamEffInfo(0.625f)
             .addInfo(HIGH_PRESSURE_TOOLTIP_NOTICE)
             .addInfo("Mode can be switched by using a screwdriver on the controller")
             .beginStructureBlock(9, 6, 5, false)

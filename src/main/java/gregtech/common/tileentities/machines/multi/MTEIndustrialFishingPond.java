@@ -39,12 +39,12 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTStructureUtility;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.pollution.PollutionConfig;
 
@@ -58,6 +58,10 @@ public class MTEIndustrialFishingPond extends MTEExtendedPowerMultiBlockBase<MTE
     public static final int FISH_MODE = 14;
     public static final int JUNK_MODE = 15;
     public static final int TREASURE_MODE = 16;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> 2 * (in.voltageTier() + 1), tt -> tt.addInfo("Can process (Tier + 1) * 2 recipes"))
+        .build();
 
     private static final String[][] structure = { { "           ", "    CCC    ", "    C~C    ", "    CCC    " },
         { "           ", "  CC A CC  ", "  CCDBDCC  ", "  CCCCCCC  " },
@@ -91,7 +95,7 @@ public class MTEIndustrialFishingPond extends MTEExtendedPowerMultiBlockBase<MTE
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fish Trap, ZFP")
-            .addInfo("Can process (Tier + 1) * 2 recipes")
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Put a numbered circuit into the input bus or controller")
             .addInfo("Circuit " + FISH_MODE + " for Fish")
             .addInfo("Circuit " + JUNK_MODE + " for Junk")
@@ -214,12 +218,12 @@ public class MTEIndustrialFishingPond extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getMaxParallelRecipes);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (2 * (GTUtility.getTier(this.getMaxInputVoltage()) + 1));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

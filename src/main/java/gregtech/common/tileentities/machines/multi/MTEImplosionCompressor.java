@@ -32,6 +32,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -152,6 +153,11 @@ public class MTEImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MTEIm
     @Override
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return ProcessingSpec.STANDARD;
     }
 
     @Override

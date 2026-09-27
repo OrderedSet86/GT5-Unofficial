@@ -57,6 +57,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchBulkCatalystHousing;
 import gregtech.api.objects.ItemData;
@@ -93,6 +94,9 @@ public class MTEQuantumForceTransformer extends MTEExtendedPowerMultiBlockBase<M
     private static final Fluid mNeptunium = MaterialsElements.getInstance().NEPTUNIUM.getPlasma();
     private static final Fluid mFermium = MaterialsElements.getInstance().FERMIUM.getPlasma();
     private static final String MAIN_PIECE = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .build();
     private final ArrayList<MTEHatchBulkCatalystHousing> catalystHousings = new ArrayList<>();
     // spotless:off
     // y-axis offset by +0.5 to counter the coordinate adjustment when rendering
@@ -202,7 +206,7 @@ public class MTEQuantumForceTransformer extends MTEExtendedPowerMultiBlockBase<M
             .addInfo("Use a screwdriver to enable "+EnumChatFormatting.BLUE+"Fluid mode")
             .addInfo("Sneak + screwdriver to disable animations")
             .addInfo("Fluid mode turns all possible outputs into their fluid variant, if avaliable")
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .addSupportAny()
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(15, 21, 15, true)
@@ -504,7 +508,11 @@ public class MTEQuantumForceTransformer extends MTEExtendedPowerMultiBlockBase<M
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(getAverageInputVoltage());
         logic.setAvailableAmperage(getMaxInputAmps());
-        logic.setUnlimitedTierSkips();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     private byte runningTick = 0;

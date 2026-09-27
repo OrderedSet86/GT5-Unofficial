@@ -53,6 +53,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
@@ -80,6 +81,9 @@ import gregtech.common.tileentities.render.RenderingTileEntityNanoForge;
 public class MTENanoForge extends MTEExtendedPowerMultiBlockBase<MTENanoForge>
     implements ISurvivalConstructable, INEIPreviewModifier, ICasingTextureProvider {
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final String STRUCTURE_PIECE_TIER2 = "tier2";
     private static final String STRUCTURE_PIECE_TIER3 = "tier3";
@@ -530,11 +534,15 @@ public class MTENanoForge extends MTEExtendedPowerMultiBlockBase<MTENanoForge>
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(getMaxInputEu());
         logic.setAvailableAmperage(1);
         logic.setAmperageOC(false);
-        logic.setUnlimitedTierSkips();
     }
 
     private int timer = 0;
@@ -757,7 +765,7 @@ public class MTENanoForge extends MTEExtendedPowerMultiBlockBase<MTENanoForge>
                     + EnumChatFormatting.GRAY
                     + " on lower-tier recipes")
             .addSupportAny()
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(41, 52, 41, false)
             .addController("Front bottom center")
             .addEnergyHatch("1-2", "Any bottom casing", 1)

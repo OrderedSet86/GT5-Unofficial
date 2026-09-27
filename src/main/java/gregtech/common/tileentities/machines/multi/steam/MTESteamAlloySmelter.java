@@ -26,7 +26,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -42,15 +41,17 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -89,6 +90,12 @@ public class MTESteamAlloySmelter extends MTESteamMultiBlockBase<MTESteamAlloySm
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .speedBonus(in -> 1.6 / in.tier(TooltipTier.STRUCTURE), tt -> tt.addStaticSpeedInfo(1.25f))
+        .energyCost(in -> 1.25 * in.tier(TooltipTier.STRUCTURE))
+        .noOverclock()
+        .build();
 
     private IStructureDefinition<MTESteamAlloySmelter> STRUCTURE_DEFINITION = null;
 
@@ -139,7 +146,8 @@ public class MTESteamAlloySmelter extends MTESteamMultiBlockBase<MTESteamAlloySm
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f)
+            .addProcessingSpecInfo(SPEC)
+            .addStaticSteamEffInfo(0.625f)
             .addInfo(HIGH_PRESSURE_TOOLTIP_NOTICE)
             .beginStructureBlock(3, 3, 4, false)
             .addController("Front center, 2nd layer")
@@ -250,11 +258,6 @@ public class MTESteamAlloySmelter extends MTESteamMultiBlockBase<MTESteamAlloySm
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
     public RecipeMap<?> getRecipeMap() {
         return RecipeMaps.alloySmelterRecipes;
     }
@@ -273,15 +276,18 @@ public class MTESteamAlloySmelter extends MTESteamMultiBlockBase<MTESteamAlloySm
                 if (recipe.getMetadataOrDefault(COMPRESSION_TIER, 0) > 0) return CheckRecipeResultRegistry.NO_RECIPE;
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
+        };
+    }
 
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine)
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tierMachine, t -> tierMachine = t));
     }
 
     @Override

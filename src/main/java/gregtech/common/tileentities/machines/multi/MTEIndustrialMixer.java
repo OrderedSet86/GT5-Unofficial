@@ -41,6 +41,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -65,9 +66,16 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     private static final int OFFSET_Y = 5;
     private static final int OFFSET_Z = 0;
 
-    private static final int PARALLEL_PER_TIER = 8;
     private static final float SPEED_INCREASE_TIER = 1f;
     private static final float SPEED_BASIC = 1f;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .speedBonus(
+            in -> 1F / (SPEED_INCREASE_TIER + (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)),
+            tt -> tt.addStaticSpeedInfo(SPEED_BASIC)
+                .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .euModifier(1f)
+        .build();
 
     private int glassTier = -1;
 
@@ -183,10 +191,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Mixer, IMM")
-            .addVoltageParallelInfo(8)
-            .addStaticSpeedInfo(SPEED_BASIC)
-            .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticEuEffInfo(1)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 TIER_COLORS[VoltageIndex.UIV] + "UIV+ "
                     + EnumChatFormatting.GRAY
@@ -215,17 +220,12 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (PARALLEL_PER_TIER * GTUtility.getTier(this.getMaxInputVoltage()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (SPEED_INCREASE_TIER + (itemPipeTier + 1));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     private int casingAmount;

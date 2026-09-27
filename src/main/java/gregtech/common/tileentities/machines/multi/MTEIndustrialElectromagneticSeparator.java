@@ -297,7 +297,12 @@ public class MTEIndustrialElectromagneticSeparator
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_POLARIZER) ? RecipeMaps.polarizerRecipes
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return (mode == MACHINEMODE_POLARIZER) ? RecipeMaps.polarizerRecipes
             : RecipeMaps.electroMagneticSeparatorRecipes;
     }
 

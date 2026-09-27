@@ -55,6 +55,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
@@ -97,6 +98,20 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t2.png"),
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t3.png"),
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t4.png") };
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 0 : sawblade.parallelPerVoltageTier * in.voltageTier();
+        })
+        .speedBonus(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 1D : sawblade.speedBoost;
+        })
+        .euModifier(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 1D : sawblade.euModifier;
+        })
+        .build();
     private int casingAmount;
     private boolean stopAllRendering;
     private int renderSawbladeTier = -1;
@@ -294,9 +309,12 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonusSupplier(this::getSpeedBonus)
-            .setEuModifierSupplier(this::getEuModifier)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -313,13 +331,6 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 0;
-        return sawbladeTier.parallelPerVoltageTier * GTUtility.getTier(this.getMaxInputVoltage());
-    }
-
-    @Override
     public boolean isCorrectMachinePart(ItemStack aStack) {
         return isValidSawblade(aStack);
     }
@@ -327,18 +338,6 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
     @Override
     protected boolean canUseControllerSlotForRecipe() {
         return false;
-    }
-
-    private double getSpeedBonus() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 1D;
-        return sawbladeTier.speedBoost;
-    }
-
-    private double getEuModifier() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 1D;
-        return sawbladeTier.euModifier;
     }
 
     private static ItemList getSawbladeItem(SawbladeTiers sawbladeTier) {
@@ -355,6 +354,11 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
             if (getSawbladeItem(sawbladeTier).isStackEqual(stack, false, true)) return sawbladeTier;
         }
         return null;
+    }
+
+    private static SawbladeTiers getSawbladeTier(ProcessingSpec.Inputs in) {
+        int index = in.tier(TooltipTier.SAWBLADE);
+        return index < 0 ? null : SawbladeTiers.values()[index];
     }
 
     private int getSawbladeTierIndex() {

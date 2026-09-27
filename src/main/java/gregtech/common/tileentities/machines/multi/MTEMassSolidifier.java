@@ -45,6 +45,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -59,6 +60,7 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.IDualInputInventoryWithPattern;
@@ -74,6 +76,14 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
     private static final int HORIZONTAL_OFFSET = 2;
     private static final int VERTICAL_OFFSET = 5;
     private static final int DEPTH_OFFSET = 0;
+    private static final float MAX_SPEEDUP = 3F;
+    // Planners assume the full speed-up, which the machine builds up while it runs.
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(10, TooltipTier.VOLTAGE)
+        .speedBonus(in -> 1F / MAX_SPEEDUP)
+        .euModifier(0.8F)
+        .bestCase(ProcessingSpec.Quantity.SPEED_BONUS)
+        .build();
 
     private float speedup = 1;
     private int runningTickCounter = 0;
@@ -151,10 +161,9 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fluid Solidifier")
-            .addVoltageParallelInfo(10)
-            .addInfo("Speeds up to a maximum of " + TooltipHelper.speedText(3f))
+            .addProcessingSpecInfo(SPEC)
+            .addInfo("Speeds up to a maximum of " + TooltipHelper.speedText(MAX_SPEEDUP))
             .addInfo("Decays at double the rate that it speeds up at")
-            .addStaticEuEffInfo(0.8f)
             .addGlassEnergyLimitInfo()
             .addInfo(
                 "Can use " + EnumChatFormatting.YELLOW
@@ -196,7 +205,7 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
     @Override
     public boolean onRunningTick(ItemStack aStack) {
         runningTickCounter++;
-        if (runningTickCounter % 10 == 0 && speedup < 3) {
+        if (runningTickCounter % 10 == 0 && speedup < MAX_SPEEDUP) {
             runningTickCounter = 0;
             speedup += 0.025F;
         }
@@ -285,9 +294,12 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
                 }
                 return false;
             }
-        }.setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.8F)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        }.setSpeedBonusSupplier(this::getSpeedBonus);
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Nonnull
@@ -315,11 +327,6 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
         }
         processingLogic.clear();
         return lastResult;
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return 10 * GTUtility.getTier(this.getMaxInputVoltage());
     }
 
     public double getSpeedBonus() {

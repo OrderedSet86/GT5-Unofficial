@@ -74,6 +74,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -106,6 +107,11 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     private static final String STRUCTURE_PIECE_LAST = "last";
 
     private static final int MINIMUM_CIRCUIT_ASSEMBLER_LENGTH = 5;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .perfectOverclock()
+        .build();
+
     /**
      * This field correspond to the old way of storing imprints in CALs. This is left for backward compatible purposes.
      * This has been deprecated during the 2.9 dev cycle.
@@ -170,7 +176,7 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Circuit Assembler, CAL")
             .addInfo("Change Mode with Screwdriver")
-            .addPerfectOCInfo()
+            .addProcessingSpecInfo(SPEC)
             .addSeparator()
             .addInfo(EnumChatFormatting.GOLD + StatCollector.translateToLocal("chat.cal.mode.0") + ":")
             .addInfo("Imprint this machine with a Circuit Imprint,")
@@ -345,10 +351,15 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return switch (machineMode) {
+        return getRecipeMapForMode(getMachineMode());
+    }
+
+    @Override
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        return switch (mode) {
             case MACHINEMODE_CAL -> BartWorksRecipeMaps.circuitAssemblyLineRecipes;
             case MACHINEMODE_ASSEMBLER -> RecipeMaps.circuitAssemblerRecipes;
-            default -> throw new IllegalStateException("Unexpected value: " + machineMode);
+            default -> throw new IllegalStateException("Unexpected value: " + mode);
         };
     }
 
@@ -394,7 +405,12 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
                 }
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
-        }.enablePerfectOverclock();
+        };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @NotNull
