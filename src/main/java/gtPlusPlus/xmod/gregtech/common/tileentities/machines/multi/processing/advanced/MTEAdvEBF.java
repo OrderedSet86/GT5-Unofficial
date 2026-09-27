@@ -20,6 +20,8 @@ import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -53,6 +55,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
@@ -211,6 +214,12 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
         checkHasMufflerHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
     }
 
     @Override

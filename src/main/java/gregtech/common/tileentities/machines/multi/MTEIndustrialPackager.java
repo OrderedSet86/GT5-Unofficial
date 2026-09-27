@@ -50,6 +50,7 @@ import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBas
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTRecipe;
@@ -255,6 +256,13 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     private int getItemPipeTier() {
         return itemPipeTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier));
     }
 
     @Override

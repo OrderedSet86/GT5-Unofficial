@@ -15,6 +15,8 @@ import static gregtech.api.util.GTStructureUtility.ofCoil;
 import java.text.DecimalFormat;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -39,6 +41,7 @@ import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
@@ -191,12 +194,25 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
             errors.add(StructureErrorRegistry.COIL_LEVEL_NOT_ENOUGH);
         }
         checkCasingMin(errors, mCasing, 5);
-        mLevel = getCoilLevel().getTier() + 1;
+        updateLevel();
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);
         checkHasMufflerHatch(errors);
         checkHasInputBus(errors);
         checkHasOutputBus(errors);
+    }
+
+    private void updateLevel() {
+        mLevel = getCoilLevel().getTier() + 1;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
+            setCoilLevel(coil);
+            updateLevel();
+        }));
     }
 
     @Override

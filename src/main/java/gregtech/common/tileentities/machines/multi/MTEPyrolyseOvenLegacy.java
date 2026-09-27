@@ -20,6 +20,8 @@ import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
 
@@ -43,6 +45,7 @@ import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipTier;
@@ -182,6 +185,12 @@ public class MTEPyrolyseOvenLegacy extends MTEEnhancedMultiBlockBase<MTEPyrolyse
         checkCasingMin(errors, mCasingAmount, 60);
         checkOneMaintenanceHatch(errors);
         checkHasMufflerHatch(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
     }
 
     @Override

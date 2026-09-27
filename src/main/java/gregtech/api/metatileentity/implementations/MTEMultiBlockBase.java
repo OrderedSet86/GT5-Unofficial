@@ -110,6 +110,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SingleRecipeCheck;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.ErrorType;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
@@ -2142,6 +2143,21 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         if (processingLogic == null) return null;
         setupProcessingLogic(processingLogic);
         return processingLogic.createOverclockCalculatorForInspection(recipe);
+    }
+
+    /**
+     * For external tools such as factory planners, which inspect a {@link #newMetaEntity} copy without a world. Machine
+     * code must not call this.
+     * <p>
+     * The values this machine's structure check finds that its recipe numbers read, each settable as if the check had
+     * found it. Setters may derive other values from the energy hatches, so add those first. Empty when no recipe
+     * number depends on the structure.
+     * <p>
+     * Override this when a recipe number reads a field that {@link #checkMachine} sets.
+     */
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return Collections.emptyList();
     }
 
     public void updateSlots() {

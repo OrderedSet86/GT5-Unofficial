@@ -11,6 +11,7 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.Block;
@@ -35,6 +36,7 @@ import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -95,6 +97,13 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     private int getItemPipeTier() {
         return itemPipeTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier));
     }
 
     public MTEIndustrialExtractor(final int aID, final String aName, final String aNameRegional) {

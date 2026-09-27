@@ -53,12 +53,14 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.IDualInputInventoryWithPattern;
@@ -87,6 +89,7 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
     private float speedup = 1;
     private int runningTickCounter = 0;
 
+    private static final int MAX_WIDTH = 6;
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEFluidShaper> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEFluidShaper>builder()
@@ -204,7 +207,7 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece(STRUCTURE_PIECE_MAIN, stackSize, hintsOnly, 3, 4, 0);
         // max Width, minimal mid-pieces to build on each side
-        int totalWidth = Math.min(stackSize.stackSize - 1, 6);
+        int totalWidth = Math.min(stackSize.stackSize - 1, MAX_WIDTH);
         for (int i = 0; i < totalWidth; i++) {
             // pieces are 2 wide so offset 5 from controller and number of pieces times width of each piece
             buildPiece(MS_LEFT_MID, stackSize, hintsOnly, 5 + 2 * i, 4, 0);
@@ -220,7 +223,7 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
         if (mMachine) return -1;
         int built = survivalBuildPiece(STRUCTURE_PIECE_MAIN, stackSize, 3, 4, 0, elementBudget, env, false, true);
         if (built >= 0) return built;
-        int totalWidth = Math.min(stackSize.stackSize - 1, 6);
+        int totalWidth = Math.min(stackSize.stackSize - 1, MAX_WIDTH);
         for (int i = 0; i < totalWidth; i++) {
             built = survivalBuildPiece(MS_LEFT_MID, stackSize, 5 + 2 * i, 4, 0, elementBudget, env, false, true);
             built += survivalBuildPiece(MS_RIGHT_MID, stackSize, -4 - 2 * i, 4, 0, elementBudget, env, false, true);
@@ -247,7 +250,7 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
         glassTier = -1;
 
         if (!checkPiece(STRUCTURE_PIECE_MAIN, 3, 4, 0, errors)) return;
-        while (width < 6) {
+        while (width < MAX_WIDTH) {
             if (checkPiece(MS_LEFT_MID, 5 + 2 * width, 4, 0, errors)
                 && checkPiece(MS_RIGHT_MID, -4 - 2 * width, 4, 0, errors)) {
                 width++;
@@ -270,6 +273,12 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
         checkHasInputHatch(errors);
         checkHasOutputBus(errors);
         checkHasMaintenanceHatch(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(new StructureParameter(TooltipTier.LENGTH, 0, MAX_WIDTH, () -> width, w -> width = w));
     }
 
     @Override

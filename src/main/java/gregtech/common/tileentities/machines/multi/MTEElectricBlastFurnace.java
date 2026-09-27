@@ -54,6 +54,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
@@ -234,7 +235,20 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
 
+        updateHeatingCapacity();
+    }
+
+    private void updateHeatingCapacity() {
         this.mHeatingCapacity = (int) getCoilLevel().getHeat() + 100 * (GTUtility.getTier(getMaxInputVoltage()) - 2);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
+            setCoilLevel(coil);
+            updateHeatingCapacity();
+        }));
     }
 
     @Override

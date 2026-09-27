@@ -18,6 +18,8 @@ import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -51,6 +53,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTRecipe;
@@ -243,6 +246,16 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
             return;
         }
         speedBonus = 1 - 0.05f * bonusTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
+            setCoilLevel(coil);
+            coilType = CoilType.HeatingCoil;
+            calculateSpeedBonus(coil);
+        }));
     }
 
     private void calculateEnergyDiscount(HeatingCoilLevel lvl, GTRecipe recipe) {

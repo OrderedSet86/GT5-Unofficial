@@ -18,6 +18,8 @@ import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -50,10 +52,12 @@ import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -69,6 +73,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     private int casingAmount;
     private HeatingCoilLevel coilLevel;
     private static final int MAX_LENGTH = 16;
+    private static final int HEAT_RESISTANT_TIER = 0;
+    private static final int HEAT_PROOF_TIER = 1;
     private static final float EU_MODIFIER = 0.98f;
     private static final int PARALLELS_T1 = 16;
     private static final int PARALLELS_T2 = 32;
@@ -193,7 +199,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                 'E',
                 GTStructureChannels.COKE_OVEN_CASING.use(
                     ofBlocksTiered(
-                        (block, meta) -> block == ModBlocks.blockCasingsMisc ? (meta == 2 ? 0 : meta == 3 ? 1 : null)
+                        (block, meta) -> block == ModBlocks.blockCasingsMisc
+                            ? (meta == 2 ? HEAT_RESISTANT_TIER : meta == 3 ? HEAT_PROOF_TIER : null)
                             : null,
                         ImmutableList
                             .of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
@@ -312,6 +319,20 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         checkHasMufflerHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            StructureParameter.coil(this::getCoilLevel, this::setCoilLevel),
+            new StructureParameter(
+                TooltipTier.STRUCTURE,
+                HEAT_RESISTANT_TIER,
+                HEAT_PROOF_TIER,
+                () -> tier,
+                t -> tier = t),
+            new StructureParameter(TooltipTier.LENGTH, 0, MAX_LENGTH - 1, () -> width, w -> width = w));
     }
 
     @Override

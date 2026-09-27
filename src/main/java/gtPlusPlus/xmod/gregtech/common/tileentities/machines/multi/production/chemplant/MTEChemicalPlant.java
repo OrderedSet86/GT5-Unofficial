@@ -66,6 +66,7 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTRecipe;
@@ -88,6 +89,8 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     private int mMachineCasingTier = 0;
     private int mPipeCasingTier = 0;
     private int mCoilTier = 0;
+    private static final int PIPE_CASING_MIN_META = 12;
+    private static final int PIPE_CASING_MAX_META = 16;
     private HeatingCoilLevel checkCoil;
     private final int[] checkCasing = new int[8];
     private int checkMachine;
@@ -262,8 +265,8 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
                             GregTechAPI.sBlockCasings2,
                             MTEChemicalPlant::setPipeMeta,
                             MTEChemicalPlant::getPipeMeta,
-                            12,
-                            16)))
+                            PIPE_CASING_MIN_META,
+                            PIPE_CASING_MAX_META)))
                 .build();
         }
         return STRUCTURE_DEFINITION;
@@ -398,7 +401,7 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
         }
         checkCasingMin(errors, mCasing, 70);
         mMachineCasingTier = checkMachine - 1;
-        mPipeCasingTier = checkPipe - 12;
+        mPipeCasingTier = checkPipe - PIPE_CASING_MIN_META;
         mCoilTier = checkCoil.getTier();
         if (mMachineCasingTier < 9 && mMachineCasingTier < maxTierOfHatch) {
             errors.add(StructureErrors.of("GT5U.gui.text.structure_error.chemplant_hatch_problem"));
@@ -493,6 +496,24 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     @Override
     public int getMaxParallelRecipes() {
         return 2 * mPipeCasingTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            new StructureParameter(
+                TooltipTier.COIL,
+                0,
+                HeatingCoilLevel.getMaxTier(),
+                () -> mCoilTier,
+                tier -> mCoilTier = tier),
+            new StructureParameter(
+                TooltipTier.PIPE_CASING,
+                1,
+                PIPE_CASING_MAX_META - PIPE_CASING_MIN_META,
+                () -> mPipeCasingTier,
+                tier -> mPipeCasingTier = tier));
     }
 
     private int getCasingTextureID() {
