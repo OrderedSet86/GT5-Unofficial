@@ -60,7 +60,8 @@ public class MTEIndustrialFishingPond extends MTEExtendedPowerMultiBlockBase<MTE
     public static final int TREASURE_MODE = 16;
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> 2 * (in.voltageTier() + 1), tt -> tt.addInfo("Can process (Tier + 1) * 2 recipes"))
+        .parallel(in -> 2 * (in.voltageTier() + 1))
+        .customTooltip(ProcessingSpec.Quantity.PARALLEL, tt -> tt.addInfo("Can process (Tier + 1) * 2 recipes"))
         .build();
 
     private static final String[][] structure = { { "           ", "    CCC    ", "    C~C    ", "    CCC    " },

@@ -74,8 +74,8 @@ public class MTELatex extends MTEExtendedPowerMultiBlockBase<MTELatex>
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final int CASING_INDEX = 176;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .speed(2F)
-        .euModifier(0.85F)
+        .speed(2)
+        .euModifier(0.85)
         .build();
     private static final IStructureDefinition<MTELatex> STRUCTURE_DEFINITION = StructureDefinition.<MTELatex>builder()
         .addShape(

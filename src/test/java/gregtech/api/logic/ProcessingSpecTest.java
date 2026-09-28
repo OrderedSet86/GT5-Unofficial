@@ -2,22 +2,27 @@ package gregtech.api.logic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.util.EnumSet;
+
 import org.junit.jupiter.api.Test;
 
+import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTRecipe;
+import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipTier;
 
 class ProcessingSpecTest {
 
     private static ProcessingSpec.Inputs inputs(int voltageTier, int coilTier) {
-        return new ProcessingSpec.Inputs(voltageTier, 0, kind -> {
-            if (kind != TooltipTier.COIL) throw new IllegalArgumentException(kind.name());
-            return coilTier;
-        });
+        return ProcessingSpec.Inputs.builder()
+            .voltageTier(voltageTier)
+            .tier(TooltipTier.COIL, coilTier)
+            .build();
     }
 
     private static GTRecipe recipe(int eut, int duration, int heat) {
@@ -30,24 +35,64 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void inputsNameEveryValue() {
+        ProcessingSpec.Inputs luv = ProcessingSpec.Inputs.builder()
+            .voltageTier(VoltageIndex.LuV)
+            .tier(TooltipTier.SOLENOID, VoltageIndex.LuV)
+            .build();
+
+        assertEquals(VoltageIndex.LuV, luv.tier(TooltipTier.VOLTAGE));
+        assertEquals(VoltageIndex.LuV, luv.tier(TooltipTier.SOLENOID));
+        assertEquals(1, luv.amperage());
+        assertEquals(0, luv.mode());
+        assertThrows(IllegalArgumentException.class, () -> luv.tier(TooltipTier.COIL));
+    }
+
+    @Test
     void parallelTermsAddUpAndNeverFallBelowOne() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallelPerTier(4, TooltipTier.VOLTAGE)
-            .parallelPerTier(2, TooltipTier.COIL)
+            .parallel(3)
             .build();
 
-        assertEquals(4 * 5 + 2 * 3, spec.getMaxParallel(inputs(5, 3)));
-        assertEquals(1, spec.getMaxParallel(inputs(0, 0)));
+        assertEquals(4 * 5 + 3, spec.getMaxParallel(inputs(5, 0)));
         assertEquals(1, ProcessingSpec.STANDARD.getMaxParallel(inputs(5, 3)));
+    }
+
+    @Test
+    void parallelPerTierMultipliesItsTiers() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallelPerTier(6, TooltipTier.VOLTAGE, TooltipTier.SOLENOID)
+            .build();
+        ProcessingSpec.Inputs luv = ProcessingSpec.Inputs.builder()
+            .voltageTier(VoltageIndex.LuV)
+            .tier(TooltipTier.SOLENOID, VoltageIndex.LuV)
+            .build();
+
+        assertEquals(6 * 6 * 6, spec.getMaxParallel(luv));
+    }
+
+    @Test
+    void coilTermsCountFromOne() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .speedPerTier(0.5, TooltipTier.COIL)
+            .euDiscountPerTier(0.1, TooltipTier.COIL)
+            .maxEuDiscount(0.5)
+            .build();
+
+        // Cupronickel is coil tier 0 and tier 1 on the tooltip
+        assertEquals(1 / 0.5, spec.getDurationMultiplier(inputs(1, 0)));
+        assertEquals(0.9, spec.getEuModifier(inputs(1, 0)), 1e-12);
+        assertEquals(0.5, spec.getEuModifier(inputs(1, 9)));
     }
 
     @Test
     void speedIsTheReciprocalOfTheTooltipSpeed() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .speed(2.5F)
+            .speed(2.5)
             .build();
 
-        assertEquals(1F / 2.5F, spec.getSpeedBonus(inputs(1, 0)));
+        assertEquals(0.4, spec.getDurationMultiplier(inputs(1, 0)));
     }
 
     @Test
@@ -57,17 +102,16 @@ class ProcessingSpecTest {
             .setOverclock(3, 4)
             .applySpec(
                 ProcessingSpec.builder()
-                    .euModifier(0.8F)
+                    .euModifier(0.8)
                     .unlimitedTierSkips()
                     .build(),
-                () -> inputs(5, 3),
-                () -> 99);
+                () -> inputs(5, 3));
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe(30, 200, 0));
 
         assertEquals(7, logic.getResolvedMaxParallel());
         assertEquals(0.5, calculator.getDurationModifier());
-        assertEquals(0.8F, calculator.getEUtDiscount());
+        assertEquals(0.8, calculator.getEUtDiscount());
         assertEquals(3, calculator.getDurationDecreasePerOC());
         assertEquals(Integer.MAX_VALUE, calculator.getMaxTierSkips());
         assertFalse(calculator.isHeatOC());
@@ -78,15 +122,16 @@ class ProcessingSpecTest {
         ProcessingLogic logic = new ProcessingLogic().applySpec(
             ProcessingSpec.builder()
                 .parallel(4)
-                .heatOverclock(in -> 1000 * in.tier(TooltipTier.COIL))
-                .heatDiscount()
+                .heat(
+                    in -> 1000 * in.tier(TooltipTier.COIL),
+                    ProcessingSpec.HeatRule.OVERCLOCK,
+                    ProcessingSpec.HeatRule.DISCOUNT)
                 .build(),
-            () -> inputs(5, 3),
-            () -> 3);
+            () -> inputs(5, 3));
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe(30, 200, 1800));
 
-        assertEquals(3, logic.getResolvedMaxParallel());
+        assertEquals(4, logic.getResolvedMaxParallel());
         assertEquals(3000, calculator.getMachineHeat());
         assertEquals(1800, calculator.getRecipeHeat());
         assertTrue(calculator.isHeatOC());
@@ -96,11 +141,15 @@ class ProcessingSpecTest {
     @Test
     void aFixedRecipeHeatReplacesTheRecipes() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .heatOverclock(in -> 3600)
+            .heat(in -> 3600, ProcessingSpec.HeatRule.OVERCLOCK)
             .recipeHeat(0)
             .build();
 
-        assertEquals(0, spec.getRecipeHeat(recipe(30, 200, 1800)));
+        assertEquals(
+            0,
+            spec.getHeat()
+                .get()
+                .getRecipeHeat(recipe(30, 200, 1800)));
     }
 
     @Test
@@ -110,11 +159,10 @@ class ProcessingSpecTest {
             .applySpec(
                 ProcessingSpec.builder()
                     .parallel(64)
-                    .speed(4F)
-                    .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.SPEED_BONUS)
+                    .speed(4)
+                    .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
                     .build(),
-                () -> inputs(5, 3),
-                () -> 64);
+                () -> inputs(5, 3));
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe(30, 200, 0));
 
@@ -122,18 +170,17 @@ class ProcessingSpecTest {
         assertEquals(0.5, calculator.getDurationModifier());
     }
 
-    /** As the steam multiblocks ran before they declared a spec. */
+    /** As the steam multiblocks run. */
     @Test
     void noOverclockRunsAtTheRecipesOwnVoltageWithItsCost() {
         ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)
             .applySpec(
                 ProcessingSpec.builder()
-                    .speedBonus(in -> 0.8)
-                    .energyCost(in -> 2.5)
+                    .durationMultiplier(in -> 0.8)
+                    .euModifierNotLimitingParallel(in -> 2.5)
                     .noOverclock()
                     .build(),
-                () -> inputs(1, 0),
-                () -> 8);
+                () -> inputs(1, 0));
         GTRecipe recipe = recipe(16, 200, 0);
 
         OverclockCalculator planned = logic.createOverclockCalculatorForInspection(recipe)
@@ -149,5 +196,102 @@ class ProcessingSpecTest {
         assertEquals(expected.getMaxAllowedRecipeEUt(), planned.getMaxAllowedRecipeEUt());
         assertEquals(expected.getDuration(), planned.getDuration());
         assertEquals(expected.getConsumption(), planned.getConsumption());
+    }
+
+    @Test
+    void theTooltipAccountsForWhatTheSpecSets() {
+        ProcessingSpec described = ProcessingSpec.builder()
+            .parallelPerTier(4, TooltipTier.VOLTAGE)
+            .speed(2)
+            .perfectOverclock()
+            .build();
+        ProcessingSpec undescribed = ProcessingSpec.builder()
+            .parallel(in -> 4)
+            .euModifier(in -> 0.9)
+            .build();
+        ProcessingSpec overridden = ProcessingSpec.builder()
+            .parallel(in -> 4)
+            .customTooltip(ProcessingSpec.Quantity.PARALLEL, tt -> tt.addInfo("Four at once"))
+            .euModifier(in -> 0.9)
+            .noTooltip(ProcessingSpec.Quantity.EU_MODIFIER)
+            .build();
+
+        assertTrue(
+            described.getUndescribed()
+                .isEmpty());
+        assertEquals(
+            EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.EU_MODIFIER),
+            undescribed.getUndescribed());
+        assertTrue(
+            overridden.getUndescribed()
+                .isEmpty());
+        assertEquals(
+            EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.EU_MODIFIER),
+            overridden.describe(new MultiblockTooltipBuilder()));
+    }
+
+    /** An LV recipe on an LuV Industrial Forge Hammer with one energy hatch, for each solenoid. */
+    @Test
+    void calculateFollowsTheParallelAndOverclockLimits() {
+        ProcessingSpec forgeHammer = ProcessingSpec.builder()
+            .parallelPerTier(6, TooltipTier.VOLTAGE, TooltipTier.SOLENOID)
+            .speed(2)
+            .euModifier(1)
+            .build();
+        GTRecipe ironPlates = recipe(16, 56, 0);
+        int[][] expected = {
+            // solenoid, parallel, overclocks, ticks, EU/t
+            { VoltageIndex.MV, 72, 2, 7, 18432 }, { VoltageIndex.HV, 108, 2, 7, 27648 },
+            { VoltageIndex.EV, 144, 1, 14, 9216 }, { VoltageIndex.IV, 180, 1, 14, 11520 },
+            { VoltageIndex.LuV, 216, 1, 14, 13824 }, { VoltageIndex.UMV, 432, 1, 14, 27648 } };
+
+        for (int[] row : expected) {
+            ProcessingSpec.Run run = forgeHammer.calculate(
+                ironPlates,
+                ProcessingSpec.Inputs.builder()
+                    .voltageTier(VoltageIndex.LuV)
+                    .tier(TooltipTier.SOLENOID, row[0])
+                    .build());
+
+            assertEquals(row[1], run.parallel(), "parallel at solenoid " + row[0]);
+            assertEquals(row[2], run.overclocks(), "overclocks at solenoid " + row[0]);
+            assertEquals(row[3], run.ticks(), "ticks at solenoid " + row[0]);
+            assertEquals(row[4], run.euPerTick(), "EU/t at solenoid " + row[0]);
+        }
+    }
+
+    @Test
+    void calculateTakesBestCaseNumbersAtTheirBest() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(4)
+            .speed(2)
+            .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
+            .build();
+
+        ProcessingSpec.Run run = spec.calculate(
+            recipe(30, 200, 0),
+            ProcessingSpec.Inputs.builder()
+                .voltageTier(VoltageIndex.HV)
+                .build());
+
+        // 4 x 30 EU/t leaves room for one overclock at HV: 200 ticks at 2x speed, then halved
+        assertEquals(4, run.parallel());
+        assertEquals(50, run.ticks());
+    }
+
+    @Test
+    void calculateLimitsParallelsToTheEnergyAvailable() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(256)
+            .build();
+
+        ProcessingSpec.Run run = spec.calculate(
+            recipe(480, 100, 0),
+            ProcessingSpec.Inputs.builder()
+                .voltageTier(VoltageIndex.LuV)
+                .build());
+
+        assertEquals(32768 / 480, run.parallel());
+        assertEquals(0, run.overclocks());
     }
 }

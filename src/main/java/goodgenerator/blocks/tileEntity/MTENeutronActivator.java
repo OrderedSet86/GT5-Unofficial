@@ -93,9 +93,12 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     private static final int MIN_HEIGHT = 4;
     private static final int MAX_HEIGHT = 254;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .speedBonus(in -> GTUtility.powInt(0.9f, in.tier(TooltipTier.LENGTH) - 4))
+        .durationMultiplier(in -> GTUtility.powInt(0.9, in.tier(TooltipTier.LENGTH) - 4))
+        .noTooltip(ProcessingSpec.Quantity.DURATION)
         .unlimitedTierSkips()
         .noOverclock()
+        .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     protected int eV = 0, mCeil = 0, mFloor = 0;
     protected static final NumberFormatMUI numberFormat;
@@ -324,7 +327,11 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(TooltipTier.LENGTH, MIN_HEIGHT, MAX_HEIGHT, () -> height, value -> height = value));
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(MIN_HEIGHT, MAX_HEIGHT)
+                .getter(() -> height)
+                .setter(value -> height = value)
+                .build());
     }
 
     public final boolean addAcceleratorAndSensor(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {

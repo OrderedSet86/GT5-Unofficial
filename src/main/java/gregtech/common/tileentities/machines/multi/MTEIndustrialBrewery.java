@@ -51,8 +51,8 @@ public class MTEIndustrialBrewery extends MTEExtendedPowerMultiBlockBase<MTEIndu
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .speed(1.5F)
-        .euModifier(1f)
+        .speed(1.5)
+        .euModifier(1)
         .build();
     private static final IStructureDefinition<MTEIndustrialBrewery> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialBrewery>builder()

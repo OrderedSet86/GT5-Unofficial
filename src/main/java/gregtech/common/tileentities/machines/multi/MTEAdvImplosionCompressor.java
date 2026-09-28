@@ -50,11 +50,12 @@ public class MTEAdvImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MT
     private static final int OFFSET_Z = 0;
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> in.voltageTier() / 2 + 1,
+        .parallel(in -> in.voltageTier() / 2 + 1)
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addInfo(TooltipHelper.parallelText("1 + (Tier/2)") + " Parallels"))
-        .speed(2f)
-        .euModifier(1f)
+        .speed(2)
+        .euModifier(1)
         .build();
 
     private int casingAmount;

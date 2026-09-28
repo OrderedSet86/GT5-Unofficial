@@ -68,13 +68,21 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
     private static final int OFFSET_Y = 13;
     private static final int OFFSET_Z = 0;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> 4 * Math.max(1, in.tier(TooltipTier.STRUCTURE)),
+        .parallel(in -> 4 * Math.max(1, in.tier(TooltipTier.STRUCTURE)))
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addInfo(
                 "Gains " + TooltipHelper.parallelText(4) + " Parallels per " + EnumChatFormatting.WHITE + "Coil Tier"))
         .perfectOverclock()
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
+    private static final StructureParameter.Of<MTENaquadahFuelRefinery, Integer> COIL_TIER = StructureParameter.tiered(
+        TooltipTier.STRUCTURE,
+        1,
+        coils.length,
+        MTENaquadahFuelRefinery::getCoilTier,
+        MTENaquadahFuelRefinery::setCoilTier);
     // Total casing without hatch = 483
     private static final int MIN_CASINGS = 470;
     private static int casingAmount;
@@ -177,8 +185,8 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
                         fieldCoilTierConverter(),
                         getAllFieldCoilTiers(),
                         -1,
-                        MTENaquadahFuelRefinery::setCoilTier,
-                        MTENaquadahFuelRefinery::getCoilTier))
+                        COIL_TIER.setter(),
+                        COIL_TIER.getter()))
                 .addElement('D', Casings.SuperconductingCoilBlock.asElement())
                 .addElement('E', Casings.EuropiumReinforcedRadiationProofMachineCasing.asElement())
                 .addElement('F', Casings.RadiantProofSteelFrameBox.asElement())
@@ -268,8 +276,7 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List
-            .of(new StructureParameter(TooltipTier.STRUCTURE, 1, coils.length, this::getCoilTier, this::setCoilTier));
+        return List.of(COIL_TIER.of(this));
     }
 
     @Override

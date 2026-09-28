@@ -52,8 +52,8 @@ public class MTEIndustrialElectrolyzer extends MTEExtendedPowerMultiBlockBase<MT
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .speed(2.8f)
-        .euModifier(0.9f)
+        .speed(2.8)
+        .euModifier(0.9)
         .build();
 
     public MTEIndustrialElectrolyzer(final int aID, final String aName, final String aNameRegional) {

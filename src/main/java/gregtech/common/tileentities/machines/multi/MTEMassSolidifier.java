@@ -76,13 +76,14 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
     private static final int HORIZONTAL_OFFSET = 2;
     private static final int VERTICAL_OFFSET = 5;
     private static final int DEPTH_OFFSET = 0;
-    private static final float MAX_SPEEDUP = 3F;
+    private static final double MAX_SPEEDUP = 3;
     // Planners assume the full speed-up, which the machine builds up while it runs.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(10, TooltipTier.VOLTAGE)
-        .speedBonus(in -> 1F / MAX_SPEEDUP)
-        .euModifier(0.8F)
-        .bestCase(ProcessingSpec.Quantity.SPEED_BONUS)
+        .durationMultiplier(in -> 1.0 / MAX_SPEEDUP)
+        .noTooltip(ProcessingSpec.Quantity.DURATION)
+        .euModifier(0.8)
+        .bestCase(ProcessingSpec.Quantity.DURATION)
         .build();
 
     private float speedup = 1;
@@ -162,7 +163,7 @@ public class MTEMassSolidifier extends MTEExtendedPowerMultiBlockBase<MTEMassSol
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fluid Solidifier")
             .addProcessingSpecInfo(SPEC)
-            .addInfo("Speeds up to a maximum of " + TooltipHelper.speedText(MAX_SPEEDUP))
+            .addInfo("Speeds up to a maximum of " + TooltipHelper.speedText((float) MAX_SPEEDUP))
             .addInfo("Decays at double the rate that it speeds up at")
             .addGlassEnergyLimitInfo()
             .addInfo(

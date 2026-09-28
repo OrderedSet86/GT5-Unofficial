@@ -75,6 +75,8 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
 
     private static final int CASING_INDEX = 49;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final StructureParameter.Of<MTEMegaOilCrackerLegacy, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaOilCrackerLegacy::getCoilLevel, MTEMegaOilCrackerLegacy::setCoilLevel);
     private static final IStructureDefinition<MTEMegaOilCrackerLegacy> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaOilCrackerLegacy>builder()
         .addShape(
@@ -95,10 +97,7 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
                         " g c c c c g ", " g c c c c g ", "pgggggggggggp", " p         p " },
                     { "ppmmmm~mmmmpp", "ppppppppppppp", "ppppppppppppp", "ppppppppppppp", "ppppppppppppp",
                         "ppppppppppppp", "ppppppppppppp", "ppppppppppppp", "ppmmmmmmmmmpp" }, }))
-        .addElement(
-            'c',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMegaOilCrackerLegacy::setCoilLevel, MTEMegaOilCrackerLegacy::getCoilLevel))))
+        .addElement('c', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
 
         .addElement('p', ofBlock(GregTechAPI.sBlockCasings4, 1))
         .addElement(
@@ -252,7 +251,7 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override

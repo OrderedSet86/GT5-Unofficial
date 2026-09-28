@@ -10,7 +10,6 @@ import static net.minecraft.util.StatCollector.translateToLocalFormatted;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -52,24 +51,19 @@ import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
-import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
-import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
-import gregtech.common.gui.modularui.multiblock.base.MTESteamMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -96,12 +90,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
-    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(8)
-        .speedBonus(in -> 1.6 / in.tier(TooltipTier.STRUCTURE), tt -> tt.addStaticSpeedInfo(1.25f))
-        .energyCost(in -> 1.25 * in.tier(TooltipTier.STRUCTURE))
-        .noOverclock()
-        .build();
 
     private IStructureDefinition<MTESteamWasher> STRUCTURE_DEFINITION = null;
 
@@ -117,16 +105,23 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     private static final int VERTICAL_OFF_SET = 4;
     private static final int DEPTH_OFF_SET = 1;
 
-    private static final int MACHINEMODE_OREWASH = 0;
-    private static final int MACHINEMODE_SIMPLEWASH = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.oreWasherRecipes)
+            .nameKey("GT5U.GTPP_MULTI_WASH_PLANT.mode.0")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT),
+        MachineMode.of(RecipeMaps.simpleWasherRecipes)
+            .nameKey("GT5U.GTPP_MULTI_WASH_PLANT.mode.1")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER));
 
     private boolean isBroken = true;
 
     private int tierGearBoxCasing = -1;
     private int tierPipeCasing = -1;
     private int tierMachineCasing = -1;
-    private int tierMachine = 1;
-
     private int tCountCasing = 0;
 
     @Nullable
@@ -295,23 +290,10 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
         checkHasSteamOutputBus(errors);
     }
 
+    @Nonnull
     @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        if (mode == MACHINEMODE_SIMPLEWASH) {
-            return RecipeMaps.simpleWasherRecipes;
-        }
-        return RecipeMaps.oreWasherRecipes;
-    }
-
-    @NotNull
-    @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.simpleWasherRecipes, RecipeMaps.oreWasherRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -334,17 +316,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     }
 
     @Override
-    public ProcessingSpec getProcessingSpec() {
-        return SPEC;
-    }
-
-    @Override
-    @Nonnull
-    public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tierMachine, t -> tierMachine = t));
-    }
-
-    @Override
     public int getTierRecipes() {
         return 1;
     }
@@ -353,8 +324,7 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addProcessingSpecInfo(SPEC)
-            .addStaticSteamEffInfo(0.625f)
+            .addProcessingSpecInfo(getProcessingSpec())
             .addInfo(HIGH_PRESSURE_TOOLTIP_NOTICE)
             .addInfo("Mode can be switched by using a screwdriver on the controller")
             .beginStructureBlock(9, 6, 5, false)
@@ -421,7 +391,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("tierMachine", tierMachine);
         aNBT.setInteger("mMode", machineMode);
         aNBT.setInteger("tierMachineCasing", tierMachineCasing);
     }
@@ -429,7 +398,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     @Override
     public void loadNBTData(final NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        tierMachine = aNBT.getInteger("tierMachine");
         machineMode = aNBT.getInteger("mMode");
         tierMachineCasing = aNBT.getInteger("tierMachineCasing");
     }
@@ -453,28 +421,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     @Override
     protected SoundResource getActivitySoundLoop() {
         return SoundResource.GT_MACHINES_STEAM_WASHER_LOOP;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public int nextMachineMode() {
-        if (machineMode == MACHINEMODE_OREWASH) return MACHINEMODE_SIMPLEWASH;
-        else return MACHINEMODE_OREWASH;
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_WASH_PLANT.mode." + machineMode;
     }
 
     @Override
@@ -553,13 +499,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
             }
         }
         return false;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTESteamMultiBlockBaseGui(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER);
     }
 
 }

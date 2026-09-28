@@ -98,12 +98,15 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(
             in -> (in.tier(TooltipTier.MACHINE) == TIER_BASE ? PARALLEL_T1 : PARALLEL_T2)
-                * Math.max(1, in.voltageTier()),
+                * Math.max(1, in.voltageTier()))
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addInfo(TooltipHelper.parallelText("Voltage Tier * n") + " Parallels")
                 .addInfo(
                     "n=" + PARALLEL_T1 + " initially. n=" + PARALLEL_T2 + " after inserting Maceration Upgrade Chip"))
-        .speedBonus(
-            in -> 1F / (in.tier(TooltipTier.MACHINE) == TIER_UPGRADED ? 6.4f : 1.6f),
+        .durationMultiplier(in -> 1.0 / (in.tier(TooltipTier.MACHINE) == TIER_UPGRADED ? 6.4 : 1.6))
+        .customTooltip(
+            ProcessingSpec.Quantity.DURATION,
             tt -> tt.addInfo("Tier 1: " + EnumChatFormatting.GREEN + "160% speed")
                 .addInfo("Tier 2: " + EnumChatFormatting.GREEN + "640% speed"))
         .build();
@@ -249,11 +252,15 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List
-            .of(new StructureParameter(TooltipTier.MACHINE, TIER_BASE, TIER_UPGRADED, () -> controllerTier, t -> {
-                controllerTier = t;
-                updateStructureTier();
-            }));
+        return List.of(
+            StructureParameter.builder(TooltipTier.MACHINE)
+                .between(TIER_BASE, TIER_UPGRADED)
+                .getter(() -> controllerTier)
+                .setter(t -> {
+                    controllerTier = t;
+                    updateStructureTier();
+                })
+                .build());
     }
 
     protected void updateHatchTexture() {

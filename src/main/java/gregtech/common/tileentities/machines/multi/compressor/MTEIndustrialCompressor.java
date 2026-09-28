@@ -49,8 +49,8 @@ public class MTEIndustrialCompressor extends MTEExtendedPowerMultiBlockBase<MTEI
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(2, TooltipTier.VOLTAGE)
-        .speed(2f)
-        .euModifier(0.9f)
+        .speed(2)
+        .euModifier(0.9)
         .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEIndustrialCompressor> STRUCTURE_DEFINITION = StructureDefinition

@@ -51,8 +51,8 @@ public class MTEIndustrialBendingMachine extends MTEExtendedPowerMultiBlockBase<
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(6, TooltipTier.VOLTAGE)
-        .speed(6f)
-        .euModifier(1f)
+        .speed(6)
+        .euModifier(1)
         .build();
 
     private static final IStructureDefinition<MTEIndustrialBendingMachine> STRUCTURE_DEFINITION = StructureDefinition

@@ -79,13 +79,15 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-        .speedBonus(
-            in -> 1F / (BASE_SPEED_BONUS + (float) (SPEED_PER_COIL * in.tier(TooltipTier.COIL))),
-            tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
-        .euModifier(
-            in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)),
-            tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
+        .durationMultiplier(in -> 1.0 / (BASE_SPEED_BONUS + SPEED_PER_COIL * in.tier(TooltipTier.COIL)))
+        .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
+        .euModifier(in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)))
+        .customTooltip(ProcessingSpec.Quantity.EU_MODIFIER, tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
         .build();
+    private static final StructureParameter.Of<MTELargeFluidExtractor, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTELargeFluidExtractor::getCoilLevel, MTELargeFluidExtractor::setCoilLevel);
+    private static final StructureParameter.Of<MTELargeFluidExtractor, Byte> SOLENOID = StructureParameter
+        .solenoid(MTELargeFluidExtractor::getSolenoidLevel, MTELargeFluidExtractor::setSolenoidLevel);
 
     // spotless:off
     private static final IStructureDefinition<MTELargeFluidExtractor> STRUCTURE_DEFINITION = StructureDefinition
@@ -117,18 +119,11 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
         .addElement('g', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
         .addElement(
             'h',
-            GTStructureChannels.HEATING_COIL.use(
-                activeCoils(
-                    ofCoil(
-                        MTELargeFluidExtractor::setCoilLevel,
-                        MTELargeFluidExtractor::getCoilLevel)))
+            GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL)))
         )
         .addElement(
             's',
-            GTStructureChannels.SOLENOID.use(
-                ofSolenoidCoil(
-                    MTELargeFluidExtractor::setSolenoidLevel,
-                    MTELargeFluidExtractor::getSolenoidLevel))
+            GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID))
         )
         .addElement(
             'f',
@@ -258,9 +253,7 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(
-            StructureParameter.coil(this::getCoilLevel, this::setCoilLevel),
-            StructureParameter.solenoid(this::getSolenoidLevel, this::setSolenoidLevel));
+        return List.of(COIL.of(this), SOLENOID.of(this));
     }
 
     @Override
@@ -353,8 +346,8 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     public String[] getInfoData() {
 
         ArrayList<String> data = new ArrayList<>(Arrays.asList(super.getInfoData()));
-        ProcessingSpec.Inputs inputs = getProcessingSpecInputs();
-        double totalSpeed = 1 / SPEC.getSpeedBonus(inputs);
+        ProcessingSpec.Inputs inputs = getCurrentProcessingSpecInputs();
+        double totalSpeed = 1 / SPEC.getDurationMultiplier(inputs);
 
         data.add(
             IGregTechDeviceInformation

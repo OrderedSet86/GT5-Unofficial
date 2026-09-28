@@ -82,6 +82,8 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
     implements ISurvivalConstructable {
 
     private static final int CASING_INDEX = 11;
+    private static final StructureParameter.Of<MTEMegaBlastFurnaceLegacy, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaBlastFurnaceLegacy::getCoilLevel, MTEMegaBlastFurnaceLegacy::setCoilLevel);
     private static final IStructureDefinition<MTEMegaBlastFurnaceLegacy> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaBlastFurnaceLegacy>builder()
         .addShape("main", createShape())
@@ -93,10 +95,7 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
                 .hint(1)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL.use(
-                activeCoils(ofCoil(MTEMegaBlastFurnaceLegacy::setCoilLevel, MTEMegaBlastFurnaceLegacy::getCoilLevel))))
+        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement('g', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
         .addElement(
             'b',
@@ -380,10 +379,9 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
-            this.setCoilLevel(coil);
-            this.updateHeatingCapacity();
-        }));
+        return List.of(
+            COIL.derivingAfterSet(MTEMegaBlastFurnaceLegacy::updateHeatingCapacity)
+                .of(this));
     }
 
     @Override

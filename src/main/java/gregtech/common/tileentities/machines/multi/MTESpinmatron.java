@@ -108,6 +108,7 @@ public class MTESpinmatron extends MTEExtendedPowerMultiBlockBase<MTESpinmatron>
     public final LimitingItemStackHandler turbineHolder = new LimitingItemStackHandler(8, 1);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     private static final String STRUCTURE_TIER_1 = "t1";
     private static final String STRUCTURE_TIER_2 = "t2";

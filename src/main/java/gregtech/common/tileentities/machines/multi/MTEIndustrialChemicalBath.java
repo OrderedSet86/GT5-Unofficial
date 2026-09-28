@@ -64,8 +64,8 @@ public class MTEIndustrialChemicalBath extends MTEExtendedPowerMultiBlockBase<MT
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .speed(5f)
-        .euModifier(1f)
+        .speed(5)
+        .euModifier(1)
         .build();
 
     private static final String[][] structure = new String[][] { { "AABAA", "AEEEA", "AE~EA", "AEEEA" },

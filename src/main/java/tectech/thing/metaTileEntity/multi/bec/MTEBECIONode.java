@@ -113,6 +113,7 @@ public class MTEBECIONode extends MTEBECMultiblockBase<MTEBECIONode> implements 
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
 
     private final List<MTEHatchNaniteDetector> naniteDetectors = new ArrayList<>();

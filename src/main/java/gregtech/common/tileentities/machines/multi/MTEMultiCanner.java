@@ -42,8 +42,8 @@ public class MTEMultiCanner extends MTEExtendedPowerMultiBlockBase<MTEMultiCanne
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .speed(2f)
-        .euModifier(1f)
+        .speed(2)
+        .euModifier(1)
         .build();
     private static final IStructureDefinition<MTEMultiCanner> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMultiCanner>builder()

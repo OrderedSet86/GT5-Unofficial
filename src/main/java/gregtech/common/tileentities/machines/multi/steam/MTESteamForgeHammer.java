@@ -43,18 +43,15 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
-import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
-import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipTier;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -80,12 +77,6 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
-    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(8)
-        .speedBonus(in -> 1.6 / in.tier(TooltipTier.STRUCTURE), tt -> tt.addStaticSpeedInfo(1.25f))
-        .energyCost(in -> 1.25 * in.tier(TooltipTier.STRUCTURE))
-        .noOverclock()
-        .build();
 
     private IStructureDefinition<MTESteamForgeHammer> STRUCTURE_DEFINITION = null;
 
@@ -108,8 +99,6 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     private int tierMachineCasing = -1;
 
     private int tCountCasing = 0;
-
-    private int tierMachine = 1;
 
     private int tierSimpleBlock = -1;
 
@@ -301,17 +290,6 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     }
 
     @Override
-    public ProcessingSpec getProcessingSpec() {
-        return SPEC;
-    }
-
-    @Override
-    @Nonnull
-    public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tierMachine, t -> tierMachine = t));
-    }
-
-    @Override
     public int getTierRecipes() {
         return 1;
     }
@@ -320,8 +298,7 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addProcessingSpecInfo(SPEC)
-            .addStaticSteamEffInfo(0.625f)
+            .addProcessingSpecInfo(getProcessingSpec())
             .addInfo(HIGH_PRESSURE_TOOLTIP_NOTICE)
             .beginStructureBlock(5, 7, 5, false)
             .addController("Front center, 2nd layer")
@@ -379,14 +356,12 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("tierMachine", tierMachine);
         aNBT.setInteger("tierMachineCasing", tierMachineCasing);
     }
 
     @Override
     public void loadNBTData(final NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        tierMachine = aNBT.getInteger("tierMachine");
         tierMachineCasing = aNBT.getInteger("tierMachineCasing");
     }
 

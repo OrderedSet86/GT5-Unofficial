@@ -1,7 +1,6 @@
 package gregtech.common.tileentities.machines.multi;
 
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlock;
-import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlocksTiered;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.transpose;
 import static gregtech.api.enums.GTAuthors.AuthorVolence;
@@ -15,15 +14,14 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_LATHE_A
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_LATHE_GLOW;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
+import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
-import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -33,9 +31,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -83,19 +78,13 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     private static final String STRUCTURE_PIECE_BODY_ALT = "body_alt";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.ITEM_PIPE_CASING)
-        .speed(4f)
-        .euModifier(0.8f)
+        .speed(4)
+        .euModifier(0.8)
         .build();
+    private static final StructureParameter.Of<MTEMultiLathe, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEMultiLathe::getPipeTier, MTEMultiLathe::setPipeTier);
 
     protected int pipeTier = -1;
-
-    // get tier from block meta
-    @Nullable
-    private static Integer getTierFromMeta(Block block, Integer metaID) {
-        if (block != GregTechAPI.sBlockCasings11) return null;
-        if (metaID < 0 || metaID > 7) return null;
-        return metaID + 1;
-    }
 
     private void setPipeTier(int tier) {
         pipeTier = tier;
@@ -130,23 +119,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
                 .buildAndChain(onElementPass(MTEMultiLathe::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings2, 0))))
         .addElement('B', ofBlock(GregTechAPI.sBlockCasings3, 10)) // Steel Casings
         .addElement('C', chainAllGlasses()) // Glass
-        .addElement(
-            'F',
-            GTStructureChannels.ITEM_PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEMultiLathe::getTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings11, 0),
-                        Pair.of(GregTechAPI.sBlockCasings11, 1),
-                        Pair.of(GregTechAPI.sBlockCasings11, 2),
-                        Pair.of(GregTechAPI.sBlockCasings11, 3),
-                        Pair.of(GregTechAPI.sBlockCasings11, 4),
-                        Pair.of(GregTechAPI.sBlockCasings11, 5),
-                        Pair.of(GregTechAPI.sBlockCasings11, 6),
-                        Pair.of(GregTechAPI.sBlockCasings11, 7)),
-                    -1,
-                    MTEMultiLathe::setPipeTier,
-                    MTEMultiLathe::getPipeTier)))
+        .addElement('F', chainItemPipeCasings(-1, ITEM_PIPE))
         .build();
 
     @Override
@@ -272,8 +245,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List
-            .of(new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getPipeTier, this::setPipeTier));
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

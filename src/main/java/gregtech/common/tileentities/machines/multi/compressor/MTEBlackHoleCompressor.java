@@ -96,9 +96,10 @@ public class MTEBlackHoleCompressor extends MTEExtendedPowerMultiBlockBase<MTEBl
     // Planners assume a stable black hole; the parallel grows as stability falls.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(PARALLEL_PER_TIER, TooltipTier.VOLTAGE)
-        .speed(5f)
-        .euModifier(0.7f)
+        .speed(5)
+        .euModifier(0.7)
         .bestCase(ProcessingSpec.Quantity.PARALLEL)
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEBlackHoleCompressor> STRUCTURE_DEFINITION = StructureDefinition

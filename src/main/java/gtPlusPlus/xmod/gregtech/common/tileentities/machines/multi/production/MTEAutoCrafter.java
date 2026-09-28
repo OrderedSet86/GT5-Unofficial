@@ -40,9 +40,9 @@ public class MTEAutoCrafter extends GTPPMultiBlockBase<MTEAutoCrafter> implement
     private int casing;
     private static IStructureDefinition<MTEAutoCrafter> STRUCTURE_DEFINITION = null;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> 2 * Math.max(1, in.voltageTier()), tt -> tt.addVoltageParallelInfo(2))
-        .speed(3f)
-        .euModifier(1f)
+        .parallelPerVoltageTier(2)
+        .speed(3)
+        .euModifier(1)
         .build();
 
     public MTEAutoCrafter(int aID, String aName, String aNameRegional) {

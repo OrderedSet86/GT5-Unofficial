@@ -16,8 +16,6 @@ import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.ofHatchAdder;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -33,8 +31,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.gtnewhorizon.structurelib.alignment.IAlignmentLimits;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -48,11 +44,11 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.IOutputHatch;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
@@ -62,7 +58,6 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -79,12 +74,23 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
 
     private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.distillationTowerRecipes)
+            .nameKey("GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode.0")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER),
+        MachineMode.of(RecipeMaps.distilleryRecipes)
+            .nameKey("GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode.1")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(
             in -> in.mode() == MACHINEMODE_TOWER ? DT_MODE_MAX_PARALLELS
-                : (int) (2 * Math.floor((in.tier(TooltipTier.LENGTH) + 1) / 3f)) * in.voltageTier())
-        .speedBonus(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1F / 2F : 1F / 3F)
-        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 0.15F : 1F)
+                : (int) (2 * Math.floor((in.tier(TooltipTier.LENGTH) + 1) / 3.0)) * in.voltageTier())
+        .durationMultiplier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1.0 / 2 : 1.0 / 3)
+        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 0.15 : 1)
+        .noTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER)
         .build();
 
     protected final List<List<MTEHatchOutput>> mOutputHatchesByLayer = new ArrayList<>();
@@ -317,23 +323,17 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(TooltipTier.LENGTH, 2, MAX_HEIGHT - 1, () -> mHeight, height -> mHeight = height));
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return (mode == MACHINEMODE_TOWER) ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(2, MAX_HEIGHT - 1)
+                .getter(() -> mHeight)
+                .setter(height -> mHeight = height)
+                .build());
     }
 
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.distilleryRecipes, RecipeMaps.distillationTowerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -455,20 +455,4 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
         tag.setString("mode", getMachineModeName());
     }
 
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode." + machineMode;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLING);
-    }
 }

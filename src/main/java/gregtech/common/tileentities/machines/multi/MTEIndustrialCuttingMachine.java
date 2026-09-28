@@ -103,7 +103,7 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
             SawbladeTiers sawblade = getSawbladeTier(in);
             return sawblade == null ? 0 : sawblade.parallelPerVoltageTier * in.voltageTier();
         })
-        .speedBonus(in -> {
+        .durationMultiplier(in -> {
             SawbladeTiers sawblade = getSawbladeTier(in);
             return sawblade == null ? 1D : sawblade.speedBoost;
         })
@@ -111,6 +111,10 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
             SawbladeTiers sawblade = getSawbladeTier(in);
             return sawblade == null ? 1D : sawblade.euModifier;
         })
+        .noTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER)
         .build();
     private int casingAmount;
     private boolean stopAllRendering;
@@ -124,20 +128,20 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
 
     public enum SawbladeTiers {
 
-        TungstenTitaniumCarbide(2, 2.5F, 0.9F, VoltageIndex.LuV, false),
-        MysteriousCrystal(3, 3.0F, 0.8F, VoltageIndex.UV, false),
-        Neutronium(4, 3.5F, 0.7F, VoltageIndex.UEV, false),
-        TranscendentMetal(6, 4.5F, 0.6F, Integer.MAX_VALUE, true);
+        TungstenTitaniumCarbide(2, 2.5, 0.9, VoltageIndex.LuV, false),
+        MysteriousCrystal(3, 3.0, 0.8, VoltageIndex.UV, false),
+        Neutronium(4, 3.5, 0.7, VoltageIndex.UEV, false),
+        TranscendentMetal(6, 4.5, 0.6, Integer.MAX_VALUE, true);
 
         final int parallelPerVoltageTier;
-        final float speedBoost, euModifier;
+        final double speedBoost, euModifier;
         final int maxAllowedEnergyHatchTier;
         final boolean supportsExotic;
 
-        SawbladeTiers(int parallelPerVoltageTier, float speedBoost, float euModifier, int maxAllowedEnergyHatchTier,
+        SawbladeTiers(int parallelPerVoltageTier, double speedBoost, double euModifier, int maxAllowedEnergyHatchTier,
             boolean supportsExotic) {
             this.parallelPerVoltageTier = parallelPerVoltageTier;
-            this.speedBoost = 1F / speedBoost;
+            this.speedBoost = 1.0 / speedBoost;
             this.euModifier = euModifier;
             this.maxAllowedEnergyHatchTier = maxAllowedEnergyHatchTier;
             this.supportsExotic = supportsExotic;
@@ -153,8 +157,8 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
                 "gt.sawblade.tooltip.base",
                 hatchTierLimit,
                 sawblade.parallelPerVoltageTier,
-                Math.round(1F / sawblade.speedBoost * 100),
-                Math.round(sawblade.euModifier * 100));
+                Math.round(1F / (float) sawblade.speedBoost * 100),
+                Math.round((float) sawblade.euModifier * 100));
 
             if (sawblade.supportsExotic) {
                 tooltip = tooltip + "\\n" + StatCollector.translateToLocal("gt.sawblade.tooltip.exotic");
@@ -366,20 +370,19 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         return sawbladeTier == null ? -1 : sawbladeTier.ordinal();
     }
 
-    private void setSawbladeTierIndex(int sawbladeTierIndex) {
-        mInventory[getControllerSlotIndex()] = getSawbladeItem(SawbladeTiers.values()[sawbladeTierIndex]).get(1);
+    private void setSawbladeTier(SawbladeTiers sawbladeTier) {
+        mInventory[getControllerSlotIndex()] = getSawbladeItem(sawbladeTier).get(1);
     }
 
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(
+            StructureParameter.ofEnum(
                 TooltipTier.SAWBLADE,
-                0,
-                SawbladeTiers.values().length - 1,
-                this::getSawbladeTierIndex,
-                this::setSawbladeTierIndex));
+                SawbladeTiers.values(),
+                () -> getSawbladeTier(getControllerSlot()),
+                this::setSawbladeTier));
     }
 
     public static boolean isValidSawblade(ItemStack stack) {

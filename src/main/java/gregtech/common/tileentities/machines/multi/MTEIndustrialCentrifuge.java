@@ -77,16 +77,17 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Z = 1;
 
     private static final int BASE_PARALLEL_PER_TIER = 4;
-    private static final float SPEED = 2f;
-    private static final float EXTRA_SPEED = 1f;
-    private static final float MAX_SPEED = SPEED + EXTRA_SPEED;
+    private static final double SPEED = 2;
+    private static final double EXTRA_SPEED = 1;
+    private static final double MAX_SPEED = SPEED + EXTRA_SPEED;
     private static final int MAX_MOMENTUM = 100;
     // Planners assume full momentum, which the machine builds up while it runs.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(in -> parallelAt(in.voltageTier(), MAX_MOMENTUM))
-        .speedBonus(in -> speedBonusAt(MAX_MOMENTUM))
-        .euModifier(0.9f)
-        .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.SPEED_BONUS)
+        .durationMultiplier(in -> speedBonusAt(MAX_MOMENTUM))
+        .euModifier(0.9)
+        .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
+        .noTooltip(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
         .build();
 
     private int momentum = 0;
@@ -190,7 +191,8 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
                     + " Parallels per "
                     + TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR)
                     + " Tier")
-            .addInfo(TooltipHelper.speedText(SPEED) + " - " + TooltipHelper.speedText(MAX_SPEED) + " Speed")
+            .addInfo(
+                TooltipHelper.speedText((float) SPEED) + " - " + TooltipHelper.speedText((float) MAX_SPEED) + " Speed")
             .addInfo(
                 TooltipHelper.coloredText("Parallels", TooltipHelper.PARALLEL_COLOR) + " and "
                     + TooltipHelper.coloredText("Speed", TooltipHelper.SPEED_COLOR)
@@ -239,7 +241,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     }
 
     private static double speedBonusAt(int momentum) {
-        return 1D / (SPEED + EXTRA_SPEED * momentum / MAX_MOMENTUM);
+        return 1.0 / (SPEED + EXTRA_SPEED * momentum / MAX_MOMENTUM);
     }
 
     @Override

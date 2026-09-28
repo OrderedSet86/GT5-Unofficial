@@ -6,6 +6,11 @@ import javax.annotation.Nonnull;
 
 public class OverclockCalculator {
 
+    /** How many voltage tiers above the machine's a recipe may be, unless set. */
+    public static final int DEFAULT_MAX_TIER_SKIPS = 1;
+    /** The EU/t multiplier per 900K of heat headroom, unless set. */
+    public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
+
     // Basic properties
     /** EUt the recipe originally runs at */
     protected long recipeEUt = 0;
@@ -20,7 +25,7 @@ public class OverclockCalculator {
     /** The parallel the machine has when trying to overclock */
     protected int parallel = 1;
     /** The max amount of tiers above the machine voltage a recipe is valid */
-    protected int maxTierSkip = 1;
+    protected int maxTierSkip = DEFAULT_MAX_TIER_SKIPS;
 
     // Modifiers
     /** Energy modifier that is applied at the start of calculating overclocks, like GT++ machines */
@@ -60,7 +65,7 @@ public class OverclockCalculator {
     /** Whether to enable heat discounts every 900 heat difference */
     protected boolean heatDiscount;
     /** The value used for discount final eut per 900 heat */
-    protected double heatDiscountExponent = 0.95;
+    protected double heatDiscountExponent = DEFAULT_HEAT_DISCOUNT_MULTIPLIER;
 
     // Results
     /** variable to check whether the overclocks have been calculated */

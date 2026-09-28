@@ -63,7 +63,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -83,13 +82,13 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     private static IStructureDefinition<MTEAdvEBF> STRUCTURE_DEFINITION = null;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(8)
-        .speed(2.2f)
-        .euModifier(0.9f)
-        .heatOverclock(
-            in -> (int) HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
-                .getHeat())
-        .heatDiscount()
+        .speed(2.2)
+        .euModifier(0.9)
+        .heat(ProcessingSpec.COIL_HEAT, ProcessingSpec.HeatRule.OVERCLOCK, ProcessingSpec.HeatRule.DISCOUNT)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
+    private static final StructureParameter.Of<MTEAdvEBF, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEAdvEBF::getCoilLevel, MTEAdvEBF::setCoilLevel);
     private int mCasing;
 
     private HeatingCoilLevel mHeatingCapacity = HeatingCoilLevel.None;
@@ -184,10 +183,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
                             .hint(1)
                             .build(),
                         onElementPass(x -> ++x.mCasing, ofBlock(ModBlocks.blockCasings3Misc, 11))))
-                .addElement(
-                    'H',
-                    GTStructureChannels.HEATING_COIL
-                        .use(activeCoils(ofCoil(MTEAdvEBF::setCoilLevel, MTEAdvEBF::getCoilLevel))))
+                .addElement('H', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
                 .build();
         }
         return STRUCTURE_DEFINITION;
@@ -227,7 +223,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override
@@ -272,9 +268,10 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                return recipe.mSpecialValue <= SPEC.getMachineHeat(getProcessingSpecInputs())
-                    ? CheckRecipeResultRegistry.SUCCESSFUL
-                    : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
+                return recipe.mSpecialValue <= SPEC.getHeat()
+                    .get()
+                    .getMachineHeat(getCurrentProcessingSpecInputs()) ? CheckRecipeResultRegistry.SUCCESSFUL
+                        : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
         };
     }
@@ -359,7 +356,11 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
-        tag.setInteger("heatingCapacity", SPEC.getMachineHeat(getProcessingSpecInputs()));
+        tag.setInteger(
+            "heatingCapacity",
+            SPEC.getHeat()
+                .get()
+                .getMachineHeat(getCurrentProcessingSpecInputs()));
     }
 
     @Override

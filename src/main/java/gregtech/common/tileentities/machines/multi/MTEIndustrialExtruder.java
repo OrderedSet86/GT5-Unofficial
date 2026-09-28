@@ -55,8 +55,8 @@ public class MTEIndustrialExtruder extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Z = 0;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(6, TooltipTier.VOLTAGE)
-        .speed(3.5f)
-        .euModifier(1f)
+        .speed(3.5)
+        .euModifier(1)
         .build();
 
     private int casingAmount;

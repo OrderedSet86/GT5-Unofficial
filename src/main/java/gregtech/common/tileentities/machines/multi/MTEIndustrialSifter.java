@@ -53,8 +53,8 @@ public class MTEIndustrialSifter extends MTEExtendedPowerMultiBlockBase<MTEIndus
     private static final int OFFSET_Z = 0;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .speed(5F)
-        .euModifier(0.75F)
+        .speed(5)
+        .euModifier(0.75)
         .build();
     private int casingAmount;
     private static IStructureDefinition<MTEIndustrialSifter> STRUCTURE_DEFINITION = null;

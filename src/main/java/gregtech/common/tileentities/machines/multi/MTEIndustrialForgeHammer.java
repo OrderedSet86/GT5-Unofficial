@@ -43,7 +43,6 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -57,12 +56,12 @@ public class MTEIndustrialForgeHammer extends MTEExtendedPowerMultiBlockBase<MTE
     private static final int OFFSET_Y = 7;
     private static final int OFFSET_Z = 1;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> 6 * in.tier(TooltipTier.SOLENOID) * in.voltageTier(),
-            tt -> tt.addInfo(TooltipHelper.parallelText("Voltage Tier * Solenoid Tier * 6") + " Parallels"))
-        .speed(2f)
-        .euModifier(1f)
+        .parallelPerTier(6, TooltipTier.VOLTAGE, TooltipTier.SOLENOID)
+        .speed(2)
+        .euModifier(1)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialForgeHammer, Byte> SOLENOID = StructureParameter
+        .solenoid(MTEIndustrialForgeHammer::getSolenoidLevel, MTEIndustrialForgeHammer::setSolenoidLevel);
 
     private Byte solenoidLevel = null;
     private int casingAmount;
@@ -119,12 +118,7 @@ public class MTEIndustrialForgeHammer extends MTEExtendedPowerMultiBlockBase<MTE
                         { "  D  ", " DDD ", " DAD ", "DDADD", "D A D", "D B D", "D   D", "DCBCD", "DCCCD" },
                         { "     ", "  E  ", " EEE ", "     ", "     ", "     ", "     ", " CCC ", "CCCCC" },
                         { "     ", "     ", "     ", "     ", "     ", "     ", "     ", "     ", " CCC " } })
-                .addElement(
-                    'A',
-                    GTStructureChannels.SOLENOID.use(
-                        ofSolenoidCoil(
-                            MTEIndustrialForgeHammer::setSolenoidLevel,
-                            MTEIndustrialForgeHammer::getSolenoidLevel)))
+                .addElement('A', GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID)))
                 .addElement('B', Casings.RefinedGraphiteBlock.asElement())
                 .addElement(
                     'C',
@@ -229,7 +223,7 @@ public class MTEIndustrialForgeHammer extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.solenoid(this::getSolenoidLevel, this::setSolenoidLevel));
+        return List.of(SOLENOID.of(this));
     }
 
     @Override

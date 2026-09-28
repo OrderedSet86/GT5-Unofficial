@@ -68,8 +68,8 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final int PARALLEL_PER_TIER = 4;
-    private static final float SPEED = 3.5F;
-    private static final float EU_MODIFIER = 0.75F;
+    private static final double SPEED = 3.5;
+    private static final double EU_MODIFIER = 0.75;
     // Planners assume the unit is not overheated.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(PARALLEL_PER_TIER, TooltipTier.VOLTAGE)
@@ -77,7 +77,7 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
         .euModifier(EU_MODIFIER)
         .bestCase(
             ProcessingSpec.Quantity.PARALLEL,
-            ProcessingSpec.Quantity.SPEED_BONUS,
+            ProcessingSpec.Quantity.DURATION,
             ProcessingSpec.Quantity.EU_MODIFIER)
         .build();
     private static final IStructureDefinition<MTEHIPCompressor> STRUCTURE_DEFINITION = StructureDefinition
@@ -352,7 +352,7 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                setSpeedBonus(1F / SPEED);
+                setSpeedBonus(1 / SPEED);
                 setEuModifier(EU_MODIFIER);
 
                 // Nerf when heated

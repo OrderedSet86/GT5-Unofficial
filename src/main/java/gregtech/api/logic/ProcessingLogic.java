@@ -23,6 +23,7 @@ import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SingleRecipeCheck;
 import gregtech.api.util.GTRecipe;
+import gregtech.api.util.GTUtility;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 import gregtech.common.tileentities.machines.IDualInputInventoryWithPattern;
@@ -297,27 +298,46 @@ public class ProcessingLogic {
     /**
      * Runs recipes with whatever the spec sets: max parallel, speed, EU modifier, overclocks, tier skips and heat.
      *
-     * @param inputs      Read at every recipe check
-     * @param maxParallel Used if the spec sets a parallel, which the machine may limit further
+     * @param inputs Read at every recipe check
      */
-    public ProcessingLogic applySpec(@Nonnull ProcessingSpec spec, @Nonnull Supplier<ProcessingSpec.Inputs> inputs,
-        @Nonnull Supplier<Integer> maxParallel) {
+    public ProcessingLogic applySpec(@Nonnull ProcessingSpec spec, @Nonnull Supplier<ProcessingSpec.Inputs> inputs) {
+        return applySpec(spec, inputs, false);
+    }
+
+    /**
+     * For external tools such as factory planners: as {@link #applySpec}, with the spec's best-case numbers as well,
+     * since a planner assumes the machine runs at its best.
+     */
+    public ProcessingLogic applySpecForInspection(@Nonnull ProcessingSpec spec,
+        @Nonnull Supplier<ProcessingSpec.Inputs> inputs) {
+        return applySpec(spec, inputs, true);
+    }
+
+    private ProcessingLogic applySpec(ProcessingSpec spec, Supplier<ProcessingSpec.Inputs> inputs, boolean bestCase) {
         this.spec = spec;
         this.specInputs = inputs;
-        if (applies(spec, ProcessingSpec.Quantity.PARALLEL)) setMaxParallelSupplier(maxParallel);
-        if (applies(spec, ProcessingSpec.Quantity.SPEED_BONUS)) {
-            setSpeedBonusSupplier(() -> spec.getSpeedBonus(inputs.get()));
+        if (applies(spec, ProcessingSpec.Quantity.PARALLEL, bestCase)) {
+            setMaxParallelSupplier(() -> spec.getMaxParallel(inputs.get()));
         }
-        if (applies(spec, ProcessingSpec.Quantity.EU_MODIFIER)) {
+        if (applies(spec, ProcessingSpec.Quantity.DURATION, bestCase)) {
+            setSpeedBonusSupplier(() -> spec.getDurationMultiplier(inputs.get()));
+        }
+        if (applies(spec, ProcessingSpec.Quantity.EU_MODIFIER, bestCase)) {
             setEuModifierSupplier(() -> spec.getEuModifier(inputs.get()));
         }
-        if (spec.overclockSet) setOverclock(spec.getOverclockTimeReduction(), spec.getOverclockPowerIncrease());
-        if (spec.maxTierSkips.isPresent()) setMaxTierSkips(spec.getMaxTierSkips());
+        spec.getOverclock()
+            .ifPresent(rule -> {
+                if (rule instanceof ProcessingSpec.OverclockRule.Ratio ratio) {
+                    setOverclock(ratio.durationDivisor(), ratio.euMultiplier());
+                }
+            });
+        spec.getMaxTierSkips()
+            .ifPresent(this::setMaxTierSkips);
         return this;
     }
 
-    private static boolean applies(ProcessingSpec spec, ProcessingSpec.Quantity quantity) {
-        return spec.sets(quantity) && !spec.isBestCase(quantity);
+    private static boolean applies(ProcessingSpec spec, ProcessingSpec.Quantity quantity, boolean bestCase) {
+        return bestCase ? spec.sets(quantity) : spec.appliesAtRuntime(quantity);
     }
 
     /**
@@ -612,11 +632,12 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-        double energyCost = spec == null ? 1 : spec.getEnergyCost(specInputs.get());
+        double euModifierNotLimitingParallel = spec == null ? 1
+            : spec.getEuModifierNotLimitingParallel(specInputs.get());
         if (spec != null && spec.isNoOverclock()) {
             return OverclockCalculator.ofNoOverclock(recipe)
                 .setDurationModifier(speedBoost)
-                .setEUtDiscount(euModifier * energyCost);
+                .setEUtDiscount(euModifier * euModifierNotLimitingParallel);
         }
         OverclockCalculator calculator = new OverclockCalculator().setRecipeEUt(recipe.mEUt)
             .setAmperage(availableAmperage)
@@ -624,16 +645,16 @@ public class ProcessingLogic {
             .setMaxTierSkips(maxTierSkips)
             .setDuration(recipe.mDuration)
             .setDurationModifier(speedBoost)
-            .setEUtDiscount(euModifier * energyCost)
+            .setEUtDiscount(euModifier * euModifierNotLimitingParallel)
             .setAmperageOC(amperageOC)
             .setDurationDecreasePerOC(overClockTimeReduction)
             .setEUtIncreasePerOC(overClockPowerIncrease);
-        if (spec != null && (spec.isHeatOverclock() || spec.isHeatDiscount())) {
-            calculator.setMachineHeat(spec.getMachineHeat(specInputs.get()))
-                .setRecipeHeat(spec.getRecipeHeat(recipe))
-                .setHeatOC(spec.isHeatOverclock())
-                .setHeatDiscount(spec.isHeatDiscount());
-        }
+        if (spec != null) spec.getHeat()
+            .ifPresent(
+                heat -> calculator.setMachineHeat(heat.getMachineHeat(specInputs.get()))
+                    .setRecipeHeat(heat.getRecipeHeat(recipe))
+                    .setHeatOC(heat.overclocks())
+                    .setHeatDiscount(heat.discounts()));
         return calculator;
     }
 
@@ -648,6 +669,42 @@ public class ProcessingLogic {
     public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
         resolveModifierSuppliers();
         return createOverclockCalculator(recipe);
+    }
+
+    /**
+     * For external tools such as factory planners: what this logic does with one recipe, given unlimited inputs and
+     * output space. Runs the same parallel and overclock calculation as {@link #process()}, without a machine.
+     */
+    @Nonnull
+    public final ProcessingSpec.Run calculateForInspection(@Nonnull GTRecipe recipe) {
+        resolveModifierSuppliers();
+        GTRecipe run = recipe;
+        if (spec != null && spec.getRecipeOverride()
+            .isPresent()) {
+            ProcessingSpec.RecipeOverride override = spec.getRecipeOverride()
+                .get();
+            run = recipe.copy();
+            run.mEUt = GTUtility.safeInt(override.eut(), 0);
+            run.mDuration = override.duration();
+        }
+        OverclockCalculator calculator = createOverclockCalculator(run);
+        ParallelHelper helper = new ParallelHelper().setRecipe(run)
+            .setAvailableEUt(availableVoltage * availableAmperage)
+            .setMaxParallel(maxParallel)
+            .setEUtModifier(euModifier)
+            .setCalculator(calculator)
+            .setConsumption(false)
+            .setMaxParallelCalculator((r, max, fluids, items) -> max)
+            .setInputConsumer((r, amount, fluids, items) -> {})
+            .build();
+        if (!helper.getResult()
+            .wasSuccessful()) return new ProcessingSpec.Run(helper.getResult(), 0, 0, 0, 0);
+        return new ProcessingSpec.Run(
+            helper.getResult(),
+            helper.getCurrentParallel(),
+            calculator.getPerformedOverclocks(),
+            calculator.getDuration(),
+            calculator.getConsumption());
     }
 
     /**

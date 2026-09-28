@@ -168,7 +168,13 @@ public class MTEIndustrialCokeOvenLegacy extends GTPPMultiBlockBase<MTEIndustria
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(new StructureParameter(TooltipTier.STRUCTURE, 1, 2, () -> tier, value -> tier = value));
+        return List.of(
+            StructureParameter.builder(TooltipTier.STRUCTURE)
+                .between(1, 2)
+                .labels("Heat Resistant Casing", "Heat Proof Casing")
+                .getter(() -> tier)
+                .setter(value -> tier = value)
+                .build());
     }
 
     @Override

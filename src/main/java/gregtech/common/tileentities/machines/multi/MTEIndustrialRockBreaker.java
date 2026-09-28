@@ -66,8 +66,8 @@ public class MTEIndustrialRockBreaker extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .speedBonus(in -> 1 / 3.0, tt -> tt.addStaticSpeedInfo(3f))
-        .euModifier(0.75f)
+        .speed(3)
+        .euModifier(0.75)
         .build();
 
     private int casingAmount;

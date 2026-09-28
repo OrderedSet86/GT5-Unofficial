@@ -62,7 +62,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -71,11 +70,14 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .heatOverclock(
-            in -> (int) HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
-                .getHeat() + 100 * (in.voltageTier() - 2))
-        .heatDiscount()
+        .heat(
+            in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) + 100 * (in.voltageTier() - 2),
+            ProcessingSpec.HeatRule.OVERCLOCK,
+            ProcessingSpec.HeatRule.DISCOUNT)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
+    private static final StructureParameter.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEElectricBlastFurnace::getCoilLevel, MTEElectricBlastFurnace::setCoilLevel);
 
     private int mHeatingCapacity = 0;
 
@@ -95,10 +97,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
                 .hint(3)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEElectricBlastFurnace::setCoilLevel, MTEElectricBlastFurnace::getCoilLevel))))
+        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement(
             'b',
             buildHatchAdder(MTEElectricBlastFurnace.class)
@@ -238,7 +237,9 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     }
 
     private void updateHeatingCapacity() {
-        this.mHeatingCapacity = SPEC.getMachineHeat(getProcessingSpecInputs());
+        this.mHeatingCapacity = SPEC.getHeat()
+            .get()
+            .getMachineHeat(getCurrentProcessingSpecInputs());
     }
 
     @Override
@@ -249,10 +250,9 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
-            setCoilLevel(coil);
-            updateHeatingCapacity();
-        }));
+        return List.of(
+            COIL.derivingAfterSet(MTEElectricBlastFurnace::updateHeatingCapacity)
+                .of(this));
     }
 
     @Override

@@ -34,6 +34,11 @@ public enum TooltipTier {
         this.key = key;
     }
 
+    /** The kind's name without formatting, such as "Voltage". */
+    public String getName() {
+        return StatCollector.translateToLocal(this.key);
+    }
+
     public String getValue() {
         return TooltipHelper.tierText(StatCollector.translateToLocal(this.key));
     }

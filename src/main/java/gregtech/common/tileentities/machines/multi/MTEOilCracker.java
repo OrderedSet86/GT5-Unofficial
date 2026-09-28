@@ -55,7 +55,6 @@ import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.IRecipeProcessingAwareHatch;
@@ -67,11 +66,11 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
     private static final byte CASING_INDEX = 49;
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .euModifier(
-            in -> 1.0F - Math.min(0.1F * (in.tier(TooltipTier.COIL) + 1), 0.5F),
-            tt -> tt.addDynamicEuEffInfo(0.1f, TooltipTier.COIL)
-                .addInfo("Maximum of " + TooltipHelper.effText(0.5f) + " EU discount"))
+        .euDiscountPerTier(0.1, TooltipTier.COIL)
+        .maxEuDiscount(0.5)
         .build();
+    private static final StructureParameter.Of<MTEOilCracker, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEOilCracker::getCoilLevel, MTEOilCracker::setCoilLevel);
     private static final IStructureDefinition<MTEOilCracker> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEOilCracker>builder()
         .addShape(
@@ -79,10 +78,7 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
             transpose(
                 new String[][] { { "lcmcr", "lcmcr", "lcmcr" }, { "lc~cr", "l---r", "lcmcr" },
                     { "lcmcr", "lcmcr", "lcmcr" }, }))
-        .addElement(
-            'c',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEOilCracker::setCoilLevel, MTEOilCracker::getCoilLevel))))
+        .addElement('c', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement(
             'l',
             buildHatchAdder(MTEOilCracker.class)
@@ -295,7 +291,7 @@ public class MTEOilCracker extends MTEEnhancedMultiBlockBase<MTEOilCracker>
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override

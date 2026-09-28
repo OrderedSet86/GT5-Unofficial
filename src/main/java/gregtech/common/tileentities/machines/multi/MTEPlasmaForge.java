@@ -97,6 +97,7 @@ public class MTEPlasmaForge extends MTEExtendedPowerMultiBlockBase<MTEPlasmaForg
     private static final int DISCOUNT_BITMAP = 0b10;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
 
     // Valid fuels which the discount will get applied to.

@@ -56,6 +56,8 @@ public class MTEPyrolyseOvenLegacy extends MTEEnhancedMultiBlockBase<MTEPyrolyse
 
     private HeatingCoilLevel coilHeat;
     private static final int CASING_INDEX = 1090;
+    private static final StructureParameter.Of<MTEPyrolyseOvenLegacy, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEPyrolyseOvenLegacy::getCoilLevel, MTEPyrolyseOvenLegacy::setCoilLevel);
     private static final IStructureDefinition<MTEPyrolyseOvenLegacy> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEPyrolyseOvenLegacy>builder()
         .addShape(
@@ -65,10 +67,7 @@ public class MTEPyrolyseOvenLegacy extends MTEEnhancedMultiBlockBase<MTEPyrolyse
                     { "ccccc", "c---c", "c---c", "c---c", "ccccc" }, { "ccccc", "c---c", "c---c", "c---c", "ccccc" },
                     { "bb~bb", "bCCCb", "bCCCb", "bCCCb", "bbbbb" }, }))
         .addElement('c', onElementPass(MTEPyrolyseOvenLegacy::onCasingAdded, ofBlock(GregTechAPI.sBlockCasingsNH, 2)))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEPyrolyseOvenLegacy::setCoilLevel, MTEPyrolyseOvenLegacy::getCoilLevel))))
+        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement(
             'b',
             buildHatchAdder(MTEPyrolyseOvenLegacy.class).atLeast(OutputBus, OutputHatch, Energy, Maintenance)
@@ -190,7 +189,7 @@ public class MTEPyrolyseOvenLegacy extends MTEEnhancedMultiBlockBase<MTEPyrolyse
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override

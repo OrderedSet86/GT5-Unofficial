@@ -70,8 +70,8 @@ public class MTEIndustrialChisel extends MTEExtendedPowerMultiBlockBase<MTEIndus
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(16, TooltipTier.VOLTAGE)
-        .speed(3f)
-        .euModifier(0.75f)
+        .speed(3)
+        .euModifier(0.75)
         .build();
     private static IStructureDefinition<MTEIndustrialChisel> STRUCTURE_DEFINITION = null;
     private static ResourceLocation sChiselSound = null;

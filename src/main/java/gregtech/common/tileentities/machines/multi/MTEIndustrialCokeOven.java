@@ -76,7 +76,7 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int MAX_LENGTH = 16;
     private static final int HEAT_RESISTANT_TIER = 0;
     private static final int HEAT_PROOF_TIER = 1;
-    private static final float EU_MODIFIER = 0.98f;
+    private static final double EU_MODIFIER = 0.98;
     private static final int PARALLELS_T1 = 16;
     private static final int PARALLELS_T2 = 32;
     private static final int SLICE_PARALLELS_T1 = 8;
@@ -87,7 +87,9 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
             int base = heatResistant ? PARALLELS_T1 : PARALLELS_T2;
             int perSlice = heatResistant ? SLICE_PARALLELS_T1 : SLICE_PARALLELS_T2;
             return base + in.tier(TooltipTier.LENGTH) * perSlice;
-        },
+        })
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt
                 .addInfo(
                     TooltipHelper.parallelText(PARALLELS_T1) + " base and +"
@@ -97,8 +99,9 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                     TooltipHelper.parallelText(PARALLELS_T2) + " base and +"
                         + TooltipHelper.parallelText(SLICE_PARALLELS_T2)
                         + " Parallels per extra slice with Heat Proof Casing"))
-        .euModifier(
-            in -> euModifier(in.tier(TooltipTier.COIL) + 1),
+        .euModifier(in -> euModifier(in.tier(TooltipTier.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.EU_MODIFIER,
             tt -> tt.addInfo(
                 EnumChatFormatting.AQUA + "-2% "
                     + EnumChatFormatting.GRAY
@@ -108,6 +111,10 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                     + EnumChatFormatting.GRAY
                     + " Tier (multiplicatively)"))
         .build();
+    private static final StructureParameter.Of<MTEIndustrialCokeOven, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialCokeOven::getCoilLevel, MTEIndustrialCokeOven::setCoilLevel);
+    private static final StructureParameter.Of<MTEIndustrialCokeOven, Integer> CASING = StructureParameter
+        .tiered(TooltipTier.STRUCTURE, HEAT_RESISTANT_TIER, HEAT_PROOF_TIER, t -> t.tier, (t, value) -> t.tier = value);
 
     private static final int OFFSET_X_MAIN = 1;
     private static final int OFFSET_Y_MAIN = 5;
@@ -203,10 +210,7 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                     .hint(1)
                     .buildAndChain(onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement())))
             .addElement('A', Casings.SteelPipeCasing.asElement())
-            .addElement(
-                'B',
-                GTStructureChannels.HEATING_COIL
-                    .use(activeCoils(ofCoil(MTEIndustrialCokeOven::setCoilLevel, MTEIndustrialCokeOven::getCoilLevel))))
+            .addElement('B', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
             .addElement('C', ofFrame(Materials.Steel))
             .addElement(
                 'E',
@@ -218,8 +222,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                         ImmutableList
                             .of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
                         -1,
-                        (t, tier1) -> t.tier = tier1,
-                        t -> t.tier)))
+                        CASING.setter(),
+                        CASING.getter())))
             .addElement('F', onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement()))
             .build();
     }
@@ -338,14 +342,13 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            StructureParameter.coil(this::getCoilLevel, this::setCoilLevel),
-            new StructureParameter(
-                TooltipTier.STRUCTURE,
-                HEAT_RESISTANT_TIER,
-                HEAT_PROOF_TIER,
-                () -> tier,
-                t -> tier = t),
-            new StructureParameter(TooltipTier.LENGTH, 0, MAX_LENGTH - 1, () -> width, w -> width = w));
+            COIL.of(this),
+            CASING.of(this),
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(0, MAX_LENGTH - 1)
+                .getter(() -> width)
+                .setter(w -> width = w)
+                .build());
     }
 
     @Override

@@ -43,8 +43,8 @@ public class MTEIndustrialFluidHeater extends GTPPMultiBlockBase<MTEIndustrialFl
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .speed(2.2f)
-        .euModifier(0.9f)
+        .speed(2.2)
+        .euModifier(0.9)
         .build();
 
     private int mCasing1;

@@ -95,6 +95,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     public static final int M = 1_000_000;
     protected static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     public GTRecipe lastRecipe;
     public int para;

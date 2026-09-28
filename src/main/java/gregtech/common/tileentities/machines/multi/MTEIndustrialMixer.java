@@ -66,16 +66,19 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     private static final int OFFSET_Y = 5;
     private static final int OFFSET_Z = 0;
 
-    private static final float SPEED_INCREASE_TIER = 1f;
-    private static final float SPEED_BASIC = 1f;
+    private static final double SPEED_INCREASE_TIER = 1;
+    private static final double SPEED_BASIC = 1;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .speedBonus(
-            in -> 1F / (SPEED_INCREASE_TIER + (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)),
-            tt -> tt.addStaticSpeedInfo(SPEED_BASIC)
-                .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
-        .euModifier(1f)
+        .durationMultiplier(in -> 1.0 / (SPEED_INCREASE_TIER + (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)))
+        .customTooltip(
+            ProcessingSpec.Quantity.DURATION,
+            tt -> tt.addStaticSpeedInfo((float) SPEED_BASIC)
+                .addDynamicSpeedBonusInfo((float) SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .euModifier(1)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialMixer, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEIndustrialMixer::getItemPipeTier, MTEIndustrialMixer::setItemPipeTier);
 
     private int glassTier = -1;
 
@@ -142,9 +145,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
                     }})
                 //spotless:on
                 .addElement('A', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
-                .addElement(
-                    'B',
-                    chainItemPipeCasings(-1, MTEIndustrialMixer::setItemPipeTier, MTEIndustrialMixer::getItemPipeTier))
+                .addElement('B', chainItemPipeCasings(-1, ITEM_PIPE))
                 .addElement('C', Casings.TitaniumTurbineCasing.asElement())
                 .addElement('D', ofSheetMetal(Materials.Tungsten))
                 .addElement(
@@ -247,8 +248,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(
-            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier));
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

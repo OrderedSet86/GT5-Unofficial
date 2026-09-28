@@ -43,11 +43,10 @@ import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMult
 public class MTENuclearSaltProcessingPlant extends GTPPMultiBlockBase<MTENuclearSaltProcessingPlant>
     implements ISurvivalConstructable {
 
-    private static final int BASE_PARALLEL = 2;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> BASE_PARALLEL * Math.max(1, in.voltageTier()), tt -> tt.addVoltageParallelInfo(BASE_PARALLEL))
-        .speed(2.5f)
-        .euModifier(1f)
+        .parallelPerVoltageTier(2)
+        .speed(2.5)
+        .euModifier(1)
         .build();
 
     private int casing;

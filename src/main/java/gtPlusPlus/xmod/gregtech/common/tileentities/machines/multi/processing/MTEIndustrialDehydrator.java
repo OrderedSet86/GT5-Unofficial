@@ -14,8 +14,6 @@ import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.ofCoil;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -43,10 +41,10 @@ import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -57,8 +55,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -75,15 +71,24 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
     private static IStructureDefinition<MTEIndustrialDehydrator> STRUCTURE_DEFINITION = null;
     private static final int MACHINEMODE_VACUUMFURNACE = 0;
     private static final int MACHINEMODE_DEHYDRATOR = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.vacuumFurnaceRecipes)
+            .nameKey("GT5U.GTPP_MULTI_INDUSTRIAL_DEHYDRATOR.mode.0")
+            .icon(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_STEAM, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM),
+        MachineMode.of(RecipeMaps.chemicalDehydratorNonCellRecipes)
+            .nameKey("GT5U.GTPP_MULTI_INDUSTRIAL_DEHYDRATOR.mode.1")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(4)
-        .speed(2.2f)
-        .euModifier(0.5f)
-        .heatOverclock(
-            in -> (int) HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
-                .getHeat())
-        .heatDiscount()
+        .speed(2.2)
+        .euModifier(0.5)
+        .heat(ProcessingSpec.COIL_HEAT, ProcessingSpec.HeatRule.OVERCLOCK, ProcessingSpec.HeatRule.DISCOUNT)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialDehydrator, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialDehydrator::getCoilLevel, MTEIndustrialDehydrator::setCoilLevel);
 
     public MTEIndustrialDehydrator(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -159,11 +164,7 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
                         .casingIndex(CASING_TEXTURE_ID)
                         .hint(1)
                         .buildAndChain(onElementPass(x -> ++x.mCasing, ofBlock(ModBlocks.blockCasings4Misc, 10))))
-                .addElement(
-                    'H',
-                    GTStructureChannels.HEATING_COIL.use(
-                        activeCoils(
-                            ofCoil(MTEIndustrialDehydrator::setCoilLevel, MTEIndustrialDehydrator::getCoilLevel))))
+                .addElement('H', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
                 .build();
         }
         return STRUCTURE_DEFINITION;
@@ -198,7 +199,7 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override
@@ -226,21 +227,10 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
         return CASING_TEXTURE_ID;
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return (mode == MACHINEMODE_VACUUMFURNACE) ? RecipeMaps.vacuumFurnaceRecipes
-            : RecipeMaps.chemicalDehydratorNonCellRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.chemicalDehydratorNonCellRecipes, RecipeMaps.vacuumFurnaceRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -260,9 +250,10 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                return recipe.mSpecialValue <= SPEC.getMachineHeat(getProcessingSpecInputs())
-                    ? CheckRecipeResultRegistry.SUCCESSFUL
-                    : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
+                return recipe.mSpecialValue <= SPEC.getHeat()
+                    .get()
+                    .getMachineHeat(getCurrentProcessingSpecInputs()) ? CheckRecipeResultRegistry.SUCCESSFUL
+                        : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
         }.noRecipeCaching();
     }
@@ -277,22 +268,6 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
         setMachineMode(nextMachineMode());
         GTUtility
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_STEAM);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_INDUSTRIAL_DEHYDRATOR.mode." + machineMode;
     }
 
     @Override
@@ -316,12 +291,5 @@ public class MTEIndustrialDehydrator extends GTPPMultiBlockBase<MTEIndustrialDeh
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
         tag.setString("mode", getMachineModeName());
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
     }
 }

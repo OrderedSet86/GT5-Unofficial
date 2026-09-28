@@ -54,14 +54,17 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 0;
 
-    private static final float SPEED_INCREASE_TIER = 0.5f;
+    private static final double SPEED_INCREASE_TIER = 0.5;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .speedBonus(
-            in -> 1F / (SPEED_INCREASE_TIER * in.tier(TooltipTier.ITEM_PIPE_CASING)),
-            tt -> tt.addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
-        .euModifier(0.75f)
+        .durationMultiplier(in -> 1.0 / (SPEED_INCREASE_TIER * in.tier(TooltipTier.ITEM_PIPE_CASING)))
+        .customTooltip(
+            ProcessingSpec.Quantity.DURATION,
+            tt -> tt.addDynamicSpeedBonusInfo((float) SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .euModifier(0.75)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialWireMill, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEIndustrialWireMill::getItemPipeTier, MTEIndustrialWireMill::setItemPipeTier);
 
     public MTEIndustrialWireMill(final int aID, final String aName, final String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -98,12 +101,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
                     }})
                 //spotless:on
                 .addElement('B', chainAllGlasses())
-                .addElement(
-                    'A',
-                    chainItemPipeCasings(
-                        -1,
-                        MTEIndustrialWireMill::setItemPipeTier,
-                        MTEIndustrialWireMill::getItemPipeTier))
+                .addElement('A', chainItemPipeCasings(-1, ITEM_PIPE))
                 .addElement(
                     'C',
                     buildHatchAdder(MTEIndustrialWireMill.class)
@@ -188,8 +186,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(
-            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier));
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

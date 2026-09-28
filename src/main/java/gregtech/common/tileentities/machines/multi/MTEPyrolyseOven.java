@@ -61,8 +61,10 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
     private static final int OFFSET_Y = 4;
     private static final int OFFSET_Z = 0;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .speedBonus(in -> 2f / (1 + in.tier(TooltipTier.COIL)), tt -> tt.addDynamicSpeedInfo(0.5f, TooltipTier.COIL))
+        .speedPerTier(0.5, TooltipTier.COIL)
         .build();
+    private static final StructureParameter.Of<MTEPyrolyseOven, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEPyrolyseOven::getCoilLevel, MTEPyrolyseOven::setCoilLevel);
     private HeatingCoilLevel coilHeat;
     private int casingAmount;
 
@@ -77,10 +79,7 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
                 { " E   E ", " A   A ", " A   A ", "FAF FAF", "DADDDAD", "GGGGGGG" } })
         .addElement('A', Casings.SteelPipeCasing.asElement())
         .addElement('B', Casings.SteelFireboxCasing.asElement())
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEPyrolyseOven::setCoilLevel, MTEPyrolyseOven::getCoilLevel))))
+        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement('D', onElementPass(MTEPyrolyseOven::onCasingAdded, Casings.PyrolyseOvenCasing.asElement()))
         .addElement('E', ofFrame(Materials.Steel))
         .addElement(
@@ -199,7 +198,7 @@ public class MTEPyrolyseOven extends MTEExtendedPowerMultiBlockBase<MTEPyrolyseO
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override

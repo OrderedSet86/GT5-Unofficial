@@ -58,18 +58,18 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
 
     public static int CASING_TEXTURE_ID;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> (in.tier(TooltipTier.COIL) + 1) * in.voltageTier(),
+        .parallel(in -> (in.tier(TooltipTier.COIL) + 1) * in.voltageTier())
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addInfo("Processes " + TooltipHelper.parallelText("Voltage Tier * Coil Tier") + " items"))
-        .speedBonus(
-            in -> 100.0 / (100 + 5 * (in.tier(TooltipTier.COIL) + 1)),
-            tt -> tt.addDynamicSpeedBonusInfo(0.05f, TooltipTier.COIL))
+        .speedBonusPerTier(0.05, TooltipTier.COIL)
         // Need to multiply by 2 because heat OC is done only once every 1800 and this one does it once every 900
-        .heatOverclock(
-            in -> (int) (HeatingCoilLevel.getFromTier((byte) in.tier(TooltipTier.COIL))
-                .getHeat() * 2))
+        .heat(in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) * 2, ProcessingSpec.HeatRule.OVERCLOCK)
         .recipeHeat(0)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialAlloySmelter, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialAlloySmelter::getCoilLevel, MTEIndustrialAlloySmelter::setCoilLevel);
     private HeatingCoilLevel mHeatingCapacity;
     private int mCasing;
     private static IStructureDefinition<MTEIndustrialAlloySmelter> STRUCTURE_DEFINITION = null;
@@ -169,11 +169,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
                         .casingIndex(CASING_TEXTURE_ID)
                         .hint(1)
                         .buildAndChain(onElementPass(x -> ++x.mCasing, ofBlock(ModBlocks.blockCasings3Misc, 1))))
-                .addElement(
-                    'H',
-                    GTStructureChannels.HEATING_COIL.use(
-                        activeCoils(
-                            ofCoil(MTEIndustrialAlloySmelter::setCoilLevel, MTEIndustrialAlloySmelter::getCoilLevel))))
+                .addElement('H', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
                 .addElement('V', ofBlock(ModBlocks.blockCasingsTieredGTPP, 4))
                 .build();
         }
@@ -210,7 +206,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     @Override
@@ -237,7 +233,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     }
 
     public float getSpeedBonus() {
-        return (float) SPEC.getSpeedBonus(getProcessingSpecInputs());
+        return (float) SPEC.getDurationMultiplier(getCurrentProcessingSpecInputs());
     }
 
     @Override

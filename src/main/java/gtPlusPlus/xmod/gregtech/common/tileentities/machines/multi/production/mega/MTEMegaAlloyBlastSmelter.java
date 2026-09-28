@@ -72,15 +72,22 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static final int MAX_PARALLELS = 256;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> MAX_PARALLELS, tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
-        .speedBonus(
-            in -> in.tier(TooltipTier.COIL) > 3 ? 1 - 0.05f * (in.tier(TooltipTier.COIL) - 3) : 1,
+        .parallel(in -> MAX_PARALLELS)
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
+        .durationMultiplier(in -> in.tier(TooltipTier.COIL) > 3 ? 1 - 0.05 * (in.tier(TooltipTier.COIL) - 3) : 1)
+        .customTooltip(
+            ProcessingSpec.Quantity.DURATION,
             tt -> tt.addInfo(
                 TooltipHelper.speedText("-5%") + " Recipe Time per "
                     + TooltipHelper.tierText(TooltipTier.COIL)
                     + " Tier above TPV (additive)"))
         .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
+    private static final StructureParameter.Of<MTEMegaAlloyBlastSmelter, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaAlloyBlastSmelter::getCoilLevel, MTEMegaAlloyBlastSmelter::setCoilLevel);
     private HeatingCoilLevel coilLevel;
     private int glassTier = -1;
     private double energyDiscount = 1;
@@ -157,7 +164,7 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static IStructureElement<MTEMegaAlloyBlastSmelter> getCoilElement() {
         IStructureElement<MTEMegaAlloyBlastSmelter> heatingCoilElem = GTStructureChannels.HEATING_COIL
-            .use(activeCoils(ofCoil(MTEMegaAlloyBlastSmelter::setCoilLevel, MTEMegaAlloyBlastSmelter::getCoilLevel)));
+            .use(activeCoils(ofCoil(COIL)));
         IStructureElement<MTEMegaAlloyBlastSmelter> basicCoilElem = ofBlock(ModBlocks.blockCasingsMisc, 14);
         return partitionBy(
             te -> te.coilType,
@@ -247,10 +254,9 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
-            setCoilLevel(coil);
-            coilType = CoilType.HeatingCoil;
-        }));
+        return List.of(
+            COIL.derivingAfterSet(machine -> machine.coilType = CoilType.HeatingCoil)
+                .of(this));
     }
 
     private void calculateEnergyDiscount(HeatingCoilLevel lvl, GTRecipe recipe) {
@@ -316,7 +322,7 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
         long storedEnergy = 0;
         long maxEnergy = 0;
         int paras = getBaseMetaTileEntity().isActive() ? processingLogic.getCurrentParallels() : 0;
-        int moreSpeed = (int) ((1 - SPEC.getSpeedBonus(getProcessingSpecInputs())) * 100);
+        int moreSpeed = (int) ((1 - SPEC.getDurationMultiplier(getCurrentProcessingSpecInputs())) * 100);
         int lessEnergy = (int) ((1 - energyDiscount) * 100);
         for (MTEHatch tHatch : validMTEList(mExoticEnergyHatches)) {
             storedEnergy += tHatch.getBaseMetaTileEntity()

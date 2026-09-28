@@ -22,11 +22,15 @@ import java.text.DecimalFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -104,6 +108,7 @@ import gregtech.api.interfaces.modularui.IAddUIWidgets;
 import gregtech.api.interfaces.modularui.IBindPlayerInventoryUI;
 import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
@@ -131,6 +136,7 @@ import gregtech.api.util.ParallelHelper;
 import gregtech.api.util.VoidProtectionHelper;
 import gregtech.api.util.shutdown.ShutDownReason;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.client.GTSoundLoop;
 import gregtech.client.volumetric.ISoundPosition;
 import gregtech.common.config.MachineStats;
@@ -1141,7 +1147,12 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         logic.setRecipeLocking(this, isRecipeLockingEnabled());
         setProcessingLogicPower(logic);
         ProcessingSpec spec = getProcessingSpec();
-        if (spec != null) logic.applySpec(spec, this::getProcessingSpecInputs, this::getTrueParallel);
+        if (spec != null) {
+            logic.applySpec(spec, this::getCurrentProcessingSpecInputs);
+            // Adds the power panel's limit, and any getMaxParallelRecipes() override, to the spec's parallel
+            if (spec.appliesAtRuntime(ProcessingSpec.Quantity.PARALLEL))
+                logic.setMaxParallelSupplier(this::getTrueParallel);
+        }
     }
 
     /**
@@ -2106,17 +2117,53 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return fluidsFromME;
     }
 
+    /** The recipe map of the current mode for a machine with {@link #getMachineModes()}; null otherwise. */
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return null;
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return null;
+        return modes.get(machineMode < modes.size() ? machineMode : 0)
+            .recipeMap();
     }
 
     /**
      * The recipe map this machine runs in a mode, as {@link #getMachineMode()} numbers it. A machine whose recipe map
-     * depends on its mode overrides this, and its {@link #getRecipeMap()} returns the map for the current mode.
+     * depends on its mode lists its modes in {@link #getMachineModes()}.
      */
     public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return getRecipeMap();
+        List<MachineMode> modes = getMachineModes();
+        return modes.isEmpty() ? getRecipeMap()
+            : modes.get(mode)
+                .recipeMap();
+    }
+
+    /**
+     * The modes of a machine that switches between recipe maps, in the order the mode button cycles through them.
+     * Everything else about modes follows from the list: the recipe map, the mode count, the names and the icons. Empty
+     * for a machine with one recipe map. Return a static constant, so external tools can read it from a prototype.
+     */
+    @Nonnull
+    public List<MachineMode> getMachineModes() {
+        return Collections.emptyList();
+    }
+
+    /** The mode that runs this recipe map, if any does. */
+    @Nonnull
+    public OptionalInt getModeForRecipeMap(@Nonnull RecipeMap<?> recipeMap) {
+        for (int mode = 0; mode < getMachineModeCount(); mode++) {
+            if (getRecipeMapForMode(mode) == recipeMap) return OptionalInt.of(mode);
+        }
+        return OptionalInt.empty();
+    }
+
+    @Nonnull
+    @Override
+    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return IControllerWithOptionalFeatures.super.getAvailableRecipeMaps();
+        Set<RecipeMap<?>> maps = new LinkedHashSet<>();
+        for (MachineMode mode : modes) maps.add(mode.recipeMap());
+        return new ArrayList<>(maps);
     }
 
     /**
@@ -2144,18 +2191,18 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * What {@link #getProcessingSpec()} reads while this machine runs: the tier of its best energy hatch, its mode, and
-     * its {@link #getStructureParametersForInspection() structure parameters}.
+     * What {@link #getProcessingSpec()} reads while this machine runs: the tier of its best energy hatch, the amperage
+     * it runs recipes with, its mode, and its {@link #getStructureParametersForInspection() structure parameters}.
      */
     @Nonnull
-    protected ProcessingSpec.Inputs getProcessingSpecInputs() {
-        List<StructureParameter> parameters = getStructureParametersForInspection();
-        return new ProcessingSpec.Inputs(GTUtility.getTier(getMaxInputVoltage()), getMachineMode(), kind -> {
-            for (StructureParameter parameter : parameters) {
-                if (parameter.kind == kind) return parameter.get();
-            }
-            throw new IllegalArgumentException(getClass().getSimpleName() + " has no structure parameter " + kind);
-        });
+    public ProcessingSpec.Inputs getCurrentProcessingSpecInputs() {
+        boolean useSingleAmp = !debugEnergyPresent && mEnergyHatches.size() == 1 && mExoticEnergyHatches.isEmpty();
+        return ProcessingSpec.Inputs.builder()
+            .voltageTier(GTUtility.getTier(getMaxInputVoltage()))
+            .amperage(useSingleAmp ? 1 : getMaxInputAmps())
+            .mode(getMachineMode())
+            .structure(getStructureParametersForInspection())
+            .build();
     }
 
     /**
@@ -2199,6 +2246,32 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return Collections.emptyList();
+    }
+
+    /**
+     * Whether this machine's processing logic overrides {@link ProcessingLogic#createOverclockCalculator}, so its
+     * overclocks are not its {@link #getProcessingSpec()} alone. For external tools such as factory planners, on a
+     * prototype.
+     */
+    public final boolean hasCustomOverclockCalculatorForInspection() {
+        ProcessingLogic logic = createProcessingLogic();
+        if (logic == null) return false;
+        for (Class<?> type = logic.getClass(); type != ProcessingLogic.class; type = type.getSuperclass()) {
+            try {
+                type.getDeclaredMethod("createOverclockCalculator", GTRecipe.class);
+                return true;
+            } catch (NoSuchMethodException ignored) {}
+        }
+        return false;
+    }
+
+    /** The structure parameter of this kind, if the machine declares one. */
+    @Nonnull
+    public Optional<StructureParameter> getStructureParameterForInspection(@Nonnull TooltipTier kind) {
+        for (StructureParameter parameter : getStructureParametersForInspection()) {
+            if (parameter.kind == kind) return Optional.of(parameter);
+        }
+        return Optional.empty();
     }
 
     public void updateSlots() {
@@ -3310,7 +3383,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      */
     public int getMaxParallelRecipes() {
         ProcessingSpec spec = getProcessingSpec();
-        return spec == null ? 1 : spec.getMaxParallel(getProcessingSpecInputs());
+        return spec == null ? 1 : spec.getMaxParallel(getCurrentProcessingSpecInputs());
     }
 
     /**
@@ -3359,7 +3432,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
      */
     public void setMachineModeIcons() {
-
+        for (MachineMode mode : getMachineModes()) {
+            if (mode.icon() != null) machineModeIcons.add(mode.icon());
+        }
     }
 
     /**
@@ -3368,7 +3443,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      */
     @Override
     public boolean supportsMachineModeSwitch() {
-        return false;
+        return getMachineModes().size() > 1;
     }
 
     @Override
@@ -3386,7 +3461,17 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /** How many modes {@link #nextMachineMode()} cycles through; 1 for a machine without modes. */
     public int getMachineModeCount() {
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty()) return modes.size();
         return supportsMachineModeSwitch() ? 2 : 1;
+    }
+
+    @Override
+    public String getMachineModeKey() {
+        List<MachineMode> modes = getMachineModes();
+        if (machineMode < modes.size()) return modes.get(machineMode)
+            .nameKey();
+        return IControllerWithOptionalFeatures.super.getMachineModeKey();
     }
 
     @Override
@@ -3406,6 +3491,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public int nextMachineMode() {
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty()) return (machineMode + 1) % modes.size();
         if (machineMode == 0) return 1;
         else return 0;
     }

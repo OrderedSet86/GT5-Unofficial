@@ -66,15 +66,21 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private int mLevel = 0;
 
-    private static final long RECIPE_EUT = 4;
-    private static final int RECIPE_DURATION = 128;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> 4 << (in.tier(TooltipTier.COIL) + 1),
+        .parallel(in -> 4 << (in.tier(TooltipTier.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addStaticParallelInfo(4)
                 .addDynamicMultiplicativeParallelInfo(2, TooltipTier.COIL))
-        .recipeOverride((int) RECIPE_EUT, RECIPE_DURATION)
+        .recipeOverride(
+            ProcessingSpec.RecipeOverride.eut(4)
+                .duration(128))
+        .noTooltip(ProcessingSpec.Quantity.RECIPE_OVERRIDE)
         .build();
+    private static final ProcessingSpec.RecipeOverride RECIPE = SPEC.getRecipeOverride()
+        .get();
+    private static final StructureParameter.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMultiFurnace::getCoilLevel, MTEMultiFurnace::setCoilLevel);
     private static final int CASING_INDEX = 11;
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEMultiFurnace> STRUCTURE_DEFINITION = StructureDefinition
@@ -89,10 +95,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
                 .hint(3)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMultiFurnace::setCoilLevel, MTEMultiFurnace::getCoilLevel))))
+        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement(
             'b',
             buildHatchAdder(MTEMultiFurnace.class).atLeast(Maintenance, InputBus, OutputBus, Energy)
@@ -180,8 +183,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
         long availableEUt = GTUtility.roundUpVoltage(getMaxInputVoltage());
-        if (availableEUt < RECIPE_EUT) {
-            return CheckRecipeResultRegistry.insufficientPower(RECIPE_EUT);
+        if (availableEUt < RECIPE.eut()) {
+            return CheckRecipeResultRegistry.insufficientPower(RECIPE.eut());
         }
         if (tInput.isEmpty()) {
             return CheckRecipeResultRegistry.NO_RECIPE;
@@ -190,8 +193,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         int originalMaxParallel = this.mLevel;
 
         OverclockCalculator calculator = new OverclockCalculator().setEUt(availableEUt)
-            .setRecipeEUt(RECIPE_EUT)
-            .setDuration(RECIPE_DURATION)
+            .setRecipeEUt(RECIPE.eut())
+            .setDuration(RECIPE.duration())
             .setParallel(originalMaxParallel);
 
         maxParallel = GTUtility.longToInt((long) (maxParallel * calculator.calculateMultiplierUnderOneTick()));
@@ -201,7 +204,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
             maxParallel = GTUtility.longToInt((long) maxParallel * getMaxBatchSize());
         }
 
-        maxParallel = Math.min(maxParallel, GTUtility.longToInt(availableEUt / RECIPE_EUT));
+        maxParallel = Math.min(maxParallel, GTUtility.longToInt(availableEUt / RECIPE.eut()));
 
         int currentParallel = 0;
         for (ItemStack item : tInput) {
@@ -307,7 +310,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     }
 
     private void updateParallel() {
-        this.mLevel = SPEC.getMaxParallel(getProcessingSpecInputs());
+        this.mLevel = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
     }
 
     @Override
@@ -318,10 +321,9 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
-            setCoilLevel(coil);
-            updateParallel();
-        }));
+        return List.of(
+            COIL.derivingAfterSet(MTEMultiFurnace::updateParallel)
+                .of(this));
     }
 
     @Override

@@ -95,7 +95,7 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(2, TooltipTier.PIPE_CASING)
         // Same speed bonus as pyro oven
-        .speedBonus(in -> 2F / (1 + in.tier(TooltipTier.COIL)), tt -> tt.addDynamicSpeedInfo(0.5f, TooltipTier.COIL))
+        .speedPerTier(0.5, TooltipTier.COIL)
         .build();
     private HeatingCoilLevel checkCoil;
     private final int[] checkCasing = new int[8];
@@ -502,18 +502,19 @@ public class MTEChemicalPlant extends GTPPMultiBlockBase<MTEChemicalPlant> imple
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(
-                TooltipTier.COIL,
-                0,
-                HeatingCoilLevel.getMaxTier(),
-                () -> mCoilTier,
-                tier -> mCoilTier = tier),
-            new StructureParameter(
-                TooltipTier.PIPE_CASING,
-                1,
-                PIPE_CASING_MAX_META - PIPE_CASING_MIN_META,
-                () -> mPipeCasingTier,
-                tier -> mPipeCasingTier = tier));
+            StructureParameter.builder(TooltipTier.COIL)
+                .between(0, HeatingCoilLevel.getMaxTier())
+                .labels(
+                    tier -> HeatingCoilLevel.getFromTier((byte) tier)
+                        .getName())
+                .getter(() -> mCoilTier)
+                .setter(tier -> mCoilTier = tier)
+                .build(),
+            StructureParameter.builder(TooltipTier.PIPE_CASING)
+                .between(1, PIPE_CASING_MAX_META - PIPE_CASING_MIN_META)
+                .getter(() -> mPipeCasingTier)
+                .setter(tier -> mPipeCasingTier = tier)
+                .build());
     }
 
     private int getCasingTextureID() {

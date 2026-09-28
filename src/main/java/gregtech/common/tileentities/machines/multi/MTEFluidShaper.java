@@ -278,7 +278,12 @@ public class MTEFluidShaper extends MTEExtendedPowerMultiBlockBase<MTEFluidShape
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(new StructureParameter(TooltipTier.LENGTH, 0, MAX_WIDTH, () -> width, w -> width = w));
+        return List.of(
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(0, MAX_WIDTH)
+                .getter(() -> width)
+                .setter(w -> width = w)
+                .build());
     }
 
     @Override

@@ -30,8 +30,6 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,13 +71,13 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -100,6 +98,13 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     private static final int CASING_INDEX = 16;
     private static final int MACHINEMODE_CAL = 0;
     private static final int MACHINEMODE_ASSEMBLER = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(BartWorksRecipeMaps.circuitAssemblyLineRecipes)
+            .nameKey("chat.cal.mode.0")
+            .icon(BWUITextures.OVERLAY_BUTTON_LINE_MODE),
+        MachineMode.of(RecipeMaps.circuitAssemblerRecipes)
+            .nameKey("chat.cal.mode.1")
+            .icon(BWUITextures.OVERLAY_BUTTON_ASSEMBLER_MODE));
 
     private static final String STRUCTURE_PIECE_FIRST = "first";
     private static final String STRUCTURE_PIECE_NEXT = "next";
@@ -338,35 +343,10 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
         GTUtility.sendChatTrans(aPlayer, "chat.cal.mode." + machineMode);
     }
 
-    @Override
-    public String getMachineModeName() {
-        return StatCollector.translateToLocal("chat.cal.mode." + machineMode);
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(BWUITextures.OVERLAY_BUTTON_LINE_MODE);
-        machineModeIcons.add(BWUITextures.OVERLAY_BUTTON_ASSEMBLER_MODE);
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return switch (mode) {
-            case MACHINEMODE_CAL -> BartWorksRecipeMaps.circuitAssemblyLineRecipes;
-            case MACHINEMODE_ASSEMBLER -> RecipeMaps.circuitAssemblerRecipes;
-            default -> throw new IllegalStateException("Unexpected value: " + mode);
-        };
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(BartWorksRecipeMaps.circuitAssemblyLineRecipes, RecipeMaps.circuitAssemblerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -682,11 +662,6 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
             case MACHINEMODE_ASSEMBLER -> true;
             default -> throw new IllegalStateException("Unexpected value: " + machineMode);
         };
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
     }
 
     @Override

@@ -69,8 +69,8 @@ public class MTEIndustrialArcFurnaceLegacy extends GTPPMultiBlockBase<MTEIndustr
     final static int MACHINE_MODE_PLASMA = 1;
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .speed(3.5f)
-        .euModifier(1f)
+        .speed(3.5)
+        .euModifier(1)
         .build();
 
     private int mSize = 0;

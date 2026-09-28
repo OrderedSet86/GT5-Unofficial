@@ -29,7 +29,6 @@ import static net.minecraft.util.StatCollector.translateToLocalFormatted;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +72,7 @@ import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -99,7 +99,6 @@ import gregtech.api.util.shutdown.ShutDownReason;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.api.util.shutdown.SimpleShutDownReason;
 import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import kubatech.api.arcfurnace.ArcFurnaceContext;
@@ -123,7 +122,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .speedBonus(in -> {
+        .durationMultiplier(in -> {
             ArcFurnaceElectrode electrode = ArcFurnaceElectrode.getById(in.tier(TooltipTier.ELECTRODE));
             return electrode == null ? 1 : 1d / electrode.speedModifier;
         })
@@ -132,7 +131,22 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             return electrode == null ? 1 : electrode.euModifier;
         })
         .maxTierSkips(0)
+        .noTooltip(
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER,
+            ProcessingSpec.Quantity.TIER_SKIPS)
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
         .build();
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(arcFurnaceRecipes)
+            .nameKey("kubatech.arcfurnace.mode.normal")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_ARC),
+        MachineMode.of(blastFurnaceRecipes)
+            .nameKey("kubatech.arcfurnace.mode.blast")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PLASMA_ARC),
+        MachineMode.of(furnaceRecipes)
+            .nameKey("kubatech.arcfurnace.mode.ore")
+            .guiIcon(GTGuiTextures.TT_OVERLAY_BUTTON_FURNACE_MODE));
 
     public MTEIndustrialArcFurnace(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -303,12 +317,11 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(
+            StructureParameter.ofEnum(
                 TooltipTier.ELECTRODE,
-                0,
-                ArcFurnaceElectrode.values().length - 1,
-                () -> electrode == null ? -1 : electrode.id,
-                id -> electrode = ArcFurnaceElectrode.getById(id)));
+                ArcFurnaceElectrode.values(),
+                () -> electrode,
+                value -> electrode = value));
     }
 
     @Override
@@ -530,21 +543,10 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         return getRecipeMapForMode(getMachineMode());
     }
 
+    @Nonnull
     @Override
-    public RecipeMap<?> getRecipeMapForMode(int index) {
-        ArcFurnaceMode arcMode = ArcFurnaceMode.modes[index];
-        return arcMode == ArcFurnaceMode.Normal ? arcFurnaceRecipes
-            : (arcMode == ArcFurnaceMode.Blast ? blastFurnaceRecipes : furnaceRecipes);
-    }
-
-    @Override
-    public @NotNull Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(arcFurnaceRecipes, blastFurnaceRecipes, furnaceRecipes);
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -558,27 +560,14 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     }
 
     @Override
-    public int getMachineModeCount() {
-        return ArcFurnaceMode.modes.length;
-    }
-
-    @Override
     public int nextMachineMode() {
         return mode.next()
             .ordinal();
     }
 
     @Override
-    public String getMachineModeName() {
-        return translateToLocal(mode.getTransKey());
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return super.getGui().withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_ARC,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PLASMA_ARC,
-            GTGuiTextures.TT_OVERLAY_BUTTON_FURNACE_MODE);
+    public String getMachineModeKey() {
+        return mode.getTransKey();
     }
 
     @Override

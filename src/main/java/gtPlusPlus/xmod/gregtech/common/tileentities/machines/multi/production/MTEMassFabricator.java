@@ -12,8 +12,6 @@ import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -42,6 +40,7 @@ import gregtech.api.enums.TierEU;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -56,7 +55,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -70,9 +68,17 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
 
     private static final int MODE_SCRAP = 1;
     private static final int MODE_UU = 0;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.multiblockMassFabricatorRecipes)
+            .nameKey("GT5U.GTPP_MULTI_MASS_FABRICATOR.mode.0")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_MASS_FABRICATING),
+        MachineMode.of(RecipeMaps.recyclerRecipes)
+            .nameKey("GT5U.GTPP_MULTI_MASS_FABRICATOR.mode.1")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RECYCLING));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> in.mode() == MODE_SCRAP ? 64 : 8 * Math.max(1, in.voltageTier()),
+        .parallel(in -> in.mode() == MODE_SCRAP ? 64 : 8 * Math.max(1, in.voltageTier()))
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addInfo(
                 "Parallel: Scrap = " + TooltipHelper.parallelText(64)
                     + " | UU = "
@@ -80,8 +86,8 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
                     + " per "
                     + TooltipHelper.tierText("Voltage")
                     + " Tier"))
-        .speed(1f)
-        .euModifier(0.8f)
+        .speed(1)
+        .euModifier(0.8)
         .perfectOverclock()
         .build();
 
@@ -218,23 +224,10 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
         return new MTEMassFabricator(this.mName);
     }
 
-    /**
-     * Special Recipe Handling
-     */
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return mode == MODE_SCRAP ? RecipeMaps.recyclerRecipes : RecipeMaps.multiblockMassFabricatorRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.recyclerRecipes, RecipeMaps.multiblockMassFabricatorRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -313,20 +306,4 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
         tag.setString("mode", getMachineModeName());
     }
 
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_MASS_FABRICATOR.mode." + machineMode;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_MASS_FABRICATING,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RECYCLING);
-    }
 }

@@ -56,8 +56,8 @@ public class MTEElementalDuplicator extends GTPPMultiBlockBase<MTEElementalDupli
     private static final int CASING_TEXTURE_ID = TAE.getIndexFromPage(0, 3);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .speed(2f)
-        .euModifier(1f)
+        .speed(2)
+        .euModifier(1)
         .perfectOverclock()
         .build();
     private int mCasing = 0;

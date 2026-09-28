@@ -75,14 +75,13 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Y = 1;
     private static final int OFFSET_Z = 0;
 
-    private static final float SPEED_INCREASE_TIER = 1f;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(16, TooltipTier.VOLTAGE)
-        .speedBonus(
-            in -> 1F / (SPEED_INCREASE_TIER * (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)),
-            tt -> tt.addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
-        .euModifier(0.75f)
+        .speedBonusPerTier(1, TooltipTier.ITEM_PIPE_CASING)
+        .euModifier(0.75)
         .build();
+    private static final StructureParameter.Of<MTEIndustrialPackager, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEIndustrialPackager::getItemPipeTier, MTEIndustrialPackager::setItemPipeTier);
 
     public MTEIndustrialPackager(final int aID, final String aName, final String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -119,12 +118,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
                     }})
                 //spotless:on
                 .addElement('A', chainAllGlasses())
-                .addElement(
-                    'B',
-                    chainItemPipeCasings(
-                        -1,
-                        MTEIndustrialPackager::setItemPipeTier,
-                        MTEIndustrialPackager::getItemPipeTier))
+                .addElement('B', chainItemPipeCasings(-1, ITEM_PIPE))
                 .addElement('C', ofFrame(Materials.Iron))
                 .addElement(
                     'D',
@@ -259,8 +253,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(
-            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier));
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

@@ -75,13 +75,15 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(BASE_PARALLELS, TooltipTier.VOLTAGE)
         .parallelPerTier(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-        .speedBonus(
-            in -> 1F / (BASE_SPEED_BONUS + SPEED_PER_COIL * in.tier(TooltipTier.COIL)),
-            tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
-        .euModifier(
-            in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)),
-            tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
+        .durationMultiplier(in -> 1.0 / (BASE_SPEED_BONUS + SPEED_PER_COIL * in.tier(TooltipTier.COIL)))
+        .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
+        .euModifier(in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)))
+        .customTooltip(ProcessingSpec.Quantity.EU_MODIFIER, tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
         .build();
+    private static final StructureParameter.Of<MTEIndustrialThermalCentrifuge, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialThermalCentrifuge::getCoilLevel, MTEIndustrialThermalCentrifuge::setCoilLevel);
+    private static final StructureParameter.Of<MTEIndustrialThermalCentrifuge, Byte> SOLENOID = StructureParameter
+        .solenoid(MTEIndustrialThermalCentrifuge::getSolenoidLevel, MTEIndustrialThermalCentrifuge::setSolenoidLevel);
     private static IStructureDefinition<MTEIndustrialThermalCentrifuge> STRUCTURE_DEFINITION = null;
 
     public MTEIndustrialThermalCentrifuge(final int aID, final String aName, final String aNameRegional) {
@@ -160,19 +162,8 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
                         onElementPass(x -> ++x.casingAmount, Casings.ThermalProcessingCasing.asElement())))
                 .addElement('A', chainAllGlasses())
                 .addElement('B', Casings.HeatProofMachineCasing.asElement())
-                .addElement(
-                    'C',
-                    GTStructureChannels.SOLENOID.use(
-                        ofSolenoidCoil(
-                            MTEIndustrialThermalCentrifuge::setSolenoidLevel,
-                            MTEIndustrialThermalCentrifuge::getSolenoidLevel)))
-                .addElement(
-                    'D',
-                    GTStructureChannels.HEATING_COIL.use(
-                        activeCoils(
-                            ofCoil(
-                                MTEIndustrialThermalCentrifuge::setCoilLevel,
-                                MTEIndustrialThermalCentrifuge::getCoilLevel))))
+                .addElement('C', GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID)))
+                .addElement('D', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
                 .addElement('E', ofFrame(Materials.RedSteel))
                 .build();
         }
@@ -277,9 +268,7 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(
-            StructureParameter.coil(this::getCoilLevel, this::setCoilLevel),
-            StructureParameter.solenoid(this::getSolenoidLevel, this::setSolenoidLevel));
+        return List.of(COIL.of(this), SOLENOID.of(this));
     }
 
     @Override

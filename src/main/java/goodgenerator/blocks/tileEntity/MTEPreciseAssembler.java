@@ -7,8 +7,6 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 import static gregtech.api.util.GTUtility.validMTEList;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -28,7 +26,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,6 +43,7 @@ import com.gtnewhorizons.modularui.common.widget.TextWidget;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import goodgenerator.api.recipe.GoodGeneratorRecipeMaps;
+import goodgenerator.client.GUI.GGUITextures;
 import goodgenerator.loader.Loaders;
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
@@ -59,6 +57,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.GregTechTileClientEvents;
@@ -67,7 +66,6 @@ import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBas
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -80,7 +78,6 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.IDualInputHatch;
 
@@ -102,12 +99,22 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
     protected int casingTier;
     protected int machineTier;
     private static final int MACHINEMODE_PRECISE = 0;
-    private static final int MACHINEMODE_ASSEMBLER = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(GoodGeneratorRecipeMaps.preciseAssemblerRecipes)
+            .nameKey("GT5U.GTPP_MULTI_PRECISE_ASSEMBLER.mode.0")
+            .icon(GGUITextures.OVERLAY_BUTTON_PRECISE_MODE, GTGuiTextures.OVERLAY_BUTTON_PRECISE_MODE),
+        MachineMode.of(RecipeMaps.assemblerRecipes)
+            .nameKey("GT5U.GTPP_MULTI_PRECISE_ASSEMBLER.mode.1")
+            .icon(GGUITextures.OVERLAY_BUTTON_ASSEMBLER_MODE, GTGuiTextures.OVERLAY_BUTTON_ASSEMBLER_MODE));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(
             in -> in.mode() == MACHINEMODE_PRECISE ? 1 : (int) GTUtility.powInt(2, 4 + in.tier(TooltipTier.STRUCTURE)))
-        .speedBonus(in -> in.mode() == MACHINEMODE_PRECISE ? 1 : 0.5)
+        .durationMultiplier(in -> in.mode() == MACHINEMODE_PRECISE ? 1 : 0.5)
         .maxTierSkips(0)
+        .noTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.TIER_SKIPS)
         .build();
     protected int energyHatchTier;
     private static final int CASING_INDEX = 1541;
@@ -234,21 +241,10 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
         else return GTValues.V[Math.min(machineTier, energyHatchTier)];
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return getRecipeMapForMode(getMachineMode());
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
-        return mode == MACHINEMODE_PRECISE ? GoodGeneratorRecipeMaps.preciseAssemblerRecipes
-            : RecipeMaps.assemblerRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(GoodGeneratorRecipeMaps.preciseAssemblerRecipes, RecipeMaps.assemblerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -349,7 +345,11 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
         return List.of(
-            new StructureParameter(TooltipTier.STRUCTURE, 0, 4, () -> casingTier + 1, value -> casingTier = value - 1));
+            StructureParameter.builder(TooltipTier.STRUCTURE)
+                .between(0, 4)
+                .getter(() -> casingTier + 1)
+                .setter(value -> casingTier = value - 1)
+                .build());
     }
 
     public int getMachineTier() {
@@ -444,25 +444,7 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
     }
 
     @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_PRECISE_MODE,
-            GTGuiTextures.OVERLAY_BUTTON_ASSEMBLER_MODE);
-    }
-
-    @Override
-    public int nextMachineMode() {
-        if (machineMode == MACHINEMODE_ASSEMBLER) return MACHINEMODE_PRECISE;
-        return MACHINEMODE_ASSEMBLER;
-    }
-
-    @Override
     public boolean isInputSeparationEnabled() {
-        return true;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
         return true;
     }
 
@@ -480,11 +462,6 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
         tag.setString("mode", getMachineModeName());
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_PRECISE_ASSEMBLER.mode." + machineMode;
     }
 
     @SideOnly(Side.CLIENT)

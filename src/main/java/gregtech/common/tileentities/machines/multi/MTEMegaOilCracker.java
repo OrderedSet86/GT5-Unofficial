@@ -89,15 +89,16 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     private static final int HORIZONTAL_OFFSET = 6;
     private static final int DEPTH_OFFSET = 0;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> Configuration.Multiblocks.megaMachinesMax,
-            tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
-        .euModifier(
-            in -> GTUtility.powInt(0.9, in.tier(TooltipTier.COIL) + 1),
+        .parallel(() -> Configuration.Multiblocks.megaMachinesMax)
+        .euModifier(in -> GTUtility.powInt(0.9, in.tier(TooltipTier.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.EU_MODIFIER,
             tt -> tt.addInfo(
                 "EU Usage = " + TooltipHelper.effText("0.9^") + TooltipHelper.tierText(TooltipTier.COIL) + " Tier"))
         .unlimitedTierSkips()
         .build();
+    private static final StructureParameter.Of<MTEMegaOilCracker, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaOilCracker::getCoilLevel, MTEMegaOilCracker::setCoilLevel);
     private static final IStructureDefinition<MTEMegaOilCracker> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaOilCracker>builder()
         .addShape(
@@ -128,8 +129,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
         .addElement('D', Casings.CleanStainlessSteelMachineCasing.asElement())
         .addElement(
             'E', // coils
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMegaOilCracker::setCoilLevel, MTEMegaOilCracker::getCoilLevel))))
+            GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
         .addElement('F', ofSheetMetal(Materials.Naquadah))
         .addElement(
             'M',
@@ -317,7 +317,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     @Override
     @Nonnull
     public List<StructureParameter> getStructureParametersForInspection() {
-        return List.of(StructureParameter.coil(this::getCoilLevel, this::setCoilLevel));
+        return List.of(COIL.of(this));
     }
 
     private boolean addLeftHatchToMachineList(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
@@ -520,7 +520,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     @Override
     public void getExtraWailaNBT(EntityPlayerMP playerMP, TileEntity tileEntity, NBTTagCompound tag, World world, int x,
         int y, int z) {
-        tag.setDouble("euModifier", SPEC.getEuModifier(getProcessingSpecInputs()));
+        tag.setDouble("euModifier", SPEC.getEuModifier(getCurrentProcessingSpecInputs()));
     }
 
     @Override
