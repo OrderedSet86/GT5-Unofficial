@@ -31,11 +31,11 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.pollution.PollutionConfig;
@@ -48,6 +48,15 @@ public class MTEAdvImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MT
     private static final int OFFSET_X = 3;
     private static final int OFFSET_Y = 7;
     private static final int OFFSET_Z = 0;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> in.voltageTier() / 2 + 1)
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            tt -> tt.addInfo(TooltipHelper.parallelText("1 + (Tier/2)") + " Parallels"))
+        .speed(2)
+        .euModifier(1)
+        .build();
 
     private int casingAmount;
     private static final IStructureDefinition<MTEAdvImplosionCompressor> STRUCTURE_DEFINITION = StructureDefinition
@@ -95,9 +104,7 @@ public class MTEAdvImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MT
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Implosion Compressor")
             .addInfo("Factory Grade Advanced Implosion Compressor")
-            .addInfo(TooltipHelper.parallelText("1 + (Tier/2)") + " Parallels")
-            .addStaticSpeedInfo(2f)
-            .addStaticEuEffInfo(1f)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(7, 9, 7, true)
             .addController("Front center, 2nd layer")
@@ -184,9 +191,12 @@ public class MTEAdvImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MT
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 2F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -197,11 +207,6 @@ public class MTEAdvImplosionCompressor extends MTEExtendedPowerMultiBlockBase<MT
     @Override
     public int getPollutionPerSecond(ItemStack aStack) {
         return PollutionConfig.pollutionPerSecondMultiAdvImplosion;
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return (GTUtility.getTier(this.getMaxInputVoltage()) / 2 + 1);
     }
 
     @Override

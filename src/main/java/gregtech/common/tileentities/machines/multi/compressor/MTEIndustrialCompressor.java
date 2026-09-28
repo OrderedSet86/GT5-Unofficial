@@ -30,6 +30,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -39,12 +40,18 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.misc.GTStructureChannels;
 
 public class MTEIndustrialCompressor extends MTEExtendedPowerMultiBlockBase<MTEIndustrialCompressor>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(2, TooltipTier.VOLTAGE)
+        .speed(2)
+        .euModifier(0.9)
+        .build();
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEIndustrialCompressor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialCompressor>builder()
@@ -122,7 +129,7 @@ public class MTEIndustrialCompressor extends MTEExtendedPowerMultiBlockBase<MTEI
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Compressor, LEC")
-            .addBulkMachineInfo(2, 2f, 0.9f)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(7, 8, 7, true)
             .addController("Front bottom center")
             .addCasing("95-103", "Electric Compressor Casing", false)
@@ -177,15 +184,12 @@ public class MTEIndustrialCompressor extends MTEExtendedPowerMultiBlockBase<MTEI
                 if (recipe.getMetadataOrDefault(COMPRESSION_TIER, 0) > 0) return CheckRecipeResultRegistry.NO_RECIPE;
                 return super.validateRecipe(recipe);
             }
-        }.noRecipeCaching()
-            .setSpeedBonus(1F / 2F)
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.9F);
+        }.noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (2 * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

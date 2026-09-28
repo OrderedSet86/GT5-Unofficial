@@ -71,6 +71,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import gregtech.api.enums.VoidingMode;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.metatileentity.implementations.gui.ItemDisplayKey;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -102,6 +103,9 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
     public MTEMultiBlockBaseGui(T multiblock) {
         this.multiblock = multiblock;
         this.baseMetaTileEntity = multiblock.getBaseMetaTileEntity();
+        for (MachineMode mode : multiblock.getMachineModes()) {
+            if (mode.guiIcon() != null) this.machineModeIcons.add(mode.guiIcon());
+        }
         initCustomIcons();
         initShutdownMaps();
     }

@@ -12,8 +12,6 @@ import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -42,7 +40,9 @@ import gregtech.api.enums.TierEU;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -55,7 +55,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -69,6 +68,21 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
 
     private static final int MODE_SCRAP = 1;
     private static final int MODE_UU = 0;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.multiblockMassFabricatorRecipes)
+            .nameKey("GT5U.GTPP_MULTI_MASS_FABRICATOR.mode.0")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_MASS_FABRICATING),
+        MachineMode.of(RecipeMaps.recyclerRecipes)
+            .nameKey("GT5U.GTPP_MULTI_MASS_FABRICATOR.mode.1")
+            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RECYCLING));
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .modes(MODES)
+        .inMode(MODE_UU, mode -> mode.parallelPerVoltageTier(8))
+        .inMode(MODE_SCRAP, mode -> mode.parallel(64))
+        .speed(1)
+        .euModifier(0.8)
+        .perfectOverclock()
+        .build();
 
     private int mCasing;
     private static IStructureDefinition<MTEMassFabricator> STRUCTURE_DEFINITION = null;
@@ -90,15 +104,7 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addInfo(
-                "Parallel: Scrap = " + TooltipHelper.parallelText(64)
-                    + " | UU = "
-                    + TooltipHelper.parallelText(8)
-                    + " per "
-                    + TooltipHelper.tierText("Voltage")
-                    + " Tier")
-            .addStaticSpeedInfo(1f)
-            .addStaticEuEffInfo(0.8f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Produces UU-A, UU-M & Scrap")
             .addInfo("Change mode with screwdriver")
             .addInfo(
@@ -107,7 +113,6 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
                     + " scrap chance per "
                     + TooltipHelper.tierText("Voltage")
                     + " Tier in recycler mode")
-            .addPerfectOCInfo()
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 4, 5, true)
             .addController("Front bottom center")
@@ -212,18 +217,10 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
         return new MTEMassFabricator(this.mName);
     }
 
-    /**
-     * Special Recipe Handling
-     */
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return machineMode == MODE_SCRAP ? RecipeMaps.recyclerRecipes : RecipeMaps.multiblockMassFabricatorRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.recyclerRecipes, RecipeMaps.multiblockMassFabricatorRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -272,19 +269,12 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
                 }
                 return super.findRecipeMatches(map);
             }
-        }.setEuModifier(0.8F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        };
     }
 
     @Override
-    protected void setupProcessingLogic(ProcessingLogic logic) {
-        super.setupProcessingLogic(logic);
-        logic.enablePerfectOverclock();
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return machineMode == MODE_SCRAP ? 64 : 8 * (Math.max(1, GTUtility.getTier(getMaxInputVoltage())));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -309,20 +299,4 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
         tag.setString("mode", getMachineModeName());
     }
 
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_MASS_FABRICATOR.mode." + machineMode;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_MASS_FABRICATING,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RECYCLING);
-    }
 }

@@ -62,6 +62,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.items.MetaGeneratedTool;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.recipe.RecipeMap;
@@ -118,6 +119,10 @@ public class MTESpinmatron extends MTEExtendedPowerMultiBlockBase<MTESpinmatron>
     private int lastCheckedTierIndex = 0;
     private List<StructureData> tierCheckOrderList = Arrays.asList(StructureData.values());
     public final LimitingItemStackHandler turbineHolder = new LimitingItemStackHandler(8, 1);
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
     private static final String STRUCTURE_TIER_1 = "t1";
     private static final String STRUCTURE_TIER_2 = "t2";
     private static final String STRUCTURE_TIER_3 = "t3";
@@ -404,7 +409,7 @@ public class MTESpinmatron extends MTEExtendedPowerMultiBlockBase<MTESpinmatron>
                     .build())
             .addSeparator()
             .addSupportAny()
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .addSeparator()
             .addInfo(
                 EnumChatFormatting.DARK_RED + "" + EnumChatFormatting.ITALIC + "" + EnumChatFormatting.BOLD
@@ -561,7 +566,6 @@ public class MTESpinmatron extends MTEExtendedPowerMultiBlockBase<MTESpinmatron>
     @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setMaxParallel(getTrueParallel());
-        logic.setUnlimitedTierSkips();
         if (mExoticEnergyHatches.isEmpty() && !debugEnergyPresent) {
             logic.setAvailableVoltage(GTUtility.roundUpVoltage(this.getMaxInputVoltage()));
             logic.setAvailableAmperage(1L);
@@ -609,6 +613,11 @@ public class MTESpinmatron extends MTEExtendedPowerMultiBlockBase<MTESpinmatron>
                 return super.createOverclockCalculator(recipe).setMaxOverclocks(overclocks);
             }
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

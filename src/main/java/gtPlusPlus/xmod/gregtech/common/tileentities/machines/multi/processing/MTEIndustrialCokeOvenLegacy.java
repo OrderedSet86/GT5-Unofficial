@@ -15,6 +15,8 @@ import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -32,6 +34,7 @@ import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTUtility;
@@ -160,6 +163,18 @@ public class MTEIndustrialCokeOvenLegacy extends GTPPMultiBlockBase<MTEIndustria
             checkCasingMin(errors, mCasing, 8);
             checkHatch(errors);
         }
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            StructureParameter.builder(TooltipTier.STRUCTURE)
+                .between(1, 2)
+                .labels("Heat Resistant Casing", "Heat Proof Casing")
+                .getter(() -> tier)
+                .setter(value -> tier = value)
+                .build());
     }
 
     @Override

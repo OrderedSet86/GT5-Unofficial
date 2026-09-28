@@ -46,6 +46,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -138,6 +139,11 @@ public class MTEDissolutionTank extends MTEEnhancedMultiBlockBase<MTEDissolution
             }
 
         };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return ProcessingSpec.STANDARD;
     }
 
     @Override

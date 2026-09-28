@@ -37,6 +37,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
@@ -58,7 +59,11 @@ public class MTEMegaChemicalReactor extends MTEExtendedPowerMultiBlockBase<MTEMe
 
     private int glassTier = -1;
 
-    private final static int PARALLELS = 256;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(256)
+        .perfectOverclock()
+        .unlimitedTierSkips()
+        .build();
 
     public MTEMegaChemicalReactor(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -106,13 +111,11 @@ public class MTEMegaChemicalReactor extends MTEExtendedPowerMultiBlockBase<MTEMe
             .addInfo(
                 TooltipHelper
                     .coloredText(TooltipHelper.italicText("Infinite Potential!"), EnumChatFormatting.DARK_GRAY))
-            .addStaticParallelInfo(PARALLELS)
-            .addPerfectOCInfo()
+            .addProcessingSpecInfo(SPEC)
             .addSeparator()
             .addSupportAny()
             .addMinGlassForLaser(VoltageIndex.UV)
             .addGlassEnergyLimitInfo()
-            .addUnlimitedTierSkips()
             .beginStructureBlock(5, 5, 9, false)
             .addController("Front center, 3rd layer")
             .addCasing("0-79", "Chemically Inert Machine Casing", false)
@@ -169,14 +172,12 @@ public class MTEMegaChemicalReactor extends MTEExtendedPowerMultiBlockBase<MTEMe
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().enablePerfectOverclock()
-            .setUnlimitedTierSkips()
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return PARALLELS;
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

@@ -12,10 +12,8 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MEGA_OIL_CRAC
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MEGA_OIL_CRACKER_ACTIVE;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MEGA_OIL_CRACKER_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MEGA_OIL_CRACKER_GLOW;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofSheetMetal;
 import static gregtech.api.util.GTUtility.validMTEList;
 
@@ -25,6 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -56,6 +56,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -64,6 +65,7 @@ import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.maps.OilCrackerBackend;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -84,6 +86,17 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     private static final int VERTICAL_OFFSET = 7;
     private static final int HORIZONTAL_OFFSET = 6;
     private static final int DEPTH_OFFSET = 0;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(() -> Configuration.Multiblocks.megaMachinesMax)
+        .euModifier(in -> GTUtility.powInt(0.9, in.tier(TooltipTier.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.EU_MODIFIER,
+            tt -> tt.addInfo(
+                "EU Usage = " + TooltipHelper.effText("0.9^") + TooltipHelper.tierText(TooltipTier.COIL) + " Tier"))
+        .unlimitedTierSkips()
+        .build();
+    private static final StructureParameter.Of<MTEMegaOilCracker, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaOilCracker::getCoilLevel, MTEMegaOilCracker::setCoilLevel);
     private static final IStructureDefinition<MTEMegaOilCracker> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaOilCracker>builder()
         .addShape(
@@ -114,8 +127,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
         .addElement('D', Casings.CleanStainlessSteelMachineCasing.asElement())
         .addElement(
             'E', // coils
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMegaOilCracker::setCoilLevel, MTEMegaOilCracker::getCoilLevel))))
+            COIL)
         .addElement('F', ofSheetMetal(Materials.Naquadah))
         .addElement(
             'M',
@@ -198,8 +210,7 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
                 TooltipHelper.coloredText(
                     TooltipHelper.italicText("\"Thermally cracks heavy hydrocarbons into lighter fractions\""),
                     EnumChatFormatting.DARK_GRAY))
-            .addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax)
-            .addInfo("EU Usage = " + TooltipHelper.effText("0.9^") + TooltipHelper.tierText(TooltipTier.COIL) + " Tier")
+            .addProcessingSpecInfo(SPEC)
             .addSeparator()
             .addInfo("Gives different benefits whether it hydro or steam-cracks:")
             .addInfo(
@@ -215,7 +226,6 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
             .addSupportAny()
             .addMinGlassForLaser(VoltageIndex.UV)
             .addGlassEnergyLimitInfo()
-            .addUnlimitedTierSkips()
             .beginStructureBlock(13, 8, 9, true)
             .addController("Front bottom center")
             .addCasing("162", "Any Tiered Glass", true)
@@ -300,6 +310,12 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
                 break;
             }
         }
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this));
     }
 
     private boolean addLeftHatchToMachineList(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {
@@ -450,23 +466,16 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(this.getMaxInputEu());
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEuModifier);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return Configuration.Multiblocks.megaMachinesMax;
-    }
-
-    public double getEuModifier() {
-
-        return GTUtility.powInt(0.9, this.heatLevel.getTier() + 1);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -502,14 +511,14 @@ public class MTEMegaOilCracker extends MTEExtendedPowerMultiBlockBase<MTEMegaOil
         list.add(
             StatCollector.translateToLocal("GT5U.multiblock.euModifier") + ": "
                 + EnumChatFormatting.WHITE
-                + dfTwo.format(GTUtility.powInt(0.9, tag.getInteger("coilTier") + 1) * 100)
+                + dfTwo.format(tag.getDouble("euModifier") * 100)
                 + "%");
     }
 
     @Override
     public void getExtraWailaNBT(EntityPlayerMP playerMP, TileEntity tileEntity, NBTTagCompound tag, World world, int x,
         int y, int z) {
-        tag.setInteger("coilTier", this.heatLevel.getTier());
+        tag.setDouble("euModifier", SPEC.getEuModifier(getCurrentProcessingSpecInputs()));
     }
 
     @Override

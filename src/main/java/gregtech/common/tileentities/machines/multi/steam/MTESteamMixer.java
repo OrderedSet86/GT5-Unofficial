@@ -30,7 +30,6 @@ import net.minecraftforge.common.util.Constants.NBT;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -58,7 +57,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -120,8 +118,6 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
     private int tierMachineCasing = -1;
 
     private int tCountCasing = 0;
-
-    private int tierMachine = 1;
 
     @Nullable
     public Integer getTierMachineCasing(Block block, int meta) {
@@ -342,11 +338,6 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
     public RecipeMap<?> getRecipeMap() {
         return RecipeMaps.mixerNonCellRecipes;
     }
@@ -363,15 +354,7 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
                 }
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
-
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine)
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+        };
     }
 
     @Override
@@ -383,7 +366,7 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f)
+            .addProcessingSpecInfo(getProcessingSpec())
             .addInfo(HIGH_PRESSURE_TOOLTIP_NOTICE)
             .beginStructureBlock(5, 4, 5, false)
             .addController("Front center, 2nd layer")
@@ -443,7 +426,6 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("tierMachine", tierMachine);
         aNBT.setInteger("tierMachineCasing", tierMachineCasing);
         aNBT.setInteger("revision", revision);
     }
@@ -451,7 +433,6 @@ public class MTESteamMixer extends MTESteamMultiBlockBase<MTESteamMixer> impleme
     @Override
     public void loadNBTData(final NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        tierMachine = aNBT.getInteger("tierMachine");
         tierMachineCasing = aNBT.getInteger("tierMachineCasing");
         revision = aNBT.hasKey("revision", NBT.TAG_INT) ? aNBT.getInteger("revision") : 0;
     }

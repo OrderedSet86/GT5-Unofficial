@@ -54,6 +54,7 @@ import gregtech.api.interfaces.OCMethod;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -109,6 +110,11 @@ public class MTEBECIONode extends MTEBECMultiblockBase<MTEBECIONode> implements 
     public static final String MIN_PARALLEL_PARAMETER = "minParallel";
     public static final String MAX_PARALLEL_PARAMETER = "maxParallel";
     public static final String SPEED_DIVISOR_PARAMETER = "speedDivisor";
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
 
     private final List<MTEHatchNaniteDetector> naniteDetectors = new ArrayList<>();
     private final List<MTEHatchIONodeController> controllerHatches = new ArrayList<>();
@@ -299,13 +305,17 @@ public class MTEBECIONode extends MTEBECMultiblockBase<MTEBECIONode> implements 
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         var assembler = getAssembler();
 
         logic.setAmperageOC(false);
         logic.setAvailableVoltage(GTUtility.roundUpVoltage(assembler == null ? 0 : assembler.getMaxInputEu()));
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
         logic.setMaxParallel(this.maxParallel);
     }
 

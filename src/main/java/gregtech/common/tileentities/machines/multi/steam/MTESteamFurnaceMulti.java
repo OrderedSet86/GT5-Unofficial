@@ -14,7 +14,6 @@ import static net.minecraft.util.StatCollector.translateToLocal;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 
@@ -34,7 +33,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -50,10 +48,11 @@ import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -62,8 +61,7 @@ import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
+import gregtech.api.util.tooltip.TooltipTier;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -90,14 +88,11 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
 
     private int casingCount = 0;
 
-    private int tierMachine = 1;
-
     private int tierMachineCasing = -1;
     private int tierPipeCasing = -1;
     private int tierGearboxCasing = -1;
     private int tierFireboxCasing = -1;
 
-    private static final int MACHINEMODE_FURNACE = 0;
     private static final int MACHINEMODE_BLASTING = 1;
     private static final int MACHINEMODE_SMOKER = 2;
     private static final SoundResource startSound = Railcraft.isModLoaded() ? SoundResource.RAILCRAFT_STEAM_BURST
@@ -109,6 +104,32 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final List<MachineMode> MODES = EtFuturumRequiem.isModLoaded()
+        ? List.of(
+            MachineMode.of(RecipeMaps.furnaceRecipes)
+                .nameKey("GT5U.GTPP_MULTI_STEAM_FURNACE.mode.0")
+                .icon(
+                    GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID,
+                    GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID),
+            MachineMode.of(RecipeMaps.efrBlastingRecipes)
+                .nameKey("GT5U.GTPP_MULTI_STEAM_FURNACE.mode.1")
+                .icon(
+                    GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_METAL,
+                    GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_METAL),
+            MachineMode.of(RecipeMaps.efrSmokingRecipes)
+                .nameKey("GT5U.GTPP_MULTI_STEAM_FURNACE.mode.2")
+                .icon(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_STEAM, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM))
+        : List.of(
+            MachineMode.of(RecipeMaps.furnaceRecipes)
+                .nameKey("GT5U.GTPP_MULTI_STEAM_FURNACE.mode.0"));
+    private static final ProcessingSpec SPEC = steamSpec().modes(MODES)
+        .inMode(
+            MACHINEMODE_BLASTING,
+            mode -> mode.euModifierNotLimitingParallel(in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * 2))
+        .inMode(
+            MACHINEMODE_SMOKER,
+            mode -> mode.euModifierNotLimitingParallel(in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * 2))
+        .build();
 
     private IStructureDefinition<MTESteamFurnaceMulti> STRUCTURE_DEFINITION = null;
 
@@ -176,7 +197,7 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f);
+            .addProcessingSpecInfo(getProcessingSpec());
         if (EtFuturumRequiem.isModLoaded()) {
             tt.addInfo(
                 "Can operate in " + EnumChatFormatting.RED
@@ -352,54 +373,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return EtFuturumRequiem.isModLoaded();
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_METAL);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_STEAM);
-    }
-
-    @Override
-    public int nextMachineMode() {
-        if (machineMode == MACHINEMODE_FURNACE) return MACHINEMODE_BLASTING;
-        else if (machineMode == MACHINEMODE_BLASTING) return MACHINEMODE_SMOKER;
-        else return MACHINEMODE_FURNACE;
-    }
-
-    @Nonnull
-    @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        if (!EtFuturumRequiem.isModLoaded()) return Arrays.asList(RecipeMaps.furnaceRecipes);
-
-        return Arrays.asList(RecipeMaps.furnaceRecipes, RecipeMaps.efrBlastingRecipes, RecipeMaps.efrSmokingRecipes);
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        if (!EtFuturumRequiem.isModLoaded()) return RecipeMaps.furnaceRecipes;
-        return switch (machineMode) {
-            case MACHINEMODE_SMOKER -> RecipeMaps.efrSmokingRecipes;
-            case MACHINEMODE_BLASTING -> RecipeMaps.efrBlastingRecipes;
-            default -> RecipeMaps.furnaceRecipes;
-        };
-
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_STEAM_FURNACE.mode." + machineMode;
-    }
-
-    @Override
     protected SoundResource getProcessStartSound() {
         return startSound;
     }
@@ -417,15 +390,18 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
                 }
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
+        };
+    }
 
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine * (machineMode == MACHINEMODE_FURNACE ? 1 : 2))
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Nonnull
+    @Override
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -497,7 +473,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("tierMachine", tierMachine);
         aNBT.setInteger("tierMachineCasing", tierMachineCasing);
         aNBT.setInteger("machineMode", machineMode);
     }
@@ -505,7 +480,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     @Override
     public void loadNBTData(final NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        tierMachine = aNBT.getInteger("tierMachine");
         tierMachineCasing = aNBT.getInteger("tierMachineCasing");
         machineMode = aNBT.getInteger("machineMode");
     }
@@ -517,16 +491,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
         setMachineMode(nextMachineMode());
         GTUtility
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui getGui() {
-        MTEMultiBlockBaseGui gui = super.getGui();
-        if (EtFuturumRequiem.isModLoaded()) gui.withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_METAL,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM);
-        return gui;
     }
 
     @SideOnly(Side.CLIENT)

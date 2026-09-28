@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -50,10 +52,12 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.objects.XSTR;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -62,6 +66,7 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.IGTHatchAdder;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import tectech.thing.metaTileEntity.multi.base.INameFunction;
 import tectech.thing.metaTileEntity.multi.base.IStatusFunction;
@@ -85,6 +90,16 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     protected final ArrayList<MTENeutronSensor> mNeutronSensor = new ArrayList<>();
     protected int casingAmount = 0;
     protected int height = 0;
+    private static final int MIN_HEIGHT = 4;
+    private static final int MAX_HEIGHT = 254;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .durationMultiplier(in -> GTUtility.powInt(0.9, in.tier(TooltipTier.LENGTH) - 4))
+        .noTooltip(ProcessingSpec.Quantity.DURATION)
+        .unlimitedTierSkips()
+        .noOverclock()
+        .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
     protected int eV = 0, mCeil = 0, mFloor = 0;
     protected static final NumberFormatMUI numberFormat;
     static {
@@ -122,9 +137,9 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
             @NotNull
             @Override
             protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setDuration((int) Math.ceil(recipe.mDuration * GTUtility.powInt(0.9f, height - 4)))
-                    .setDurationUnderOneTickSupplier(() -> recipe.mDuration * GTUtility.powInt(0.9f, height - 4));
+                double speed = speedBoost;
+                return super.createOverclockCalculator(recipe)
+                    .setDurationUnderOneTickSupplier(() -> recipe.mDuration * speed);
             }
 
             @NotNull
@@ -147,12 +162,16 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         // NA does not use power, to prevent GT_ParallelHelper from failing we trick it into thinking
         // we have infinite power
         logic.setAvailableVoltage(Long.MAX_VALUE);
         logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
     }
 
     @Override
@@ -197,7 +216,7 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.neutron_activator"))
             .addMarkdown(new ResourceLocation("gregtech", "neutron-activator"))
-            .beginVariableStructureBlock(5, 5, 6, 256, 5, 5, false)
+            .beginVariableStructureBlock(5, 5, MIN_HEIGHT + 2, MAX_HEIGHT + 2, 5, 5, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_bottom_center"))
             .addMiscHatch("1+", StatCollector.translateToLocal("gt.mbtt.structure.neutron_accelerator"), StatCollector.translateToLocal("gt.mbtt.structure.any_bottom_edge_casing"), 2)
             .addMiscHatch("0+", StatCollector.translateToLocal("gt.mbtt.structure.neutron_sensor"), StatCollector.translateToLocal("gt.mbtt.structure.any_bottom_edge_casing"), 2)
@@ -290,7 +309,7 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
             }
         }
 
-        if (height < 4) {
+        if (height < MIN_HEIGHT) {
             errors.add(StructureErrorRegistry.TOO_SHORT_HEIGHT);
             return;
         }
@@ -302,6 +321,17 @@ public class MTENeutronActivator extends TTMultiblockBase implements ISurvivalCo
         checkHasMaintenanceHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(MIN_HEIGHT, MAX_HEIGHT)
+                .getter(() -> height)
+                .setter(value -> height = value)
+                .build());
     }
 
     public final boolean addAcceleratorAndSensor(IGregTechTileEntity aTileEntity, int aBaseCasingIndex) {

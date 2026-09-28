@@ -45,6 +45,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IHeatProducer;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -55,6 +56,7 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.blocks.BlockCasings10;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.MTEHeatSensor;
@@ -65,6 +67,19 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
     implements ISurvivalConstructable, IHeatProducer, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final int PARALLEL_PER_TIER = 4;
+    private static final double SPEED = 3.5;
+    private static final double EU_MODIFIER = 0.75;
+    // Planners assume the unit is not overheated.
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(PARALLEL_PER_TIER, TooltipTier.VOLTAGE)
+        .speed(SPEED)
+        .euModifier(EU_MODIFIER)
+        .bestCase(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER)
+        .build();
     private static final IStructureDefinition<MTEHIPCompressor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEHIPCompressor>builder()
         .addShape(
@@ -337,8 +352,8 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                setSpeedBonus(1F / 3.5F);
-                setEuModifier(0.75F);
+                setSpeedBonus(1 / SPEED);
+                setEuModifier(EU_MODIFIER);
 
                 // Nerf when heated
                 if (overheated) {
@@ -410,7 +425,12 @@ public class MTEHIPCompressor extends MTEExtendedPowerMultiBlockBase<MTEHIPCompr
     @Override
     public int getMaxParallelRecipes() {
         return overheated ? GTUtility.getTier(this.getMaxInputVoltage())
-            : (4 * GTUtility.getTier(this.getMaxInputVoltage()));
+            : (PARALLEL_PER_TIER * GTUtility.getTier(this.getMaxInputVoltage()));
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

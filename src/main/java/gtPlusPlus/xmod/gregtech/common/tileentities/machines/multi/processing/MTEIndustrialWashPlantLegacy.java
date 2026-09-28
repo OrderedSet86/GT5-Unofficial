@@ -16,8 +16,6 @@ import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.ofAnyWater;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -53,9 +51,9 @@ import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -64,7 +62,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -79,9 +76,21 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
 
     private static IStructureDefinition<MTEIndustrialWashPlantLegacy> STRUCTURE_DEFINITION = null;
 
-    private static final int MACHINEMODE_OREWASH = 0;
-    private static final int MACHINEMODE_SIMPLEWASH = 1;
     private static final int MACHINEMODE_CHEMBATH = 2;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.oreWasherRecipes)
+            .nameKey("GT5U.GTPP_MULTI_WASH_PLANT.mode.0")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT),
+        MachineMode.of(RecipeMaps.simpleWasherRecipes)
+            .nameKey("GT5U.GTPP_MULTI_WASH_PLANT.mode.1")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER),
+        MachineMode.of(RecipeMaps.chemicalBathRecipes)
+            .nameKey("GT5U.GTPP_MULTI_WASH_PLANT.mode.2")
+            .icon(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_CHEMBATH, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_CHEMBATH));
     private static final Block DISTILLED_WATER_BLOCK = BlocksItems.getFluidBlock(InternalName.fluidDistilledWater);
 
     public MTEIndustrialWashPlantLegacy(final int aID, final String aName, final String aNameRegional) {
@@ -200,26 +209,10 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
         return getCasingTextureIndex();
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        switch (machineMode) {
-            case MACHINEMODE_OREWASH -> {
-                return RecipeMaps.oreWasherRecipes;
-            }
-            case MACHINEMODE_SIMPLEWASH -> {
-                return RecipeMaps.simpleWasherRecipes;
-            }
-            default -> {
-                return RecipeMaps.chemicalBathRecipes;
-            }
-        }
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays
-            .asList(RecipeMaps.oreWasherRecipes, RecipeMaps.simpleWasherRecipes, RecipeMaps.chemicalBathRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -380,19 +373,9 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
     }
 
     @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_WASH_PLANT.mode." + machineMode;
-    }
-
-    @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
         tag.setString("mode", getMachineModeName());
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
     }
 
     @Override
@@ -402,31 +385,9 @@ public class MTEIndustrialWashPlantLegacy extends GTPPMultiBlockBase<MTEIndustri
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
     }
 
-    @Override
-    public int nextMachineMode() {
-        if (machineMode == MACHINEMODE_OREWASH) return MACHINEMODE_SIMPLEWASH;
-        else if (machineMode == MACHINEMODE_SIMPLEWASH) return MACHINEMODE_CHEMBATH;
-        else return MACHINEMODE_OREWASH;
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_CHEMBATH);
-    }
-
     @SideOnly(Side.CLIENT)
     @Override
     protected SoundResource getActivitySoundLoop() {
         return SoundResource.GT_MACHINES_MULTI_ORE_WASHER_PLANT_LOOP;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_CHEMBATH);
     }
 }

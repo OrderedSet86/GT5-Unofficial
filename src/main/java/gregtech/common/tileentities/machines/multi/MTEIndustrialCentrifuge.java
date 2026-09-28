@@ -45,6 +45,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -76,10 +77,18 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Z = 1;
 
     private static final int BASE_PARALLEL_PER_TIER = 4;
-    private static final float SPEED = 2f;
-    private static final float EXTRA_SPEED = 1f;
-    private static final float MAX_SPEED = SPEED + EXTRA_SPEED;
-    private static final float EU_EFFICIENCY = 0.9f;
+    private static final double SPEED = 2;
+    private static final double EXTRA_SPEED = 1;
+    private static final double MAX_SPEED = SPEED + EXTRA_SPEED;
+    private static final int MAX_MOMENTUM = 100;
+    // Planners assume full momentum, which the machine builds up while it runs.
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> parallelAt(in.voltageTier(), MAX_MOMENTUM))
+        .durationMultiplier(in -> speedBonusAt(MAX_MOMENTUM))
+        .euModifier(0.9)
+        .bestCase(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
+        .noTooltip(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
+        .build();
 
     private int momentum = 0;
     private int runningTickCounter = 0;
@@ -182,13 +191,14 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
                     + " Parallels per "
                     + TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR)
                     + " Tier")
-            .addInfo(TooltipHelper.speedText(SPEED) + " - " + TooltipHelper.speedText(MAX_SPEED) + " Speed")
+            .addInfo(
+                TooltipHelper.speedText((float) SPEED) + " - " + TooltipHelper.speedText((float) MAX_SPEED) + " Speed")
             .addInfo(
                 TooltipHelper.coloredText("Parallels", TooltipHelper.PARALLEL_COLOR) + " and "
                     + TooltipHelper.coloredText("Speed", TooltipHelper.SPEED_COLOR)
                     + " increase as the machine gains momentum")
             .addInfo("Momentum is lost at four times the rate it is gained")
-            .addStaticEuEffInfo(EU_EFFICIENCY)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Disable animations with a screwdriver")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 5, 5, true)
@@ -217,19 +227,31 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
                     return CheckRecipeResultRegistry.NO_RECIPE;
                 return super.validateRecipe(recipe);
             }
-        }.setEuModifier(EU_EFFICIENCY)
-            .setSpeedBonusSupplier(this::getSpeedWithMomentum)
+        }.setSpeedBonusSupplier(this::getSpeedWithMomentum)
             .setMaxParallelSupplier(this::getTrueParallel);
     }
 
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
     private Double getSpeedWithMomentum() {
-        return 1D / (SPEED + EXTRA_SPEED * momentum / 100);
+        return speedBonusAt(momentum);
+    }
+
+    private static double speedBonusAt(int momentum) {
+        return 1.0 / (SPEED + EXTRA_SPEED * momentum / MAX_MOMENTUM);
     }
 
     @Override
     public int getMaxParallelRecipes() {
-        return (int) ((BASE_PARALLEL_PER_TIER + BASE_PARALLEL_PER_TIER * momentum / 100F)
-            * GTUtility.getTier(this.getMaxInputVoltage()));
+        return parallelAt(GTUtility.getTier(this.getMaxInputVoltage()), momentum);
+    }
+
+    private static int parallelAt(int voltageTier, int momentum) {
+        return (int) ((BASE_PARALLEL_PER_TIER + BASE_PARALLEL_PER_TIER * momentum / (float) MAX_MOMENTUM)
+            * voltageTier);
     }
 
     private int casingAmount;
@@ -310,7 +332,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     @Override
     public boolean onRunningTick(ItemStack stack) {
         runningTickCounter++;
-        if (runningTickCounter % 10 == 0 && momentum < 100) {
+        if (runningTickCounter % 10 == 0 && momentum < MAX_MOMENTUM) {
             runningTickCounter = 0;
             momentum++;
         }

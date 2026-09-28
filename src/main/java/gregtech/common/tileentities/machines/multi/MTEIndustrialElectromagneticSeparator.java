@@ -10,8 +10,6 @@ import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -44,11 +42,11 @@ import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchMagnet;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -59,7 +57,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.blocks.BlockCasings10;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.items.MetaGeneratedItem01;
 import gregtech.common.misc.GTStructureChannels;
 
@@ -115,6 +112,17 @@ public class MTEIndustrialElectromagneticSeparator
 
     private static final int MACHINEMODE_SEPARATOR = 0;
     private static final int MACHINEMODE_POLARIZER = 1;
+    private static final List<MachineMode> MODES = List.of(
+        MachineMode.of(RecipeMaps.electroMagneticSeparatorRecipes)
+            .nameKey("GT5U.INDUSTRIAL_ELECTROMAGNETIC_SEPARATOR.mode.0")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR),
+        MachineMode.of(RecipeMaps.polarizerRecipes)
+            .nameKey("GT5U.INDUSTRIAL_ELECTROMAGNETIC_SEPARATOR.mode.1")
+            .icon(
+                GTUITextures.OVERLAY_BUTTON_MACHINEMODE_POLARIZER,
+                GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_POLARIZER));
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEIndustrialElectromagneticSeparator> STRUCTURE_DEFINITION = StructureDefinition
@@ -295,16 +303,10 @@ public class MTEIndustrialElectromagneticSeparator
         return 1;
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_POLARIZER) ? RecipeMaps.polarizerRecipes
-            : RecipeMaps.electroMagneticSeparatorRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.polarizerRecipes, RecipeMaps.electroMagneticSeparatorRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -322,27 +324,11 @@ public class MTEIndustrialElectromagneticSeparator
     }
 
     @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
     public void onScrewdriverRightClick(ForgeDirection side, EntityPlayer aPlayer, float aX, float aY, float aZ,
         ItemStack aTool) {
         setMachineMode(nextMachineMode());
         GTUtility
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_POLARIZER);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.INDUSTRIAL_ELECTROMAGNETIC_SEPARATOR.mode." + machineMode;
     }
 
     @Override
@@ -408,12 +394,5 @@ public class MTEIndustrialElectromagneticSeparator
             }
         }
         return false;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SEPARATOR,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_POLARIZER);
     }
 }

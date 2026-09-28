@@ -8,12 +8,12 @@ import static gregtech.api.enums.HatchElement.InputBus;
 import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.text.DecimalFormat;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -22,8 +22,6 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
-
-import org.jetbrains.annotations.NotNull;
 
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -37,14 +35,13 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
-import gregtech.api.util.GTRecipe;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
@@ -58,8 +55,20 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     implements ISurvivalConstructable {
 
     public static int CASING_TEXTURE_ID;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> (in.tier(TooltipTier.COIL) + 1) * in.voltageTier())
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            tt -> tt.addInfo("Processes " + TooltipHelper.parallelText("Voltage Tier * Coil Tier") + " items"))
+        .speedBonusPerTier(0.05, TooltipTier.COIL)
+        // Need to multiply by 2 because heat OC is done only once every 1800 and this one does it once every 900
+        .heat(in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) * 2, ProcessingSpec.HeatRule.OVERCLOCK)
+        .recipeHeat(0)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
+        .build();
+    private static final StructureParameter.Of<MTEIndustrialAlloySmelter, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialAlloySmelter::getCoilLevel, MTEIndustrialAlloySmelter::setCoilLevel);
     private HeatingCoilLevel mHeatingCapacity;
-    private int mLevel = 0;
     private int mCasing;
     private static IStructureDefinition<MTEIndustrialAlloySmelter> STRUCTURE_DEFINITION = null;
 
@@ -122,8 +131,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addInfo("Processes " + TooltipHelper.parallelText("Voltage Tier * Coil Tier") + " items")
-            .addDynamicSpeedBonusInfo(0.05f, TooltipTier.COIL)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Each 900K of heat upgrades an overclock to a perfect overclock")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 5, 3, true)
@@ -159,11 +167,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
                         .casingIndex(CASING_TEXTURE_ID)
                         .hint(1)
                         .buildAndChain(onElementPass(x -> ++x.mCasing, ofBlock(ModBlocks.blockCasings3Misc, 1))))
-                .addElement(
-                    'H',
-                    GTStructureChannels.HEATING_COIL.use(
-                        activeCoils(
-                            ofCoil(MTEIndustrialAlloySmelter::setCoilLevel, MTEIndustrialAlloySmelter::getCoilLevel))))
+                .addElement('H', COIL)
                 .addElement('V', ofBlock(ModBlocks.blockCasingsTieredGTPP, 4))
                 .build();
         }
@@ -184,14 +188,12 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     @Override
     public void checkMachine(IGregTechTileEntity aBaseMetaTileEntity, ItemStack aStack, List<StructureError> errors) {
         mCasing = 0;
-        mLevel = 0;
         setCoilLevel(HeatingCoilLevel.None);
         if (!checkPiece(mName, 1, 4, 0, errors)) return;
         if (getCoilLevel() == HeatingCoilLevel.None) {
             errors.add(StructureErrorRegistry.COIL_LEVEL_NOT_ENOUGH);
         }
         checkCasingMin(errors, mCasing, 5);
-        mLevel = getCoilLevel().getTier() + 1;
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);
         checkHasMufflerHatch(errors);
@@ -200,26 +202,19 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (this.mLevel * GTUtility.getTier(this.getMaxInputVoltage()));
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this));
     }
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
+        return new ProcessingLogic();
+    }
 
-            @NotNull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setDurationModifier(100.0 / (100 + 5 * mLevel))
-                    .setHeatOC(true)
-                    .setRecipeHeat(0)
-                    // Need to multiply by 2 because heat OC is done only once every 1800 and this one does it once
-                    // every
-                    // 900
-                    .setMachineHeat((int) (getCoilLevel().getHeat() * 2));
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     public HeatingCoilLevel getCoilLevel() {
@@ -236,7 +231,7 @@ public class MTEIndustrialAlloySmelter extends GTPPMultiBlockBase<MTEIndustrialA
     }
 
     public float getSpeedBonus() {
-        return (float) 1 / (1 + 0.05f * mLevel);
+        return (float) SPEC.getDurationMultiplier(getCurrentProcessingSpecInputs());
     }
 
     @Override

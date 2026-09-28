@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
@@ -38,6 +40,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -49,6 +52,7 @@ import gregtech.api.modularui2.GTGuiThemes;
 import gregtech.api.objects.overclockdescriber.OverclockDescriber;
 import gregtech.api.objects.overclockdescriber.SteamOverclockDescriber;
 import gregtech.api.recipe.RecipeMap;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
@@ -56,6 +60,7 @@ import gregtech.api.util.GTWaila;
 import gregtech.api.util.HatchElementBuilder;
 import gregtech.api.util.IGTHatchAdder;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.gui.modularui.multiblock.base.MTESteamMultiBlockBaseGui;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.MTEHatchSteamBusInput;
@@ -82,6 +87,11 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         + EnumChatFormatting.AQUA
         + "Steam Usage";
 
+    private static final ProcessingSpec STEAM_SPEC = steamSpec().build();
+
+    /** 1 for Basic, 2 for High Pressure, as the structure check found it. */
+    protected int tierMachine = 1;
+
     public MTESteamMultiBlockBase(String aName) {
         super(aName);
         this.overclockDescriber = createOverclockDescriber();
@@ -90,6 +100,53 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     public MTESteamMultiBlockBase(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
         this.overclockDescriber = createOverclockDescriber();
+    }
+
+    /**
+     * What a steam multiblock does: 8 parallels, and a High Pressure structure runs twice as fast for twice the steam.
+     * Recipes run at their own voltage without overclocks.
+     */
+    @Nonnull
+    protected static ProcessingSpec.Builder steamSpec() {
+        return ProcessingSpec.builder()
+            .parallel(8)
+            .durationMultiplier(in -> 1.6 / in.tier(TooltipTier.STRUCTURE))
+            .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
+            .euModifierNotLimitingParallel(in -> 1.25 * in.tier(TooltipTier.STRUCTURE))
+            .customTooltip(
+                ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
+                tt -> tt.addStaticSteamEffInfo(0.625f))
+            .noOverclock()
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK);
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return STEAM_SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            StructureParameter.builder(TooltipTier.STRUCTURE)
+                .between(1, 2)
+                .labels("Basic", "High Pressure")
+                .getter(() -> tierMachine)
+                .setter(tier -> tierMachine = tier)
+                .build());
+    }
+
+    @Override
+    public void saveNBTData(NBTTagCompound aNBT) {
+        super.saveNBTData(aNBT);
+        aNBT.setInteger("tierMachine", tierMachine);
+    }
+
+    @Override
+    public void loadNBTData(NBTTagCompound aNBT) {
+        super.loadNBTData(aNBT);
+        tierMachine = aNBT.getInteger("tierMachine");
     }
 
     public abstract String getMachineType();

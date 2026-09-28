@@ -54,6 +54,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -72,6 +73,10 @@ public class MTELatex extends MTEExtendedPowerMultiBlockBase<MTELatex>
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final int CASING_INDEX = 176;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .speed(2)
+        .euModifier(0.85)
+        .build();
     private static final IStructureDefinition<MTELatex> STRUCTURE_DEFINITION = StructureDefinition.<MTELatex>builder()
         .addShape(
             STRUCTURE_PIECE_MAIN,
@@ -191,9 +196,12 @@ public class MTELatex extends MTEExtendedPowerMultiBlockBase<MTELatex>
 
                 return copy;
             }
-        }.setSpeedBonus(1F / 2F)
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.85F);
+        }.setMaxParallelSupplier(this::getTrueParallel);
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Nullable
@@ -295,7 +303,8 @@ public class MTELatex extends MTEExtendedPowerMultiBlockBase<MTELatex>
         tt.addMachineType("Cable Coater, LATEX")
             .addInfo(
                 DARK_GRAY + "" + EnumChatFormatting.ITALIC + "AKA Laminate Application and Thermal Enclosure eXocoater")
-            .addBulkMachineInfo(8, 2F, 0.85F)
+            .addVoltageParallelInfo(8)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 "Recipes have an additive " + TooltipHelper.coloredText("6.25%", DARK_GREEN)
                     + " rubber discount based on "

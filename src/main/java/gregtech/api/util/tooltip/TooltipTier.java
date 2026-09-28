@@ -21,6 +21,10 @@ public enum TooltipTier {
     TURBINE("GT5U.MBTT.Tiers.Turbine"),
     GLASS("GT5U.MBTT.Tiers.Glass"),
     COMPONENT_ASSEMBLY_LINE_CASING("GT5U.MBTT.Tiers.ComponentAssemblyLineCasing"),
+    STRUCTURE("GT5U.MBTT.Tiers.Structure"),
+    LENGTH("GT5U.MBTT.Tiers.Length"),
+    SAWBLADE("GT5U.MBTT.Tiers.Sawblade"),
+    ELECTRODE("GT5U.MBTT.Tiers.Electrode"),
 
     ;
 
@@ -28,6 +32,11 @@ public enum TooltipTier {
 
     TooltipTier(String key) {
         this.key = key;
+    }
+
+    /** The kind's name without formatting, such as "Voltage". */
+    public String getName() {
+        return StatCollector.translateToLocal(this.key);
     }
 
     public String getValue() {

@@ -21,10 +21,8 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAS
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.casingTexturePages;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -64,6 +62,7 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -81,6 +80,8 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
     implements ISurvivalConstructable {
 
     private static final int CASING_INDEX = 11;
+    private static final StructureParameter.Of<MTEMegaBlastFurnaceLegacy, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaBlastFurnaceLegacy::getCoilLevel, MTEMegaBlastFurnaceLegacy::setCoilLevel);
     private static final IStructureDefinition<MTEMegaBlastFurnaceLegacy> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaBlastFurnaceLegacy>builder()
         .addShape("main", createShape())
@@ -92,10 +93,7 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
                 .hint(1)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL.use(
-                activeCoils(ofCoil(MTEMegaBlastFurnaceLegacy::setCoilLevel, MTEMegaBlastFurnaceLegacy::getCoilLevel))))
+        .addElement('C', COIL)
         .addElement('g', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
         .addElement(
             'b',
@@ -367,9 +365,21 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
             }
         }
         if (errors.isEmpty()) {
-            this.mHeatingCapacity = (int) this.getCoilLevel()
-                .getHeat() + 100 * (BWUtil.getTier(this.getMaxInputEu()) - 2);
+            this.updateHeatingCapacity();
         }
+    }
+
+    private void updateHeatingCapacity() {
+        this.mHeatingCapacity = (int) this.getCoilLevel()
+            .getHeat() + 100 * (BWUtil.getTier(this.getMaxInputEu()) - 2);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            COIL.derivingAfterSet(MTEMegaBlastFurnaceLegacy::updateHeatingCapacity)
+                .of(this));
     }
 
     @Override

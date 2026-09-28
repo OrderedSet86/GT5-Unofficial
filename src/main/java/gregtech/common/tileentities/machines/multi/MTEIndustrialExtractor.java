@@ -11,15 +11,11 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
-import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -32,9 +28,11 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -46,6 +44,13 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.ITEM_PIPE_CASING)
+        .speed(3)
+        .euModifier(0.85)
+        .build();
+    private static final StructureParameter.Of<MTEIndustrialExtractor, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEIndustrialExtractor::getItemPipeTier, MTEIndustrialExtractor::setItemPipeTier);
     private static final IStructureDefinition<MTEIndustrialExtractor> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIndustrialExtractor>builder()
         .addShape(
@@ -60,34 +65,11 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
                 .hint(1)
                 .buildAndChain(
                     onElementPass(MTEIndustrialExtractor::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings4, 1))))
-        .addElement(
-            'B',
-            GTStructureChannels.ITEM_PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEIndustrialExtractor::getItemPipeTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings11, 0),
-                        Pair.of(GregTechAPI.sBlockCasings11, 1),
-                        Pair.of(GregTechAPI.sBlockCasings11, 2),
-                        Pair.of(GregTechAPI.sBlockCasings11, 3),
-                        Pair.of(GregTechAPI.sBlockCasings11, 4),
-                        Pair.of(GregTechAPI.sBlockCasings11, 5),
-                        Pair.of(GregTechAPI.sBlockCasings11, 6),
-                        Pair.of(GregTechAPI.sBlockCasings11, 7)),
-                    -1,
-                    MTEIndustrialExtractor::setItemPipeTier,
-                    MTEIndustrialExtractor::getItemPipeTier)))
+        .addElement('B', ITEM_PIPE)
         .addElement('A', chainAllGlasses())
         .build();
 
     private int itemPipeTier = -1;
-
-    @Nullable
-    private static Integer getItemPipeTierFromMeta(Block block, Integer metaID) {
-        if (block != GregTechAPI.sBlockCasings11) return null;
-        if (metaID < 0 || metaID > 7) return null;
-        return metaID + 1;
-    }
 
     private void setItemPipeTier(int tier) {
         itemPipeTier = tier;
@@ -95,6 +77,12 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     private int getItemPipeTier() {
         return itemPipeTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(ITEM_PIPE.of(this));
     }
 
     public MTEIndustrialExtractor(final int aID, final String aName, final String aNameRegional) {
@@ -139,9 +127,7 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Extractor")
-            .addDynamicParallelInfo(8, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticSpeedInfo(3F)
-            .addStaticEuEffInfo(0.85F)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(5, 5, 5, false)
             .addController("Front bottom center")
             .addCasing("45-57", "Stainless Steel Machine Casing", false)
@@ -189,16 +175,12 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 3F)
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifier(0.85F);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        // Max call to prevent seeing -16 parallels in waila for unformed multi
-        return Math.max(8 * itemPipeTier, 0);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

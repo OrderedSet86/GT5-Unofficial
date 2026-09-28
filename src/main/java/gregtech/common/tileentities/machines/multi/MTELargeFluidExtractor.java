@@ -9,12 +9,9 @@ import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.enums.Textures.BlockIcons.getCasingTextureForId;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
-import static gregtech.api.util.GTStructureUtility.ofSolenoidCoil;
 import static net.minecraft.util.EnumChatFormatting.RESET;
 import static net.minecraft.util.EnumChatFormatting.YELLOW;
 
@@ -22,10 +19,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.NotNull;
@@ -45,14 +42,14 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.MTELargeFluidExtractorGui;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
@@ -68,11 +65,16 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     private static final int MAX_HATCHES_ALLOWED = 16;
 
     private static final double BASE_SPEED_BONUS = 1.5;
-    private static final double BASE_EU_MULTIPLIER = 0.8;
 
-    private static final double SPEED_PER_COIL = 0.1;
-    private static final int PARALLELS_PER_SOLENOID = 8;
-    private static final double HEATING_COIL_EU_MULTIPLIER = 0.9;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.SOLENOID)
+        .speedPerTierBeyondFirst(BASE_SPEED_BONUS, 0.1, TooltipTier.COIL)
+        .euModifierPerTierBeyondFirst(0.8, 0.9, TooltipTier.COIL)
+        .build();
+    private static final StructureParameter.Of<MTELargeFluidExtractor, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTELargeFluidExtractor::getCoilLevel, MTELargeFluidExtractor::setCoilLevel);
+    private static final StructureParameter.Of<MTELargeFluidExtractor, Byte> SOLENOID = StructureParameter
+        .solenoid(MTELargeFluidExtractor::getSolenoidLevel, MTELargeFluidExtractor::setSolenoidLevel);
 
     // spotless:off
     private static final IStructureDefinition<MTELargeFluidExtractor> STRUCTURE_DEFINITION = StructureDefinition
@@ -102,21 +104,8 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
                         ofBlock(GregTechAPI.sBlockCasings4, 0))) // Robust Tungstensteel Machine Casing
         )
         .addElement('g', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
-        .addElement(
-            'h',
-            GTStructureChannels.HEATING_COIL.use(
-                activeCoils(
-                    ofCoil(
-                        MTELargeFluidExtractor::setCoilLevel,
-                        MTELargeFluidExtractor::getCoilLevel)))
-        )
-        .addElement(
-            's',
-            GTStructureChannels.SOLENOID.use(
-                ofSolenoidCoil(
-                    MTELargeFluidExtractor::setSolenoidLevel,
-                    MTELargeFluidExtractor::getSolenoidLevel))
-        )
+        .addElement('h', COIL)
+        .addElement('s', SOLENOID)
         .addElement(
             'f',
             ofFrame(Materials.BlackSteel)
@@ -209,10 +198,12 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEUMultiplier)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic().noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -241,6 +232,12 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     }
 
     @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this), SOLENOID.of(this));
+    }
+
+    @Override
     public ITexture[] getTexture(IGregTechTileEntity aBaseMetaTileEntity, ForgeDirection side, ForgeDirection aFacing,
         int colorIndex, boolean aActive, boolean redstoneLevel) {
         return Textures.BlockIcons.createTextureWithCasing(
@@ -263,21 +260,7 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fluid Extractor, LFE")
-            .addDynamicParallelInfo(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-            .addStaticSpeedInfo((float) BASE_SPEED_BONUS)
-            .addStaticEuEffInfo((float) BASE_EU_MULTIPLIER)
-            .addInfo(
-                String.format(
-                    "Every coil tier gives a %s speed bonus and a %s EU/t discount (multiplicative)",
-                    TooltipHelper.speedText("+") + TooltipHelper.speedText((float) SPEED_PER_COIL),
-                    TooltipHelper.effText((float) (1 - HEATING_COIL_EU_MULTIPLIER))))
-            .addInfo(
-                String.format(
-                    "The EU multiplier is %s%.2f * (%.2f ^ Heating Coil Tier)%s, prior to overclocks",
-                    EnumChatFormatting.ITALIC,
-                    BASE_EU_MULTIPLIER,
-                    HEATING_COIL_EU_MULTIPLIER,
-                    EnumChatFormatting.GRAY))
+            .addProcessingSpecInfo(SPEC)
             .addGlassEnergyLimitInfo()
             .beginStructureBlock(5, 9, 5, false)
             .addController("Front bottom center")
@@ -332,6 +315,8 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     public String[] getInfoData() {
 
         ArrayList<String> data = new ArrayList<>(Arrays.asList(super.getInfoData()));
+        ProcessingSpec.Inputs inputs = getCurrentProcessingSpecInputs();
+        double totalSpeed = 1 / SPEC.getDurationMultiplier(inputs);
 
         data.add(
             IGregTechDeviceInformation
@@ -340,41 +325,18 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
             IGregTechDeviceInformation.encode(
                 "GT5U.infodata.large_fluid_extractor.heating_coil_speed_bonus",
                 YELLOW,
-                getCoilSpeedBonus() * 100,
+                (totalSpeed - BASE_SPEED_BONUS) * 100,
                 RESET));
         data.add(
-            IGregTechDeviceInformation.encode(
-                "GT5U.infodata.large_fluid_extractor.total_speed_multiplier",
-                YELLOW,
-                (BASE_SPEED_BONUS + getCoilSpeedBonus()) * 100,
-                RESET));
+            IGregTechDeviceInformation
+                .encode("GT5U.infodata.large_fluid_extractor.total_speed_multiplier", YELLOW, totalSpeed * 100, RESET));
         data.add(
             IGregTechDeviceInformation.encode(
                 "GT5U.infodata.large_fluid_extractor.total_eu_multiplier",
                 YELLOW,
-                getEUMultiplier() * 100,
+                SPEC.getEuModifier(inputs) * 100,
                 RESET));
 
         return data.toArray(new String[0]);
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return Math.max(1, solenoidLevel == null ? 0 : (PARALLELS_PER_SOLENOID * solenoidLevel));
-    }
-
-    public float getCoilSpeedBonus() {
-        return (float) ((coilLevel == null ? 0 : SPEED_PER_COIL * coilLevel.getTier()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (BASE_SPEED_BONUS + getCoilSpeedBonus());
-    }
-
-    public double getEUMultiplier() {
-        double heatingBonus = (coilLevel == null ? 0
-            : GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, coilLevel.getTier()));
-
-        return (BASE_EU_MULTIPLIER * heatingBonus);
     }
 }

@@ -12,10 +12,11 @@ import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 import static gregtech.api.util.GTStructureUtility.ofSheetMetal;
 
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -39,9 +40,11 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -62,9 +65,13 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     private static final int OFFSET_Y = 5;
     private static final int OFFSET_Z = 0;
 
-    private static final int PARALLEL_PER_TIER = 8;
-    private static final float SPEED_INCREASE_TIER = 1f;
-    private static final float SPEED_BASIC = 1f;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .speedPerTierBeyondFirst(3, 1, TooltipTier.ITEM_PIPE_CASING)
+        .euModifier(1)
+        .build();
+    private static final StructureParameter.Of<MTEIndustrialMixer, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEIndustrialMixer::getItemPipeTier, MTEIndustrialMixer::setItemPipeTier);
 
     private int glassTier = -1;
 
@@ -131,9 +138,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
                     }})
                 //spotless:on
                 .addElement('A', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
-                .addElement(
-                    'B',
-                    chainItemPipeCasings(-1, MTEIndustrialMixer::setItemPipeTier, MTEIndustrialMixer::getItemPipeTier))
+                .addElement('B', ITEM_PIPE)
                 .addElement('C', Casings.TitaniumTurbineCasing.asElement())
                 .addElement('D', ofSheetMetal(Materials.Tungsten))
                 .addElement(
@@ -180,10 +185,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Mixer, IMM")
-            .addVoltageParallelInfo(8)
-            .addStaticSpeedInfo(SPEED_BASIC)
-            .addDynamicSpeedBonusInfo(SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING)
-            .addStaticEuEffInfo(1)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(
                 TIER_COLORS[VoltageIndex.UIV] + "UIV+ "
                     + EnumChatFormatting.GRAY
@@ -212,17 +214,12 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (PARALLEL_PER_TIER * GTUtility.getTier(this.getMaxInputVoltage()));
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (SPEED_INCREASE_TIER + (itemPipeTier + 1));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     private int casingAmount;
@@ -239,6 +236,12 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
 
     private int getItemPipeTier() {
         return itemPipeTier;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

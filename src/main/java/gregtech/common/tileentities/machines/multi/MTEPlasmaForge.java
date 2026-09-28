@@ -62,6 +62,7 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.GregTechTileClientEvents;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
@@ -94,6 +95,10 @@ public class MTEPlasmaForge extends MTEExtendedPowerMultiBlockBase<MTEPlasmaForg
     private static final double maximum_discount = 0.5d;
     private static final int CONVERGENCE_BITMAP = 0b1;
     private static final int DISCOUNT_BITMAP = 0b10;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
 
     // Valid fuels which the discount will get applied to.
     private static final FluidStack[] valid_fuels = { Materials.ExcitedDTCC.getFluid(1L),
@@ -614,7 +619,7 @@ public class MTEPlasmaForge extends MTEExtendedPowerMultiBlockBase<MTEPlasmaForg
                     + EnumChatFormatting.GRAY
                     + ",")
             .addInfo("but the extra power cost is instead added in form of increased catalyst amounts")
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .addSupportAny()
             .beginStructureBlock(33, 24, 33, false)
             .addController("Middle of the structure, 3rd layer")
@@ -736,7 +741,12 @@ public class MTEPlasmaForge extends MTEExtendedPowerMultiBlockBase<MTEPlasmaForg
                 return recipe.mSpecialValue <= mHeatingCapacity ? CheckRecipeResultRegistry.SUCCESSFUL
                     : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
-        }.setUnlimitedTierSkips();
+        };
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Nonnull

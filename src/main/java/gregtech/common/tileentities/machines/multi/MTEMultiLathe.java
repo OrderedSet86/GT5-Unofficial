@@ -1,7 +1,6 @@
 package gregtech.common.tileentities.machines.multi;
 
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlock;
-import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlocksTiered;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.transpose;
 import static gregtech.api.enums.GTAuthors.AuthorVolence;
@@ -20,9 +19,8 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
-import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -32,9 +30,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -50,10 +45,12 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.GregTechTileClientEvents;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
@@ -78,16 +75,15 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final String STRUCTURE_PIECE_BODY = "body";
     private static final String STRUCTURE_PIECE_BODY_ALT = "body_alt";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.ITEM_PIPE_CASING)
+        .speed(4)
+        .euModifier(0.8)
+        .build();
+    private static final StructureParameter.Of<MTEMultiLathe, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEMultiLathe::getPipeTier, MTEMultiLathe::setPipeTier);
 
     protected int pipeTier = -1;
-
-    // get tier from block meta
-    @Nullable
-    private static Integer getTierFromMeta(Block block, Integer metaID) {
-        if (block != GregTechAPI.sBlockCasings11) return null;
-        if (metaID < 0 || metaID > 7) return null;
-        return metaID + 1;
-    }
 
     private void setPipeTier(int tier) {
         pipeTier = tier;
@@ -122,23 +118,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
                 .buildAndChain(onElementPass(MTEMultiLathe::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings2, 0))))
         .addElement('B', ofBlock(GregTechAPI.sBlockCasings3, 10)) // Steel Casings
         .addElement('C', chainAllGlasses()) // Glass
-        .addElement(
-            'F',
-            GTStructureChannels.ITEM_PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEMultiLathe::getTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings11, 0),
-                        Pair.of(GregTechAPI.sBlockCasings11, 1),
-                        Pair.of(GregTechAPI.sBlockCasings11, 2),
-                        Pair.of(GregTechAPI.sBlockCasings11, 3),
-                        Pair.of(GregTechAPI.sBlockCasings11, 4),
-                        Pair.of(GregTechAPI.sBlockCasings11, 5),
-                        Pair.of(GregTechAPI.sBlockCasings11, 6),
-                        Pair.of(GregTechAPI.sBlockCasings11, 7)),
-                    -1,
-                    MTEMultiLathe::setPipeTier,
-                    MTEMultiLathe::getPipeTier)))
+        .addElement('F', ITEM_PIPE)
         .build();
 
     @Override
@@ -175,9 +155,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Lathe, IPL")
-            .addDynamicParallelInfo(8, TooltipTier.PIPE_CASING)
-            .addStaticSpeedInfo(4f)
-            .addStaticEuEffInfo(0.8f)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(7, 5, 5, true)
             .addController("Front bottom center")
             .addCasing("42-55", "Solid Steel Machine Casing", false)
@@ -255,15 +233,18 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / 4F)
-            .setEuModifier(0.8F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (getPipeTier() * 8);
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(ITEM_PIPE.of(this));
     }
 
     @Override

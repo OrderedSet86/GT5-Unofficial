@@ -16,10 +16,8 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLA
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLAVE_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLAVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.getCasingTextureForId;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.text.DecimalFormat;
@@ -58,10 +56,11 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -86,15 +85,38 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(12, TooltipTier.ITEM_PIPE_CASING)
+        .speedBonusPerTier(0.25, TooltipTier.COIL)
+        .euModifier(in -> (12 - in.tier(TooltipTier.PIPE_CASING)) / 12.0)
+        .customTooltip(
+            ProcessingSpec.Quantity.EU_MODIFIER,
+            tt -> tt.addDynamicEuEffInfo(0.0833f, TooltipTier.PIPE_CASING))
+        .build();
+    private static final StructureParameter.Of<MTEMultiAutoclave, Integer> ITEM_PIPE = StructureParameter
+        .itemPipeCasing(MTEMultiAutoclave::getItemPipeTier, MTEMultiAutoclave::setItemPipeTier);
+    private static final StructureParameter.Of<MTEMultiAutoclave, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMultiAutoclave::getCoilLevel, MTEMultiAutoclave::setCoilLevel);
+    private static final StructureParameter.Of<MTEMultiAutoclave, Integer> FLUID_PIPE = StructureParameter.tiered(
+        TooltipTier.PIPE_CASING,
+        1,
+        4,
+        MTEMultiAutoclave::getFluidPipeTier,
+        MTEMultiAutoclave::setFluidPipeTier,
+        (setter, getter) -> GTStructureChannels.PIPE_CASING.use(
+            ofBlocksTiered(
+                MTEMultiAutoclave::getFluidTierFromMeta,
+                ImmutableList.of(
+                    Pair.of(GregTechAPI.sBlockCasings2, 12),
+                    Pair.of(GregTechAPI.sBlockCasings2, 13),
+                    Pair.of(GregTechAPI.sBlockCasings2, 14),
+                    Pair.of(GregTechAPI.sBlockCasings2, 15)),
+                -1,
+                setter,
+                getter)));
+
     protected int itemPipeTier = 0;
     protected int fluidPipeTier = 0;
-
-    @Nullable
-    private static Integer getItemPipeTierFromMeta(Block block, Integer metaID) {
-        if (block != GregTechAPI.sBlockCasings11) return null;
-        if (metaID < 0 || metaID > 7) return null;
-        return metaID + 1;
-    }
 
     private void setItemPipeTier(int tier) {
         itemPipeTier = tier;
@@ -161,40 +183,9 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
                     onElementPass(MTEMultiAutoclave::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings10, 3))))
         .addElement('B', chainAllGlasses()) // Steel Casings
         .addElement('C', ofFrame(Materials.Polytetrafluoroethylene)) // PTFE Frame
-        .addElement(
-            'D',
-            GTStructureChannels.PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEMultiAutoclave::getFluidTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings2, 12),
-                        Pair.of(GregTechAPI.sBlockCasings2, 13),
-                        Pair.of(GregTechAPI.sBlockCasings2, 14),
-                        Pair.of(GregTechAPI.sBlockCasings2, 15)),
-                    -1,
-                    MTEMultiAutoclave::setFluidPipeTier,
-                    MTEMultiAutoclave::getFluidPipeTier)))
-        .addElement(
-            'E',
-            GTStructureChannels.ITEM_PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEMultiAutoclave::getItemPipeTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings11, 0),
-                        Pair.of(GregTechAPI.sBlockCasings11, 1),
-                        Pair.of(GregTechAPI.sBlockCasings11, 2),
-                        Pair.of(GregTechAPI.sBlockCasings11, 3),
-                        Pair.of(GregTechAPI.sBlockCasings11, 4),
-                        Pair.of(GregTechAPI.sBlockCasings11, 5),
-                        Pair.of(GregTechAPI.sBlockCasings11, 6),
-                        Pair.of(GregTechAPI.sBlockCasings11, 7)),
-                    -1,
-                    MTEMultiAutoclave::setItemPipeTier,
-                    MTEMultiAutoclave::getItemPipeTier)))
-        .addElement(
-            'F',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMultiAutoclave::setCoilLevel, MTEMultiAutoclave::getCoilLevel))))
+        .addElement('D', FLUID_PIPE)
+        .addElement('E', ITEM_PIPE)
+        .addElement('F', COIL)
         .build();
 
     @Override
@@ -206,9 +197,7 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Autoclave, IAC")
-            .addDynamicParallelInfo(12, TooltipTier.ITEM_PIPE_CASING)
-            .addDynamicSpeedBonusInfo(0.25f, TooltipTier.COIL)
-            .addDynamicEuEffInfo(0.0833f, TooltipTier.PIPE_CASING)
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(7, 7, 9, true)
             .addController("Front bottom center")
             .addCasing("128-148", "Pressure Containment Casing", false)
@@ -292,31 +281,28 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
         return new MTEMultiAutoclave(this.mName);
     }
 
-    public float euModifier(int fluidPipeTier) {
+    public static float euModifier(int fluidPipeTier) {
         return (float) (12 - fluidPipeTier) / 12;
     }
 
-    public float speedBoost(int coilTier) {
+    public static float speedBoost(int coilTier) {
         return (float) 1 / (1 + 0.25f * coilTier);
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return itemPipeTier * 12;
+    protected ProcessingLogic createProcessingLogic() {
+        return new ProcessingLogic();
     }
 
     @Override
-    protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
 
-            @Override
-            @Nonnull
-            public CheckRecipeResult process() {
-                euModifier = euModifier(fluidPipeTier);
-                speedBoost = speedBoost(getCoilTier());
-                return super.process();
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(ITEM_PIPE.of(this), COIL.of(this), FLUID_PIPE.of(this));
     }
 
     @Override

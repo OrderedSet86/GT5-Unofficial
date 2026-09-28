@@ -44,6 +44,7 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -66,6 +67,11 @@ public class MTEIndustrialArcFurnaceLegacy extends GTPPMultiBlockBase<MTEIndustr
 
     final static int MACHINE_MODE_ARC = 0;
     final static int MACHINE_MODE_PLASMA = 1;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .speed(3.5)
+        .euModifier(1)
+        .build();
 
     private int mSize = 0;
     private int mCasing;
@@ -96,8 +102,7 @@ public class MTEIndustrialArcFurnaceLegacy extends GTPPMultiBlockBase<MTEIndustr
             .addDeprecatedLine("CHECK NEI TO FIND NEW CONTROLLER")
             .addInfo(TooltipHelper.parallelText("Width * Voltage Tier") + " Parallels")
             .addInfo(TooltipHelper.parallelText("8x") + " Parallels in Plasma Mode")
-            .addStaticSpeedInfo(3.5f)
-            .addStaticEuEffInfo(1f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Right-click controller with a Screwdriver to change modes")
             .addInfo("Max Size required to process Plasma recipes")
             .addPollutionAmount(getPollutionPerSecond(null))
@@ -263,8 +268,12 @@ public class MTEIndustrialArcFurnaceLegacy extends GTPPMultiBlockBase<MTEIndustr
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 3.5F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel);
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

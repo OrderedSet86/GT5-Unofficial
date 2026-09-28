@@ -48,6 +48,7 @@ import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
@@ -74,6 +75,11 @@ import gregtech.common.tileentities.machines.multi.drone.MTEHatchDroneDownLink;
 
 public abstract class MTEFusionComputer extends MTEEnhancedMultiBlockBase<MTEFusionComputer>
     implements ISurvivalConstructable, IOverclockDescriptionProvider, ICasingTextureProvider {
+
+    protected static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
 
     private final OverclockDescriber overclockDescriber;
 
@@ -322,7 +328,11 @@ public abstract class MTEFusionComputer extends MTEEnhancedMultiBlockBase<MTEFus
         logic.setAvailableVoltage(GTValues.V[tier()]);
         logic.setAvailableAmperage(1);
         logic.setAmperageOC(false);
-        logic.setUnlimitedTierSkips();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     public boolean turnCasingActive(boolean status) {

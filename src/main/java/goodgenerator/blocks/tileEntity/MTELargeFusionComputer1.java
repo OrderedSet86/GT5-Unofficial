@@ -58,6 +58,7 @@ public class MTELargeFusionComputer1 extends MTELargeFusionComputer {
                     "power", formatNumber(getSingleHatchPower()),
                     "capacity", formatNumber(capableStartupCanonical() / 32 / M),
                     "tier", GTUtility.getColoredTierNameFromTier((byte) tier())))
+            .addProcessingSpecInfo(SPEC)
             .addSupportAny()
             .beginStructureBlock(47, 7, 47, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.middle_center_4th_layer"))

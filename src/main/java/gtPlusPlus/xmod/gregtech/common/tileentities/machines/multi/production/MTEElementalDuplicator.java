@@ -33,13 +33,14 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.ErrorType;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.GTplusplus;
 import gtPlusPlus.core.block.ModBlocks;
@@ -53,6 +54,12 @@ public class MTEElementalDuplicator extends GTPPMultiBlockBase<MTEElementalDupli
 
     private final ArrayList<MTEHatchElementalDataOrbHolder> mReplicatorDataOrbHatches = new ArrayList<>();
     private static final int CASING_TEXTURE_ID = TAE.getIndexFromPage(0, 3);
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .speed(2)
+        .euModifier(1)
+        .perfectOverclock()
+        .build();
     private int mCasing = 0;
 
     public MTEElementalDuplicator(final int aID, final String aName, final String aNameRegional) {
@@ -79,10 +86,9 @@ public class MTEElementalDuplicator extends GTPPMultiBlockBase<MTEElementalDupli
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo("Produces raw elements from UU-Matter")
-            .addBulkMachineInfo(8, 2f, 1f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Maximum 1x Data Orb Repository")
             .addInfo("The programmed circuit selects which Data Orb to use (1-16)")
-            .addPerfectOCInfo()
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(9, 6, 9, true)
             .addController("Top center, 6th layer")
@@ -301,9 +307,12 @@ public class MTEElementalDuplicator extends GTPPMultiBlockBase<MTEElementalDupli
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1F / 2F)
-            .enablePerfectOverclock()
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -314,11 +323,6 @@ public class MTEElementalDuplicator extends GTPPMultiBlockBase<MTEElementalDupli
             logic.setSpecialSlotItem(orb);
             break;
         }
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return (8 * GTUtility.getTier(this.getMaxInputVoltage()));
     }
 
     @Override

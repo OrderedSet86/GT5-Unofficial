@@ -14,9 +14,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAS
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.casingTexturePages;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.util.List;
 
@@ -50,16 +48,17 @@ import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.misc.GTStructureChannels;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -67,6 +66,16 @@ import mcp.mobius.waila.api.IWailaDataAccessor;
 
 public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectricBlastFurnace>
     implements ISurvivalConstructable, ICasingTextureProvider {
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .heat(
+            in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) + 100 * (in.voltageTier() - 2),
+            ProcessingSpec.HeatRule.OVERCLOCK,
+            ProcessingSpec.HeatRule.DISCOUNT)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
+        .build();
+    private static final StructureParameter.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEElectricBlastFurnace::getCoilLevel, MTEElectricBlastFurnace::setCoilLevel);
 
     private int mHeatingCapacity = 0;
 
@@ -86,10 +95,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
                 .hint(3)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEElectricBlastFurnace::setCoilLevel, MTEElectricBlastFurnace::getCoilLevel))))
+        .addElement('C', COIL)
         .addElement(
             'b',
             buildHatchAdder(MTEElectricBlastFurnace.class)
@@ -200,15 +206,6 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     protected ProcessingLogic createProcessingLogic() {
         return new ProcessingLogic() {
 
-            @Nonnull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setRecipeHeat(recipe.mSpecialValue)
-                    .setMachineHeat(mHeatingCapacity)
-                    .setHeatOC(true)
-                    .setHeatDiscount(true);
-            }
-
             @Override
             protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
                 return recipe.mSpecialValue <= mHeatingCapacity ? CheckRecipeResultRegistry.SUCCESSFUL
@@ -234,7 +231,26 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
 
-        this.mHeatingCapacity = (int) getCoilLevel().getHeat() + 100 * (GTUtility.getTier(getMaxInputVoltage()) - 2);
+        updateHeatingCapacity();
+    }
+
+    private void updateHeatingCapacity() {
+        this.mHeatingCapacity = SPEC.getHeat()
+            .get()
+            .getMachineHeat(getCurrentProcessingSpecInputs());
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            COIL.derivingAfterSet(MTEElectricBlastFurnace::updateHeatingCapacity)
+                .of(this));
     }
 
     @Override

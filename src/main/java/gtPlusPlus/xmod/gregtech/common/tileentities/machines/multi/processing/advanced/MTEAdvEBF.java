@@ -13,12 +13,12 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.enums.HatchElement.PyrotheumHatch;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -48,16 +48,17 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.misc.GTStructureChannels;
@@ -77,6 +78,15 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     public static String mCasingName = "Volcanus Casing";
     public static String mHatchName = "Pyrotheum Hatch";
     private static IStructureDefinition<MTEAdvEBF> STRUCTURE_DEFINITION = null;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(8)
+        .speed(2.2)
+        .euModifier(0.9)
+        .heat(ProcessingSpec.COIL_HEAT, ProcessingSpec.HeatRule.OVERCLOCK, ProcessingSpec.HeatRule.DISCOUNT)
+        .noTooltip(ProcessingSpec.Quantity.HEAT)
+        .build();
+    private static final StructureParameter.Of<MTEAdvEBF, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEAdvEBF::getCoilLevel, MTEAdvEBF::setCoilLevel);
     private int mCasing;
 
     private HeatingCoilLevel mHeatingCapacity = HeatingCoilLevel.None;
@@ -106,9 +116,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
             .addInfo("Factory Grade Advanced Blast Furnace")
-            .addStaticParallelInfo(8)
-            .addStaticSpeedInfo(2.2f)
-            .addStaticEuEffInfo(0.9f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Consumes 10L of " + mHotFuelName + " per second during operation")
             .addInfo("Constructed exactly the same as a normal EBF")
             .addInfo(
@@ -173,10 +181,7 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
                             .hint(1)
                             .build(),
                         onElementPass(x -> ++x.mCasing, ofBlock(ModBlocks.blockCasings3Misc, 11))))
-                .addElement(
-                    'H',
-                    GTStructureChannels.HEATING_COIL
-                        .use(activeCoils(ofCoil(MTEAdvEBF::setCoilLevel, MTEAdvEBF::getCoilLevel))))
+                .addElement('H', COIL)
                 .build();
         }
         return STRUCTURE_DEFINITION;
@@ -211,6 +216,12 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
         checkHasMufflerHatch(errors);
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this));
     }
 
     @Override
@@ -255,21 +266,17 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
             @NotNull
             @Override
             protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                return recipe.mSpecialValue <= getCoilLevel().getHeat() ? CheckRecipeResultRegistry.SUCCESSFUL
-                    : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
+                return recipe.mSpecialValue <= SPEC.getHeat()
+                    .get()
+                    .getMachineHeat(getCurrentProcessingSpecInputs()) ? CheckRecipeResultRegistry.SUCCESSFUL
+                        : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
             }
+        };
+    }
 
-            @NotNull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setHeatOC(true)
-                    .setHeatDiscount(true)
-                    .setRecipeHeat(recipe.mSpecialValue)
-                    .setMachineHeat((int) getCoilLevel().getHeat());
-            }
-        }.setSpeedBonus(1F / 2.2F)
-            .setEuModifier(0.9F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -310,11 +317,6 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
-    }
-
-    @Override
     public void onModeChangeByScrewdriver(ForgeDirection side, EntityPlayer aPlayer, float aX, float aY, float aZ) {
         inputSeparation = !inputSeparation;
         aPlayer.addChatMessage(
@@ -352,7 +354,11 @@ public class MTEAdvEBF extends GTPPMultiBlockBase<MTEAdvEBF> implements ISurviva
     @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
-        tag.setInteger("heatingCapacity", (int) mHeatingCapacity.getHeat());
+        tag.setInteger(
+            "heatingCapacity",
+            SPEC.getHeat()
+                .get()
+                .getMachineHeat(getCurrentProcessingSpecInputs()));
     }
 
     @Override

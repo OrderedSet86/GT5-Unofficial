@@ -50,6 +50,7 @@ import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -92,6 +93,10 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     public static final String MAIN_NAME = "largeFusion";
     public static final int M = 1_000_000;
+    protected static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .unlimitedTierSkips()
+        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .build();
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
@@ -487,10 +492,14 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     }
 
     @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
     protected void setProcessingLogicPower(ProcessingLogic logic) {
         logic.setAvailableVoltage(GTValues.V[tier()]);
         logic.setAvailableAmperage(getSingleHatchPower() * 32 / GTValues.V[tier()]);
-        logic.setUnlimitedTierSkips();
     }
 
     public int getChunkX() {

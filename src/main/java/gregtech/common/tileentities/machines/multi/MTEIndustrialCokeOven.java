@@ -1,6 +1,7 @@
 package gregtech.common.tileentities.machines.multi;
 
 import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.lazy;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlocksTiered;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
 import static gregtech.api.enums.HatchElement.Energy;
@@ -11,12 +12,12 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.MultiAmpEnergy;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -47,13 +48,15 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
@@ -69,11 +72,52 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     private int casingAmount;
     private HeatingCoilLevel coilLevel;
     private static final int MAX_LENGTH = 16;
-    private static final float EU_MODIFIER = 0.98f;
-    private static final int PARALLELS_T1 = 16;
-    private static final int PARALLELS_T2 = 32;
-    private static final int SLICE_PARALLELS_T1 = 8;
-    private static final int SLICE_PARALLELS_T2 = 16;
+    private static final int HEAT_RESISTANT_TIER = 0;
+    private static final int HEAT_PROOF_TIER = 1;
+    private static final double EU_MODIFIER = 0.98;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .whenTier(
+            TooltipTier.STRUCTURE,
+            HEAT_RESISTANT_TIER,
+            "Heat Resistant Casing",
+            tier -> tier.parallel(16)
+                .parallelPerTier(8, TooltipTier.LENGTH))
+        .whenTier(
+            TooltipTier.STRUCTURE,
+            HEAT_PROOF_TIER,
+            "Heat Proof Casing",
+            tier -> tier.parallel(32)
+                .parallelPerTier(16, TooltipTier.LENGTH))
+        .euModifier(in -> euModifier(in.tier(TooltipTier.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.EU_MODIFIER,
+            tt -> tt.addInfo(
+                EnumChatFormatting.AQUA + "-2% "
+                    + EnumChatFormatting.GRAY
+                    + "EU Usage per "
+                    + EnumChatFormatting.WHITE
+                    + "Heating Coil"
+                    + EnumChatFormatting.GRAY
+                    + " Tier (multiplicatively)"))
+        .build();
+    private static final StructureParameter.Of<MTEIndustrialCokeOven, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialCokeOven::getCoilLevel, MTEIndustrialCokeOven::setCoilLevel);
+    private static final StructureParameter.Of<MTEIndustrialCokeOven, Integer> CASING = StructureParameter.tiered(
+        TooltipTier.STRUCTURE,
+        HEAT_RESISTANT_TIER,
+        HEAT_PROOF_TIER,
+        t -> t.tier,
+        (t, value) -> t.tier = value,
+        (setter, getter) -> GTStructureChannels.COKE_OVEN_CASING.use(
+            lazy(
+                () -> ofBlocksTiered(
+                    (block, meta) -> block == ModBlocks.blockCasingsMisc
+                        ? (meta == 2 ? HEAT_RESISTANT_TIER : meta == 3 ? HEAT_PROOF_TIER : null)
+                        : null,
+                    ImmutableList.of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
+                    -1,
+                    setter,
+                    getter))));
 
     private static final int OFFSET_X_MAIN = 1;
     private static final int OFFSET_Y_MAIN = 5;
@@ -103,23 +147,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Coke Oven, ICO")
             .addInfo("Processes Logs and Coal into Charcoal and Coal Coke.")
-            .addInfo(
-                TooltipHelper.parallelText(PARALLELS_T1) + " base and +"
-                    + TooltipHelper.parallelText(SLICE_PARALLELS_T1)
-                    + " Parallels per extra slice with Heat Resistant Casing")
-            .addInfo(
-                TooltipHelper.parallelText(PARALLELS_T2) + " base and +"
-                    + TooltipHelper.parallelText(SLICE_PARALLELS_T2)
-                    + " Parallels per extra slice with Heat Proof Casing")
-            .addInfo(
-                EnumChatFormatting.AQUA + "-2% "
-                    + EnumChatFormatting.GRAY
-                    + "EU Usage per "
-                    + EnumChatFormatting.WHITE
-                    + "Heating Coil"
-                    + EnumChatFormatting.GRAY
-                    + " Tier (multiplicatively)")
-            .addInfo("Max 15 additional slices, eternal coils unlock unlimited slices")
+            .addProcessingSpecInfo(SPEC)
+            .addInfo("Length Tier is the number of additional slices: at most 15, unlimited with eternal coils")
             .addInfo("Infinity Coils and higher allow for single multi-amp energy hatch")
             .addMultiAmpHatchInfo()
             .addPollutionAmount(getPollutionPerSecond(null))
@@ -184,22 +213,9 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                     .hint(1)
                     .buildAndChain(onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement())))
             .addElement('A', Casings.SteelPipeCasing.asElement())
-            .addElement(
-                'B',
-                GTStructureChannels.HEATING_COIL
-                    .use(activeCoils(ofCoil(MTEIndustrialCokeOven::setCoilLevel, MTEIndustrialCokeOven::getCoilLevel))))
+            .addElement('B', COIL)
             .addElement('C', ofFrame(Materials.Steel))
-            .addElement(
-                'E',
-                GTStructureChannels.COKE_OVEN_CASING.use(
-                    ofBlocksTiered(
-                        (block, meta) -> block == ModBlocks.blockCasingsMisc ? (meta == 2 ? 0 : meta == 3 ? 1 : null)
-                            : null,
-                        ImmutableList
-                            .of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
-                        -1,
-                        (t, tier1) -> t.tier = tier1,
-                        t -> t.tier)))
+            .addElement('E', CASING)
             .addElement('F', onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement()))
             .build();
     }
@@ -315,6 +331,19 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     }
 
     @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            COIL.of(this),
+            CASING.of(this),
+            StructureParameter.builder(TooltipTier.LENGTH)
+                .between(0, MAX_LENGTH - 1)
+                .getter(() -> width)
+                .setter(w -> width = w)
+                .build());
+    }
+
+    @Override
     protected SoundResource getProcessStartSound() {
         return SoundResource.GTCEU_OP_CLICK;
     }
@@ -351,19 +380,12 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEuModifier);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        int base = (tier == 0) ? PARALLELS_T1 : PARALLELS_T2;
-        int perSlice = (tier == 0) ? SLICE_PARALLELS_T1 : SLICE_PARALLELS_T2;
-        return base + (width * perSlice);
-    }
-
-    public double getEuModifier() {
-        return Math.pow(EU_MODIFIER, getCoilTier());
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -383,8 +405,8 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         return this.coilLevel;
     }
 
-    public float euModifier(int coilTier) {
-        return (float) Math.pow(EU_MODIFIER, coilTier);
+    private static double euModifier(int coilTier) {
+        return Math.pow(EU_MODIFIER, coilTier);
     }
 
     @Override

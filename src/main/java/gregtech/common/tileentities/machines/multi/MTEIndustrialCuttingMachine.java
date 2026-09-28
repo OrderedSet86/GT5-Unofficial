@@ -17,6 +17,8 @@ import static gregtech.api.util.GTStructureUtility.ofSheetMetal;
 import java.nio.DoubleBuffer;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
@@ -53,16 +55,19 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gregtech.common.render.IMTERenderer;
@@ -93,6 +98,24 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t2.png"),
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t3.png"),
         new ResourceLocation(GregTech.resourceDomain, "textures/model/cutter_t4.png") };
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 0 : sawblade.parallelPerVoltageTier * in.voltageTier();
+        })
+        .durationMultiplier(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 1D : sawblade.speedBoost;
+        })
+        .euModifier(in -> {
+            SawbladeTiers sawblade = getSawbladeTier(in);
+            return sawblade == null ? 1D : sawblade.euModifier;
+        })
+        .noTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER)
+        .build();
     private int casingAmount;
     private boolean stopAllRendering;
     private int renderSawbladeTier = -1;
@@ -105,20 +128,20 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
 
     public enum SawbladeTiers {
 
-        TungstenTitaniumCarbide(2, 2.5F, 0.9F, VoltageIndex.LuV, false),
-        MysteriousCrystal(3, 3.0F, 0.8F, VoltageIndex.UV, false),
-        Neutronium(4, 3.5F, 0.7F, VoltageIndex.UEV, false),
-        TranscendentMetal(6, 4.5F, 0.6F, Integer.MAX_VALUE, true);
+        TungstenTitaniumCarbide(2, 2.5, 0.9, VoltageIndex.LuV, false),
+        MysteriousCrystal(3, 3.0, 0.8, VoltageIndex.UV, false),
+        Neutronium(4, 3.5, 0.7, VoltageIndex.UEV, false),
+        TranscendentMetal(6, 4.5, 0.6, Integer.MAX_VALUE, true);
 
         final int parallelPerVoltageTier;
-        final float speedBoost, euModifier;
+        final double speedBoost, euModifier;
         final int maxAllowedEnergyHatchTier;
         final boolean supportsExotic;
 
-        SawbladeTiers(int parallelPerVoltageTier, float speedBoost, float euModifier, int maxAllowedEnergyHatchTier,
+        SawbladeTiers(int parallelPerVoltageTier, double speedBoost, double euModifier, int maxAllowedEnergyHatchTier,
             boolean supportsExotic) {
             this.parallelPerVoltageTier = parallelPerVoltageTier;
-            this.speedBoost = 1F / speedBoost;
+            this.speedBoost = 1.0 / speedBoost;
             this.euModifier = euModifier;
             this.maxAllowedEnergyHatchTier = maxAllowedEnergyHatchTier;
             this.supportsExotic = supportsExotic;
@@ -134,8 +157,8 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
                 "gt.sawblade.tooltip.base",
                 hatchTierLimit,
                 sawblade.parallelPerVoltageTier,
-                Math.round(1F / sawblade.speedBoost * 100),
-                Math.round(sawblade.euModifier * 100));
+                Math.round(1F / (float) sawblade.speedBoost * 100),
+                Math.round((float) sawblade.euModifier * 100));
 
             if (sawblade.supportsExotic) {
                 tooltip = tooltip + "\\n" + StatCollector.translateToLocal("gt.sawblade.tooltip.exotic");
@@ -290,9 +313,12 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonusSupplier(this::getSpeedBonus)
-            .setEuModifierSupplier(this::getEuModifier)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -309,13 +335,6 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 0;
-        return sawbladeTier.parallelPerVoltageTier * GTUtility.getTier(this.getMaxInputVoltage());
-    }
-
-    @Override
     public boolean isCorrectMachinePart(ItemStack aStack) {
         return isValidSawblade(aStack);
     }
@@ -325,24 +344,45 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         return false;
     }
 
-    private double getSpeedBonus() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 1D;
-        return sawbladeTier.speedBoost;
-    }
-
-    private double getEuModifier() {
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        if (sawbladeTier == null) return 1D;
-        return sawbladeTier.euModifier;
+    private static ItemList getSawbladeItem(SawbladeTiers sawbladeTier) {
+        return switch (sawbladeTier) {
+            case TungstenTitaniumCarbide -> ItemList.T1Sawblade;
+            case MysteriousCrystal -> ItemList.T2Sawblade;
+            case Neutronium -> ItemList.T3Sawblade;
+            case TranscendentMetal -> ItemList.T4Sawblade;
+        };
     }
 
     private static SawbladeTiers getSawbladeTier(ItemStack stack) {
-        if (ItemList.T1Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.TungstenTitaniumCarbide;
-        if (ItemList.T2Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.MysteriousCrystal;
-        if (ItemList.T3Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.Neutronium;
-        if (ItemList.T4Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.TranscendentMetal;
+        for (SawbladeTiers sawbladeTier : SawbladeTiers.values()) {
+            if (getSawbladeItem(sawbladeTier).isStackEqual(stack, false, true)) return sawbladeTier;
+        }
         return null;
+    }
+
+    private static SawbladeTiers getSawbladeTier(ProcessingSpec.Inputs in) {
+        int index = in.tier(TooltipTier.SAWBLADE);
+        return index < 0 ? null : SawbladeTiers.values()[index];
+    }
+
+    private int getSawbladeTierIndex() {
+        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
+        return sawbladeTier == null ? -1 : sawbladeTier.ordinal();
+    }
+
+    private void setSawbladeTier(SawbladeTiers sawbladeTier) {
+        mInventory[getControllerSlotIndex()] = getSawbladeItem(sawbladeTier).get(1);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            StructureParameter.ofEnum(
+                TooltipTier.SAWBLADE,
+                SawbladeTiers.values(),
+                () -> getSawbladeTier(getControllerSlot()),
+                this::setSawbladeTier));
     }
 
     public static boolean isValidSawblade(ItemStack stack) {
@@ -429,8 +469,7 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         IGregTechTileEntity base = getBaseMetaTileEntity();
         if (base == null || !base.isServerSide()) return;
 
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        int sawbladeTierIndex = sawbladeTier == null ? -1 : sawbladeTier.ordinal();
+        int sawbladeTierIndex = getSawbladeTierIndex();
         if (renderSawbladeTier == sawbladeTierIndex) return;
 
         renderSawbladeTier = sawbladeTierIndex;

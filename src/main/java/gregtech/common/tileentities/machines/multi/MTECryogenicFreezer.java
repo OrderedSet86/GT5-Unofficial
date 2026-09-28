@@ -39,6 +39,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
@@ -62,9 +63,18 @@ public class MTECryogenicFreezer extends MTEExtendedPowerMultiBlockBase<MTECryog
     private static final String STRUCTURE_PIECE_MAIN = "main";
 
     private static final int PARALLELS = 16;
-    private static final float SPEED_BONUS = 3F;
-    private static final float EU_MODIFIER = 0.9F;
+    private static final double SPEED_BONUS = 3;
+    private static final double EU_MODIFIER = 0.9;
     private static final int CRYOTHEUM_PER_SECOND = 10;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> PARALLELS)
+        .durationMultiplier(in -> 1.0 / SPEED_BONUS)
+        .euModifier(in -> EU_MODIFIER)
+        .noTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            ProcessingSpec.Quantity.DURATION,
+            ProcessingSpec.Quantity.EU_MODIFIER)
+        .build();
 
     private static IStructureDefinition<MTECryogenicFreezer> STRUCTURE_DEFINITION = null;
 
@@ -92,8 +102,8 @@ public class MTECryogenicFreezer extends MTEExtendedPowerMultiBlockBase<MTECryog
                 new ResourceLocation("gregtech", "cryogenic-freezer"),
                 ImmutableMap.<String, Object>builder()
                     .put("parallels", PARALLELS)
-                    .put("speed", Math.round(SPEED_BONUS * 100))
-                    .put("eu_eff", Math.round(EU_MODIFIER * 100))
+                    .put("speed", Math.round((float) SPEED_BONUS * 100))
+                    .put("eu_eff", Math.round((float) EU_MODIFIER * 100))
                     .put("cryotheum", CRYOTHEUM_PER_SECOND)
                     .put("unit", getFluidUnit())
                     .build())
@@ -206,15 +216,12 @@ public class MTECryogenicFreezer extends MTEExtendedPowerMultiBlockBase<MTECryog
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().noRecipeCaching()
-            .setSpeedBonus(1F / SPEED_BONUS)
-            .setEuModifier(EU_MODIFIER)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return PARALLELS;
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override

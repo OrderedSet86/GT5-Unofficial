@@ -39,6 +39,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
 import gregtech.api.recipe.RecipeMap;
@@ -49,6 +50,7 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gregtech.common.tileentities.machines.IDualInputHatch;
@@ -66,6 +68,11 @@ public class MTEIndustrialChisel extends MTEExtendedPowerMultiBlockBase<MTEIndus
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 0;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(16, TooltipTier.VOLTAGE)
+        .speed(3)
+        .euModifier(0.75)
+        .build();
     private static IStructureDefinition<MTEIndustrialChisel> STRUCTURE_DEFINITION = null;
     private static ResourceLocation sChiselSound = null;
 
@@ -88,7 +95,7 @@ public class MTEIndustrialChisel extends MTEExtendedPowerMultiBlockBase<MTEIndus
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Chisel")
-            .addBulkMachineInfo(16, 3f, 0.75f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Factory Grade Auto Chisel")
             .addInfo("Chisel Bus: Set ghost targets to define the desired output variants")
             .addInfo("CRIB: Uses the pattern output as the target block")
@@ -218,10 +225,12 @@ public class MTEIndustrialChisel extends MTEExtendedPowerMultiBlockBase<MTEIndus
                 }
                 return super.validateRecipe(recipe);
             }
-        }.noRecipeCaching()
-            .setSpeedBonus(1F / 3F)
-            .setEuModifier(0.75F)
-            .setMaxParallelSupplier(this::getTrueParallel);
+        }.noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -396,11 +405,6 @@ public class MTEIndustrialChisel extends MTEExtendedPowerMultiBlockBase<MTEIndus
     @Override
     protected void sendStartMultiBlockSoundLoop() {
         sendLoopStart(PROCESS_START_SOUND_INDEX);
-    }
-
-    @Override
-    public int getMaxParallelRecipes() {
-        return (16 * GTUtility.getTier(this.getMaxInputVoltage()));
     }
 
     private static ResourceLocation getChiselSound() {

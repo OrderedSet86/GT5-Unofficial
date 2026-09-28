@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -57,6 +59,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.maps.OilCrackerBackend;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -72,6 +75,8 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
 
     private static final int CASING_INDEX = 49;
     private static final String STRUCTURE_PIECE_MAIN = "main";
+    private static final StructureParameter.Of<MTEMegaOilCrackerLegacy, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEMegaOilCrackerLegacy::getCoilLevel, MTEMegaOilCrackerLegacy::setCoilLevel);
     private static final IStructureDefinition<MTEMegaOilCrackerLegacy> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEMegaOilCrackerLegacy>builder()
         .addShape(
@@ -92,10 +97,7 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
                         " g c c c c g ", " g c c c c g ", "pgggggggggggp", " p         p " },
                     { "ppmmmm~mmmmpp", "ppppppppppppp", "ppppppppppppp", "ppppppppppppp", "ppppppppppppp",
                         "ppppppppppppp", "ppppppppppppp", "ppppppppppppp", "ppmmmmmmmmmpp" }, }))
-        .addElement(
-            'c',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMegaOilCrackerLegacy::setCoilLevel, MTEMegaOilCrackerLegacy::getCoilLevel))))
+        .addElement('c', COIL)
 
         .addElement('p', ofBlock(GregTechAPI.sBlockCasings4, 1))
         .addElement(
@@ -244,6 +246,12 @@ public class MTEMegaOilCrackerLegacy extends MegaMultiBlockBase<MTEMegaOilCracke
 
     public void setCoilLevel(HeatingCoilLevel aCoilLevel) {
         this.heatLevel = aCoilLevel;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this));
     }
 
     @Override

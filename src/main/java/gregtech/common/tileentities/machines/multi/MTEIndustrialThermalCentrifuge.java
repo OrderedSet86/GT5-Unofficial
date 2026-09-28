@@ -7,14 +7,13 @@ import static gregtech.api.enums.HatchElement.InputBus;
 import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
-import static gregtech.api.util.GTStructureUtility.ofSolenoidCoil;
 
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
@@ -37,13 +36,13 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -61,13 +60,16 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
     private HeatingCoilLevel coilLevel = null;
     private Byte solenoidLevel = null;
 
-    private static final double SPEED_PER_COIL = 0.05;
-    private static final int PARALLELS_PER_SOLENOID = 2;
-    private static final double HEATING_COIL_EU_MULTIPLIER = 0.95;
-
-    private static final double BASE_SPEED_BONUS = 2.5;
-    private static final double BASE_EU_MULTIPLIER = 0.8;
-    private static final int BASE_PARALLELS = 8;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .parallelPerTier(2, TooltipTier.SOLENOID)
+        .speedPerTierBeyondFirst(2.5, 0.05, TooltipTier.COIL)
+        .euModifierPerTierBeyondFirst(0.8, 0.95, TooltipTier.COIL)
+        .build();
+    private static final StructureParameter.Of<MTEIndustrialThermalCentrifuge, HeatingCoilLevel> COIL = StructureParameter
+        .coil(MTEIndustrialThermalCentrifuge::getCoilLevel, MTEIndustrialThermalCentrifuge::setCoilLevel);
+    private static final StructureParameter.Of<MTEIndustrialThermalCentrifuge, Byte> SOLENOID = StructureParameter
+        .solenoid(MTEIndustrialThermalCentrifuge::getSolenoidLevel, MTEIndustrialThermalCentrifuge::setSolenoidLevel);
     private static IStructureDefinition<MTEIndustrialThermalCentrifuge> STRUCTURE_DEFINITION = null;
 
     public MTEIndustrialThermalCentrifuge(final int aID, final String aName, final String aNameRegional) {
@@ -87,20 +89,7 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Thermal Centrifuge, LTR")
-            .addBulkMachineInfo(BASE_PARALLELS, (float) BASE_SPEED_BONUS, (float) BASE_EU_MULTIPLIER)
-            .addDynamicParallelInfo(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-            .addInfo(
-                String.format(
-                    "Every coil tier gives a %s speed bonus and a %s EU/t discount (multiplicative)",
-                    TooltipHelper.speedText("+") + TooltipHelper.speedText((float) SPEED_PER_COIL),
-                    TooltipHelper.effText((float) (1 - HEATING_COIL_EU_MULTIPLIER))))
-            .addInfo(
-                String.format(
-                    "The EU multiplier is %s%.2f * (%.2f ^ Heating Coil Tier)%s, prior to overclocks",
-                    EnumChatFormatting.ITALIC,
-                    BASE_EU_MULTIPLIER,
-                    HEATING_COIL_EU_MULTIPLIER,
-                    EnumChatFormatting.GRAY))
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 8, 6, false)
             .addController("Front bottom center")
@@ -147,19 +136,8 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
                         onElementPass(x -> ++x.casingAmount, Casings.ThermalProcessingCasing.asElement())))
                 .addElement('A', chainAllGlasses())
                 .addElement('B', Casings.HeatProofMachineCasing.asElement())
-                .addElement(
-                    'C',
-                    GTStructureChannels.SOLENOID.use(
-                        ofSolenoidCoil(
-                            MTEIndustrialThermalCentrifuge::setSolenoidLevel,
-                            MTEIndustrialThermalCentrifuge::getSolenoidLevel)))
-                .addElement(
-                    'D',
-                    GTStructureChannels.HEATING_COIL.use(
-                        activeCoils(
-                            ofCoil(
-                                MTEIndustrialThermalCentrifuge::setCoilLevel,
-                                MTEIndustrialThermalCentrifuge::getCoilLevel))))
+                .addElement('C', SOLENOID)
+                .addElement('D', COIL)
                 .addElement('E', ofFrame(Materials.RedSteel))
                 .build();
         }
@@ -226,15 +204,12 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
-            .setEuModifierSupplier(this::getEUMultiplier)
-            .setSpeedBonusSupplier(this::getSpeedBonus);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (BASE_PARALLELS * GTUtility.getTier(this.getMaxInputVoltage()))
-            + (solenoidLevel == null ? 0 : (PARALLELS_PER_SOLENOID * solenoidLevel));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -264,19 +239,10 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
         solenoidLevel = level;
     }
 
-    public double getCoilSpeedBonus() {
-        return (coilLevel == null ? 0 : SPEED_PER_COIL * coilLevel.getTier());
-    }
-
-    public double getSpeedBonus() {
-        return 1F / (BASE_SPEED_BONUS + getCoilSpeedBonus());
-    }
-
-    public double getEUMultiplier() {
-        double heatingBonus = (coilLevel == null ? 0
-            : GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, coilLevel.getTier()));
-
-        return BASE_EU_MULTIPLIER * heatingBonus;
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(COIL.of(this), SOLENOID.of(this));
     }
 
     @Override

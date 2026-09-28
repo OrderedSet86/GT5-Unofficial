@@ -43,6 +43,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -50,6 +51,7 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.xmod.gregtech.common.blocks.textures.TexturesGtBlock;
@@ -61,6 +63,12 @@ public class MTEIndustrialRockBreaker extends MTEExtendedPowerMultiBlockBase<MTE
     private static final int OFFSET_X = 3;
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 1;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .speed(3)
+        .euModifier(0.75)
+        .build();
 
     private int casingAmount;
     private boolean needsFluidRefill = false;
@@ -105,7 +113,7 @@ public class MTEIndustrialRockBreaker extends MTEExtendedPowerMultiBlockBase<MTE
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Rock Breaker")
-            .addBulkMachineInfo(8, 3f, 0.75f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo("Use Integrated Circuit to determine recipe")
             .addInfo("1 = Cobble, 2 = Stone, 3 = Obsidian, 4 = Basalt, 5 = Deepslate, 6 = Netherrack, 7 = Endstone")
             .addInfo("Needs Soul Sand and Blue Ice in input bus for basalt")
@@ -213,15 +221,12 @@ public class MTEIndustrialRockBreaker extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setSpeedBonus(1 / 3.0)
-            .setEuModifier(0.75)
-            .setMaxParallelSupplier(this::getTrueParallel);
-
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8 * GTUtility.getTier(this.getMaxInputVoltage());
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
