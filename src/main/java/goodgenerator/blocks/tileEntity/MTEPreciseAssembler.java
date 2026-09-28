@@ -28,7 +28,6 @@ import net.minecraftforge.common.util.ForgeDirection;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -76,7 +75,6 @@ import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.machines.IDualInputHatch;
@@ -99,6 +97,7 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
     protected int casingTier;
     protected int machineTier;
     private static final int MACHINEMODE_PRECISE = 0;
+    private static final int MACHINEMODE_NORMAL = 1;
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(GoodGeneratorRecipeMaps.preciseAssemblerRecipes)
             .nameKey("GT5U.GTPP_MULTI_PRECISE_ASSEMBLER.mode.0")
@@ -107,14 +106,14 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
             .nameKey("GT5U.GTPP_MULTI_PRECISE_ASSEMBLER.mode.1")
             .icon(GGUITextures.OVERLAY_BUTTON_ASSEMBLER_MODE, GTGuiTextures.OVERLAY_BUTTON_ASSEMBLER_MODE));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> in.mode() == MACHINEMODE_PRECISE ? 1 : (int) GTUtility.powInt(2, 4 + in.tier(TooltipTier.STRUCTURE)))
-        .durationMultiplier(in -> in.mode() == MACHINEMODE_PRECISE ? 1 : 0.5)
+        .modes(MODES)
+        .inMode(
+            MACHINEMODE_NORMAL,
+            mode -> mode.parallel(in -> (int) GTUtility.powInt(2, 4 + in.tier(TooltipTier.STRUCTURE)))
+                .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+                .speed(2))
         .maxTierSkips(0)
-        .noTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            ProcessingSpec.Quantity.DURATION,
-            ProcessingSpec.Quantity.TIER_SKIPS)
+        .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
         .build();
     protected int energyHatchTier;
     private static final int CASING_INDEX = 1541;
@@ -287,7 +286,8 @@ public class MTEPreciseAssembler extends MTEExtendedPowerMultiBlockBase<MTEPreci
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.precise_assembler"))
-            .addMarkdown(new ResourceLocation("gregtech", "precise-assembler"), ImmutableMap.of("speed", TooltipHelper.speedText(2f)))
+            .addMarkdown(new ResourceLocation("gregtech", "precise-assembler"))
+            .addProcessingSpecInfo(SPEC)
             .addSupportAny()
             .addNoTierSkips()
             .addPollutionAmount(getPollutionPerSecond(null))

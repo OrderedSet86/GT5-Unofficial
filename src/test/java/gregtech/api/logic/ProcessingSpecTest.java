@@ -7,11 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.EnumSet;
+import java.util.List;
+
+import net.minecraft.util.EnumChatFormatting;
 
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
+import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipTier;
@@ -23,6 +28,19 @@ class ProcessingSpecTest {
             .voltageTier(voltageTier)
             .tier(TooltipTier.COIL, coilTier)
             .build();
+    }
+
+    private static ProcessingSpec.Inputs inMode(int mode) {
+        return ProcessingSpec.Inputs.builder()
+            .voltageTier(VoltageIndex.LV)
+            .mode(mode)
+            .build();
+    }
+
+    private static List<String> lines(ProcessingSpec spec) {
+        MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
+        spec.describe(tt);
+        return tt.getInfoLines();
     }
 
     private static GTRecipe recipe(int eut, int duration, int heat) {
@@ -293,5 +311,114 @@ class ProcessingSpecTest {
 
         assertEquals(32768 / 480, run.parallel());
         assertEquals(0, run.overclocks());
+    }
+
+    @Test
+    void inModeReplacesTheSpecsOwnTermsInThatMode() {
+        List<MachineMode> modes = List.of(
+            MachineMode.of(mock(RecipeMap.class))
+                .nameKey("Tower"),
+            MachineMode.of(mock(RecipeMap.class))
+                .nameKey("Distillery"));
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(modes)
+            .parallel(4)
+            .inMode(
+                1,
+                mode -> mode.parallel(8)
+                    .speed(2))
+            .inMode(2, mode -> mode.parallel(16))
+            .build();
+
+        assertEquals(4, spec.getMaxParallel(inMode(0)));
+        assertEquals(1, spec.getDurationMultiplier(inMode(0)));
+        assertEquals(8, spec.getMaxParallel(inMode(1)));
+        assertEquals(0.5, spec.getDurationMultiplier(inMode(1)));
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+
+        List<String> lines = lines(spec);
+        String distillery = EnumChatFormatting.WHITE + "Distillery" + EnumChatFormatting.GRAY + ": ";
+        assertEquals(3, lines.size(), "the spec's own line and the Distillery's two; the machine has no mode 2");
+        assertFalse(
+            lines.get(0)
+                .startsWith(distillery));
+        assertTrue(
+            lines.get(1)
+                .startsWith(distillery));
+        assertTrue(
+            lines.get(2)
+                .startsWith(distillery));
+    }
+
+    @Test
+    void whenTierAppliesAtThatStructureValue() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .whenTier(
+                TooltipTier.STRUCTURE,
+                0,
+                "Heat Resistant Casing",
+                tier -> tier.parallel(16)
+                    .parallelPerTier(8, TooltipTier.LENGTH))
+            .whenTier(
+                TooltipTier.STRUCTURE,
+                1,
+                "Heat Proof Casing",
+                tier -> tier.parallel(32)
+                    .parallelPerTier(16, TooltipTier.LENGTH))
+            .build();
+
+        for (int structure = 0; structure <= 1; structure++) {
+            ProcessingSpec.Inputs inputs = ProcessingSpec.Inputs.builder()
+                .tier(TooltipTier.STRUCTURE, structure)
+                .tier(TooltipTier.LENGTH, 3)
+                .build();
+            assertEquals(structure == 0 ? 16 + 8 * 3 : 32 + 16 * 3, spec.getMaxParallel(inputs));
+        }
+        List<String> lines = lines(spec);
+        assertEquals(4, lines.size());
+        assertTrue(
+            lines.get(3)
+                .startsWith(EnumChatFormatting.WHITE + "Heat Proof Casing" + EnumChatFormatting.GRAY + ": "));
+    }
+
+    @Test
+    void aTermThatDiffersByModeNeedsATooltipToo() {
+        ProcessingSpec undescribed = ProcessingSpec.builder()
+            .inMode(1, mode -> mode.parallel(in -> 3))
+            .build();
+        ProcessingSpec coveredForEveryMode = ProcessingSpec.builder()
+            .inMode(1, mode -> mode.parallel(in -> 3))
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+            .build();
+
+        assertEquals(EnumSet.of(ProcessingSpec.Quantity.PARALLEL), undescribed.getUndescribed());
+        assertTrue(
+            coveredForEveryMode.getUndescribed()
+                .isEmpty());
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .inMode(1, mode -> mode.perfectOverclock()));
+    }
+
+    /** As the Large Fluid Extractor: Cupronickel coils give the base speed and EU. */
+    @Test
+    void beyondFirstTermsStartAtTheFirstTier() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .speedPerTierBeyondFirst(1.5, 0.1, TooltipTier.COIL)
+            .euModifierPerTierBeyondFirst(0.8, 0.9, TooltipTier.COIL)
+            .build();
+
+        assertEquals(1.0 / 1.5, spec.getDurationMultiplier(inputs(1, 0)));
+        assertEquals(0.8, spec.getEuModifier(inputs(1, 0)));
+        for (int coil = 0; coil <= 13; coil++) {
+            assertEquals(1.0 / (1.5 + 0.1 * coil), spec.getDurationMultiplier(inputs(1, coil)));
+            assertEquals(0.8 * GTUtility.powInt(0.9, coil), spec.getEuModifier(inputs(1, coil)));
+        }
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
     }
 }

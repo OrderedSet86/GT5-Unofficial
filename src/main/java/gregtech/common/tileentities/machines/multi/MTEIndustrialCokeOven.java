@@ -1,6 +1,7 @@
 package gregtech.common.tileentities.machines.multi;
 
 import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.lazy;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlocksTiered;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
 import static gregtech.api.enums.HatchElement.Energy;
@@ -11,9 +12,7 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.MultiAmpEnergy;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.List;
@@ -57,7 +56,6 @@ import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -77,28 +75,19 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int HEAT_RESISTANT_TIER = 0;
     private static final int HEAT_PROOF_TIER = 1;
     private static final double EU_MODIFIER = 0.98;
-    private static final int PARALLELS_T1 = 16;
-    private static final int PARALLELS_T2 = 32;
-    private static final int SLICE_PARALLELS_T1 = 8;
-    private static final int SLICE_PARALLELS_T2 = 16;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> {
-            boolean heatResistant = in.tier(TooltipTier.STRUCTURE) == HEAT_RESISTANT_TIER;
-            int base = heatResistant ? PARALLELS_T1 : PARALLELS_T2;
-            int perSlice = heatResistant ? SLICE_PARALLELS_T1 : SLICE_PARALLELS_T2;
-            return base + in.tier(TooltipTier.LENGTH) * perSlice;
-        })
-        .customTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            tt -> tt
-                .addInfo(
-                    TooltipHelper.parallelText(PARALLELS_T1) + " base and +"
-                        + TooltipHelper.parallelText(SLICE_PARALLELS_T1)
-                        + " Parallels per extra slice with Heat Resistant Casing")
-                .addInfo(
-                    TooltipHelper.parallelText(PARALLELS_T2) + " base and +"
-                        + TooltipHelper.parallelText(SLICE_PARALLELS_T2)
-                        + " Parallels per extra slice with Heat Proof Casing"))
+        .whenTier(
+            TooltipTier.STRUCTURE,
+            HEAT_RESISTANT_TIER,
+            "Heat Resistant Casing",
+            tier -> tier.parallel(16)
+                .parallelPerTier(8, TooltipTier.LENGTH))
+        .whenTier(
+            TooltipTier.STRUCTURE,
+            HEAT_PROOF_TIER,
+            "Heat Proof Casing",
+            tier -> tier.parallel(32)
+                .parallelPerTier(16, TooltipTier.LENGTH))
         .euModifier(in -> euModifier(in.tier(TooltipTier.COIL) + 1))
         .customTooltip(
             ProcessingSpec.Quantity.EU_MODIFIER,
@@ -113,8 +102,22 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         .build();
     private static final StructureParameter.Of<MTEIndustrialCokeOven, HeatingCoilLevel> COIL = StructureParameter
         .coil(MTEIndustrialCokeOven::getCoilLevel, MTEIndustrialCokeOven::setCoilLevel);
-    private static final StructureParameter.Of<MTEIndustrialCokeOven, Integer> CASING = StructureParameter
-        .tiered(TooltipTier.STRUCTURE, HEAT_RESISTANT_TIER, HEAT_PROOF_TIER, t -> t.tier, (t, value) -> t.tier = value);
+    private static final StructureParameter.Of<MTEIndustrialCokeOven, Integer> CASING = StructureParameter.tiered(
+        TooltipTier.STRUCTURE,
+        HEAT_RESISTANT_TIER,
+        HEAT_PROOF_TIER,
+        t -> t.tier,
+        (t, value) -> t.tier = value,
+        (setter, getter) -> GTStructureChannels.COKE_OVEN_CASING.use(
+            lazy(
+                () -> ofBlocksTiered(
+                    (block, meta) -> block == ModBlocks.blockCasingsMisc
+                        ? (meta == 2 ? HEAT_RESISTANT_TIER : meta == 3 ? HEAT_PROOF_TIER : null)
+                        : null,
+                    ImmutableList.of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
+                    -1,
+                    setter,
+                    getter))));
 
     private static final int OFFSET_X_MAIN = 1;
     private static final int OFFSET_Y_MAIN = 5;
@@ -145,7 +148,7 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
         tt.addMachineType("Coke Oven, ICO")
             .addInfo("Processes Logs and Coal into Charcoal and Coal Coke.")
             .addProcessingSpecInfo(SPEC)
-            .addInfo("Max 15 additional slices, eternal coils unlock unlimited slices")
+            .addInfo("Length Tier is the number of additional slices: at most 15, unlimited with eternal coils")
             .addInfo("Infinity Coils and higher allow for single multi-amp energy hatch")
             .addMultiAmpHatchInfo()
             .addPollutionAmount(getPollutionPerSecond(null))
@@ -210,20 +213,9 @@ public class MTEIndustrialCokeOven extends MTEExtendedPowerMultiBlockBase<MTEInd
                     .hint(1)
                     .buildAndChain(onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement())))
             .addElement('A', Casings.SteelPipeCasing.asElement())
-            .addElement('B', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
+            .addElement('B', COIL)
             .addElement('C', ofFrame(Materials.Steel))
-            .addElement(
-                'E',
-                GTStructureChannels.COKE_OVEN_CASING.use(
-                    ofBlocksTiered(
-                        (block, meta) -> block == ModBlocks.blockCasingsMisc
-                            ? (meta == 2 ? HEAT_RESISTANT_TIER : meta == 3 ? HEAT_PROOF_TIER : null)
-                            : null,
-                        ImmutableList
-                            .of(Pair.of(ModBlocks.blockCasingsMisc, 2), Pair.of(ModBlocks.blockCasingsMisc, 3)),
-                        -1,
-                        CASING.setter(),
-                        CASING.getter())))
+            .addElement('E', CASING)
             .addElement('F', onElementPass(x -> ++x.casingAmount, Casings.StructuralCokeOvenCasing.asElement()))
             .build();
     }

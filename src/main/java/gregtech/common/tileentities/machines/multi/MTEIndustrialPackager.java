@@ -8,7 +8,6 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.util.Arrays;
@@ -118,7 +117,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
                     }})
                 //spotless:on
                 .addElement('A', chainAllGlasses())
-                .addElement('B', chainItemPipeCasings(-1, ITEM_PIPE))
+                .addElement('B', ITEM_PIPE)
                 .addElement('C', ofFrame(Materials.Iron))
                 .addElement(
                     'D',

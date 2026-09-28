@@ -74,7 +74,6 @@ import gregtech.api.interfaces.tileentity.ITurnable;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTETieredMachineBlock;
-import gregtech.api.structure.StructureParameter;
 import gregtech.common.blocks.BlockCasings5;
 import gregtech.common.blocks.BlockCyclotronCoils;
 import gregtech.common.blocks.BlockFrameBox;
@@ -606,11 +605,6 @@ public class GTStructureUtility {
      *
      * @see #ofCoil(BiPredicate, Function)
      */
-    /** A heating coil that sets and reads {@code coil}, which the machine also declares for inspection. */
-    public static <T> IStructureElement<T> ofCoil(StructureParameter.Of<T, HeatingCoilLevel> coil) {
-        return ofCoil(coil.setter(), coil.getter());
-    }
-
     public static <T> IStructureElement<T> ofCoil(BiConsumer<T, HeatingCoilLevel> aHeatingCoilSetter,
         Function<T, HeatingCoilLevel> aHeatingCoilGetter) {
         return ofCoil((t, l) -> {
@@ -743,11 +737,6 @@ public class GTStructureUtility {
      *
      * @see #ofSolenoidCoil(BiPredicate, Function)
      */
-    /** A solenoid that sets and reads {@code solenoid}, which the machine also declares for inspection. */
-    public static <T> IStructureElement<T> ofSolenoidCoil(StructureParameter.Of<T, Byte> solenoid) {
-        return ofSolenoidCoil(solenoid.setter(), solenoid.getter());
-    }
-
     public static <T> IStructureElement<T> ofSolenoidCoil(BiConsumer<T, Byte> aSolenoidTierSetter,
         Function<T, Byte> aSolenoidTierGetter) {
         return ofSolenoidCoil((t, l) -> {
@@ -1002,11 +991,6 @@ public class GTStructureUtility {
 
     public static <T> IStructureElement<T> chainItemPipeCasings() {
         return chainItemPipeCasings(-1, (t, tier) -> {}, t -> -1);
-    }
-
-    /** Item pipe casings that set and read {@code tier}, which the machine also declares for inspection. */
-    public static <T> IStructureElement<T> chainItemPipeCasings(int notSet, StructureParameter.Of<T, Integer> tier) {
-        return chainItemPipeCasings(notSet, tier.setter(), tier.getter());
     }
 
     public static <T> IStructureElement<T> chainItemPipeCasings(int notSet, BiConsumer<T, Integer> setter,

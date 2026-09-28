@@ -9,12 +9,9 @@ import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.enums.Textures.BlockIcons.getCasingTextureForId;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
-import static gregtech.api.util.GTStructureUtility.ofSolenoidCoil;
 import static net.minecraft.util.EnumChatFormatting.RESET;
 import static net.minecraft.util.EnumChatFormatting.YELLOW;
 
@@ -26,7 +23,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.NotNull;
@@ -53,9 +49,7 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.MTELargeFluidExtractorGui;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
@@ -71,18 +65,11 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
     private static final int MAX_HATCHES_ALLOWED = 16;
 
     private static final double BASE_SPEED_BONUS = 1.5;
-    private static final double BASE_EU_MULTIPLIER = 0.8;
-
-    private static final double SPEED_PER_COIL = 0.1;
-    private static final int PARALLELS_PER_SOLENOID = 8;
-    private static final double HEATING_COIL_EU_MULTIPLIER = 0.9;
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallelPerTier(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-        .durationMultiplier(in -> 1.0 / (BASE_SPEED_BONUS + SPEED_PER_COIL * in.tier(TooltipTier.COIL)))
-        .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
-        .euModifier(in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)))
-        .customTooltip(ProcessingSpec.Quantity.EU_MODIFIER, tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
+        .parallelPerTier(8, TooltipTier.SOLENOID)
+        .speedPerTierBeyondFirst(BASE_SPEED_BONUS, 0.1, TooltipTier.COIL)
+        .euModifierPerTierBeyondFirst(0.8, 0.9, TooltipTier.COIL)
         .build();
     private static final StructureParameter.Of<MTELargeFluidExtractor, HeatingCoilLevel> COIL = StructureParameter
         .coil(MTELargeFluidExtractor::getCoilLevel, MTELargeFluidExtractor::setCoilLevel);
@@ -117,14 +104,8 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
                         ofBlock(GregTechAPI.sBlockCasings4, 0))) // Robust Tungstensteel Machine Casing
         )
         .addElement('g', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
-        .addElement(
-            'h',
-            GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL)))
-        )
-        .addElement(
-            's',
-            GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID))
-        )
+        .addElement('h', COIL)
+        .addElement('s', SOLENOID)
         .addElement(
             'f',
             ofFrame(Materials.BlackSteel)
@@ -280,18 +261,6 @@ public class MTELargeFluidExtractor extends MTEExtendedPowerMultiBlockBase<MTELa
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Fluid Extractor, LFE")
             .addProcessingSpecInfo(SPEC)
-            .addInfo(
-                String.format(
-                    "Every coil tier gives a %s speed bonus and a %s EU/t discount (multiplicative)",
-                    TooltipHelper.speedText("+") + TooltipHelper.speedText((float) SPEED_PER_COIL),
-                    TooltipHelper.effText((float) (1 - HEATING_COIL_EU_MULTIPLIER))))
-            .addInfo(
-                String.format(
-                    "The EU multiplier is %s%.2f * (%.2f ^ Heating Coil Tier)%s, prior to overclocks",
-                    EnumChatFormatting.ITALIC,
-                    BASE_EU_MULTIPLIER,
-                    HEATING_COIL_EU_MULTIPLIER,
-                    EnumChatFormatting.GRAY))
             .addGlassEnergyLimitInfo()
             .beginStructureBlock(5, 9, 5, false)
             .addController("Front bottom center")

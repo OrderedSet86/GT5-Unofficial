@@ -10,10 +10,8 @@ import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.List;
@@ -70,9 +68,8 @@ import gtPlusPlus.xmod.gregtech.common.blocks.textures.TexturesGtBlock;
 public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTEMegaAlloyBlastSmelter>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
-    private static final int MAX_PARALLELS = 256;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> MAX_PARALLELS)
+        .parallel(in -> 256)
         .customTooltip(
             ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax))
@@ -163,8 +160,7 @@ public class MTEMegaAlloyBlastSmelter extends MTEExtendedPowerMultiBlockBase<MTE
         .build();
 
     private static IStructureElement<MTEMegaAlloyBlastSmelter> getCoilElement() {
-        IStructureElement<MTEMegaAlloyBlastSmelter> heatingCoilElem = GTStructureChannels.HEATING_COIL
-            .use(activeCoils(ofCoil(COIL)));
+        IStructureElement<MTEMegaAlloyBlastSmelter> heatingCoilElem = COIL;
         IStructureElement<MTEMegaAlloyBlastSmelter> basicCoilElem = ofBlock(ModBlocks.blockCasingsMisc, 14);
         return partitionBy(
             te -> te.coilType,

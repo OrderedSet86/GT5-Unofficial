@@ -60,7 +60,6 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -93,22 +92,19 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     private static final int OFFSET_Y_T2 = 6;
     private static final int OFFSET_Z_T2 = 0;
 
-    private static final int PARALLEL_T1 = 2;
-    private static final int PARALLEL_T2 = 8;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> (in.tier(TooltipTier.MACHINE) == TIER_BASE ? PARALLEL_T1 : PARALLEL_T2)
-                * Math.max(1, in.voltageTier()))
-        .customTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            tt -> tt.addInfo(TooltipHelper.parallelText("Voltage Tier * n") + " Parallels")
-                .addInfo(
-                    "n=" + PARALLEL_T1 + " initially. n=" + PARALLEL_T2 + " after inserting Maceration Upgrade Chip"))
-        .durationMultiplier(in -> 1.0 / (in.tier(TooltipTier.MACHINE) == TIER_UPGRADED ? 6.4 : 1.6))
-        .customTooltip(
-            ProcessingSpec.Quantity.DURATION,
-            tt -> tt.addInfo("Tier 1: " + EnumChatFormatting.GREEN + "160% speed")
-                .addInfo("Tier 2: " + EnumChatFormatting.GREEN + "640% speed"))
+        .whenTier(
+            TooltipTier.MACHINE,
+            TIER_BASE,
+            "GT5U.MBTT.Tiers.One",
+            tier -> tier.parallelPerVoltageTier(2)
+                .speed(1.6))
+        .whenTier(
+            TooltipTier.MACHINE,
+            TIER_UPGRADED,
+            "GT5U.MBTT.Tiers.Two",
+            tier -> tier.parallelPerVoltageTier(8)
+                .speed(6.4))
         .build();
     // Lazy allocation since GTPP blocks are not loaded during init
     private static IStructureDefinition<MTEIndustrialMacerator> STRUCTURE_DEFINITION = null;
@@ -131,6 +127,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Macerator, IMS")
             .addProcessingSpecInfo(SPEC)
+            .addInfo("Insert a Maceration Upgrade Chip into the controller to reach Tier 2")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 7, 5, false)
             .addController("Front bottom center")

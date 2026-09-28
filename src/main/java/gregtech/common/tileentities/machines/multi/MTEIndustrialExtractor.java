@@ -8,7 +8,6 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_INDUSTRIAL_EX
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_INDUSTRIAL_EXTRACTOR_GLOW;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 
 import java.util.List;
 
@@ -66,7 +65,7 @@ public class MTEIndustrialExtractor extends MTEExtendedPowerMultiBlockBase<MTEIn
                 .hint(1)
                 .buildAndChain(
                     onElementPass(MTEIndustrialExtractor::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings4, 1))))
-        .addElement('B', chainItemPipeCasings(-1, ITEM_PIPE))
+        .addElement('B', ITEM_PIPE)
         .addElement('A', chainAllGlasses())
         .build();
 

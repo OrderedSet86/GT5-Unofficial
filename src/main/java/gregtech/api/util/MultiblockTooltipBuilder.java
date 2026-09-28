@@ -72,6 +72,10 @@ public class MultiblockTooltipBuilder {
     private static final String TT_DynamicSpeedBonus = StatCollector.translateToLocal("GT5U.MBTT.Speed.Additional");
     private static final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private static final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
+    private static final String TT_SpeedBonusBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.Speed.AdditionalBeyondFirst");
+    private static final String TT_EuMultiplierBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.EuDiscount.MultiplicativeBeyondFirst");
     private static final String TT_Steam_StaticSteamEff = StatCollector
         .translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
@@ -294,6 +298,48 @@ public class MultiblockTooltipBuilder {
         iLines.add(
             String
                 .format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier.getValue()));
+        return this;
+    }
+
+    /**
+     * "+5% Speed per Heating Coil Tier beyond the first".
+     *
+     * @param speed Speed increment per tier beyond the first
+     */
+    public MultiblockTooltipBuilder addSpeedBonusBeyondFirstInfo(float speed, TooltipTier tier) {
+        iLines.add(
+            String.format(
+                TT_SpeedBonusBeyondFirst,
+                TooltipHelper.speedText("+" + percentageFormat.format(speed)),
+                tier.getValue()));
+        return this;
+    }
+
+    /**
+     * "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative".
+     *
+     * @param factor EU/t multiplier per tier beyond the first
+     */
+    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, TooltipTier tier) {
+        iLines.add(
+            String.format(
+                TT_EuMultiplierBeyondFirst,
+                TooltipHelper.effText("-" + percentageFormat.format(1 - factor)),
+                tier.getValue()));
+        return this;
+    }
+
+    /**
+     * The info lines added so far, before {@link #toolTipFinisher()} adds its own: for instance a spec's lines alone,
+     * from {@code spec.describe(new MultiblockTooltipBuilder())}.
+     */
+    public List<String> getInfoLines() {
+        return Collections.unmodifiableList(iLines);
+    }
+
+    /** Adds the lines of {@code lines}, each after {@code prefix}. */
+    public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder lines) {
+        for (String line : lines.iLines) iLines.add(prefix + line);
         return this;
     }
 

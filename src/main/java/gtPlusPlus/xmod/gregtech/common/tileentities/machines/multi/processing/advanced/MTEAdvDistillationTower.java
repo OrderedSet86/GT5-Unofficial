@@ -69,7 +69,6 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     protected static final String STRUCTURE_PIECE_LAYER = "layer";
     protected static final String STRUCTURE_PIECE_LAYER_HINT = "layerHint";
     protected static final String STRUCTURE_PIECE_TOP_HINT = "topHint";
-    protected static final int DT_MODE_MAX_PARALLELS = 12;
     private static final int MAX_HEIGHT = 12;
 
     private static final int MACHINEMODE_TOWER = 0;
@@ -82,15 +81,22 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
             .nameKey("GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode.1")
             .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> in.mode() == MACHINEMODE_TOWER ? DT_MODE_MAX_PARALLELS
-                : (int) (2 * Math.floor((in.tier(TooltipTier.LENGTH) + 1) / 3.0)) * in.voltageTier())
-        .durationMultiplier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1.0 / 2 : 1.0 / 3)
-        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 0.15 : 1)
-        .noTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            ProcessingSpec.Quantity.DURATION,
-            ProcessingSpec.Quantity.EU_MODIFIER)
+        .modes(MODES)
+        .inMode(
+            MACHINEMODE_TOWER,
+            mode -> mode.parallel(12)
+                .speed(3)
+                .euModifier(1))
+        .inMode(
+            MACHINEMODE_DISTILLERY,
+            mode -> mode
+                .parallel(in -> (int) (2 * Math.floor((in.tier(TooltipTier.LENGTH) + 1) / 3.0)) * in.voltageTier())
+                .customTooltip(
+                    ProcessingSpec.Quantity.PARALLEL,
+                    tt -> tt
+                        .addInfo(TooltipHelper.parallelText("(2 * floor(Height / 3)) * Voltage Tier") + " Parallels"))
+                .speed(2)
+                .euModifier(0.15))
         .build();
 
     protected final List<List<MTEHatchOutput>> mOutputHatchesByLayer = new ArrayList<>();
@@ -209,16 +215,12 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillery Mode")
             .addInfo("Outputs only one fluid")
-            .addInfo(TooltipHelper.parallelText("(2 * floor(Height / 3)) * Voltage Tier") + " Parallels")
-            .addStaticSpeedInfo(2f)
-            .addStaticEuEffInfo(0.15f)
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillation Tower Mode")
             .addInfo("Fluids are outputted one per layer based on the slot number in NEI")
             .addInfo("Increase the height to output more fluid types")
-            .addStaticParallelInfo(DT_MODE_MAX_PARALLELS)
-            .addStaticSpeedInfo(3f)
-            .addStaticEuEffInfo(1f)
+            .addSeparator()
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginVariableStructureBlock(3, 3, 3, 12, 3, 3, true)
             .addController("Front bottom center")

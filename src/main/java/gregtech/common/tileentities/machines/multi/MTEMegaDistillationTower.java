@@ -66,30 +66,8 @@ import gregtech.common.misc.GTStructureChannels;
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
+    private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
-
-    // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
-    private static final double DISTILLERY_SPEED = 2;
-    private static final double DISTILLERY_EU_EFFICIENCY = 0.5;
-
-    // same here, still worse than dangote but with laser
-    private static final double TOWER_SPEED = 1.5;
-
-    private static final double TOWER_EU_EFFICIENCY = 0.9;
-
-    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        // 512 - 1024 parallels min to max height in distillery mode
-        .parallel(
-            in -> Configuration.Multiblocks.megaMachinesMax
-                * (in.mode() == MACHINEMODE_DISTILLERY ? 1 + (in.tier(TooltipTier.LENGTH) + 1) / 2 : 1))
-        .durationMultiplier(in -> in.mode() == MACHINEMODE_DISTILLERY ? 1.0 / DISTILLERY_SPEED : 1.0 / TOWER_SPEED)
-        .euModifier(in -> in.mode() == MACHINEMODE_DISTILLERY ? DISTILLERY_EU_EFFICIENCY : TOWER_EU_EFFICIENCY)
-        .noTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            ProcessingSpec.Quantity.DURATION,
-            ProcessingSpec.Quantity.EU_MODIFIER)
-        .unlimitedTierSkips()
-        .build();
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(RecipeMaps.distillationTowerRecipes)
             .nameKey("GT5U.MDT.mode.0")
@@ -97,6 +75,30 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
         MachineMode.of(RecipeMaps.distilleryRecipes)
             .nameKey("GT5U.MDT.mode.1")
             .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .modes(MODES)
+        // same here, still worse than dangote but with laser
+        .inMode(
+            MACHINEMODE_TOWER,
+            mode -> mode.parallel(() -> Configuration.Multiblocks.megaMachinesMax)
+                .speed(1.5)
+                .euModifier(0.9))
+        // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
+        .inMode(
+            MACHINEMODE_DISTILLERY,
+            mode -> mode
+                // 512 - 1024 parallels min to max height
+                .parallel(in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.tier(TooltipTier.LENGTH) + 1) / 2))
+                .customTooltip(
+                    ProcessingSpec.Quantity.PARALLEL,
+                    tt -> tt.addInfo(
+                        TooltipHelper.parallelText(
+                            Configuration.Multiblocks.megaMachinesMax + " * (1 + Tower Height/2)") + " Parallels"))
+                .speed(2)
+                .euModifier(0.5))
+        .unlimitedTierSkips()
+        .build();
 
     protected final List<List<MTEHatchOutput>> outputHatchesPerLayer = new ArrayList<>();
 
@@ -578,18 +580,10 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillery Mode")
             .addInfo("Outputs only one fluid in the first hatch")
-            .addInfo(
-                TooltipHelper.parallelText(Configuration.Multiblocks.megaMachinesMax + " * (1 + Tower Height/2)")
-                    + " Parallels")
-            .addStaticSpeedInfo((float) DISTILLERY_SPEED)
-            .addStaticEuEffInfo((float) DISTILLERY_EU_EFFICIENCY)
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillation Tower Mode")
             .addInfo("Fluids are outputted one per layer based on the slot number in NEI")
             .addInfo("Increase the height to output more fluid types")
-            .addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax)
-            .addStaticSpeedInfo((float) TOWER_SPEED)
-            .addStaticEuEffInfo((float) TOWER_EU_EFFICIENCY)
             .addSeparator()
             .addSupportAny()
             .addProcessingSpecInfo(SPEC)

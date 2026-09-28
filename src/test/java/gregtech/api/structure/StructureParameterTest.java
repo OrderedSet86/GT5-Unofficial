@@ -1,6 +1,7 @@
 package gregtech.api.structure;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -78,9 +79,11 @@ class StructureParameterTest {
         Machine machine = new Machine();
         StructureParameter.Of<Machine, Integer> deriving = ITEM_PIPE.derivingAfterSet(m -> m.derived = 2 * m.pipe);
 
-        ITEM_PIPE.setter()
-            .accept(machine, 3);
+        ITEM_PIPE.of(machine)
+            .set(3);
         assertEquals(0, machine.derived);
+        // the structure element sets the value alone; the machine derives after its check
+        assertSame(ITEM_PIPE.proxiedElement, deriving.proxiedElement);
 
         deriving.of(machine)
             .set(4);

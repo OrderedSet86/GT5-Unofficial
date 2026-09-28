@@ -14,7 +14,6 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_LATHE_A
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_LATHE_GLOW;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -119,7 +118,7 @@ public class MTEMultiLathe extends MTEExtendedPowerMultiBlockBase<MTEMultiLathe>
                 .buildAndChain(onElementPass(MTEMultiLathe::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings2, 0))))
         .addElement('B', ofBlock(GregTechAPI.sBlockCasings3, 10)) // Steel Casings
         .addElement('C', chainAllGlasses()) // Glass
-        .addElement('F', chainItemPipeCasings(-1, ITEM_PIPE))
+        .addElement('F', ITEM_PIPE)
         .build();
 
     @Override

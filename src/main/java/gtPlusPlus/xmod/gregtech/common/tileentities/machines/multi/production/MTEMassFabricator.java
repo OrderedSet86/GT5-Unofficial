@@ -76,16 +76,9 @@ public class MTEMassFabricator extends GTPPMultiBlockBase<MTEMassFabricator> imp
             .nameKey("GT5U.GTPP_MULTI_MASS_FABRICATOR.mode.1")
             .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RECYCLING));
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> in.mode() == MODE_SCRAP ? 64 : 8 * Math.max(1, in.voltageTier()))
-        .customTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            tt -> tt.addInfo(
-                "Parallel: Scrap = " + TooltipHelper.parallelText(64)
-                    + " | UU = "
-                    + TooltipHelper.parallelText(8)
-                    + " per "
-                    + TooltipHelper.tierText("Voltage")
-                    + " Tier"))
+        .modes(MODES)
+        .inMode(MODE_UU, mode -> mode.parallelPerVoltageTier(8))
+        .inMode(MODE_SCRAP, mode -> mode.parallel(64))
         .speed(1)
         .euModifier(0.8)
         .perfectOverclock()

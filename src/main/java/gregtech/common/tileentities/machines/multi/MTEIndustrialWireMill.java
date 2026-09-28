@@ -8,7 +8,6 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 
 import java.util.List;
 
@@ -54,13 +53,9 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 0;
 
-    private static final double SPEED_INCREASE_TIER = 0.5;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, TooltipTier.VOLTAGE)
-        .durationMultiplier(in -> 1.0 / (SPEED_INCREASE_TIER * in.tier(TooltipTier.ITEM_PIPE_CASING)))
-        .customTooltip(
-            ProcessingSpec.Quantity.DURATION,
-            tt -> tt.addDynamicSpeedBonusInfo((float) SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .speedPerTier(0.5, TooltipTier.ITEM_PIPE_CASING)
         .euModifier(0.75)
         .build();
     private static final StructureParameter.Of<MTEIndustrialWireMill, Integer> ITEM_PIPE = StructureParameter
@@ -101,7 +96,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
                     }})
                 //spotless:on
                 .addElement('B', chainAllGlasses())
-                .addElement('A', chainItemPipeCasings(-1, ITEM_PIPE))
+                .addElement('A', ITEM_PIPE)
                 .addElement(
                     'C',
                     buildHatchAdder(MTEIndustrialWireMill.class)

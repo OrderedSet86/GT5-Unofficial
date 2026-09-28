@@ -10,7 +10,6 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofSolenoidCoil;
 
 import java.util.List;
 
@@ -118,7 +117,7 @@ public class MTEIndustrialForgeHammer extends MTEExtendedPowerMultiBlockBase<MTE
                         { "  D  ", " DDD ", " DAD ", "DDADD", "D A D", "D B D", "D   D", "DCBCD", "DCCCD" },
                         { "     ", "  E  ", " EEE ", "     ", "     ", "     ", "     ", " CCC ", "CCCCC" },
                         { "     ", "     ", "     ", "     ", "     ", "     ", "     ", "     ", " CCC " } })
-                .addElement('A', GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID)))
+                .addElement('A', SOLENOID)
                 .addElement('B', Casings.RefinedGraphiteBlock.asElement())
                 .addElement(
                     'C',

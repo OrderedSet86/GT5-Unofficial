@@ -12,7 +12,6 @@ import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.enums.HatchElement.OutputHatch;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 import static gregtech.api.util.GTStructureUtility.ofSheetMetal;
 
 import java.util.List;
@@ -66,15 +65,9 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
     private static final int OFFSET_Y = 5;
     private static final int OFFSET_Z = 0;
 
-    private static final double SPEED_INCREASE_TIER = 1;
-    private static final double SPEED_BASIC = 1;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(8, TooltipTier.VOLTAGE)
-        .durationMultiplier(in -> 1.0 / (SPEED_INCREASE_TIER + (in.tier(TooltipTier.ITEM_PIPE_CASING) + 1)))
-        .customTooltip(
-            ProcessingSpec.Quantity.DURATION,
-            tt -> tt.addStaticSpeedInfo((float) SPEED_BASIC)
-                .addDynamicSpeedBonusInfo((float) SPEED_INCREASE_TIER, TooltipTier.ITEM_PIPE_CASING))
+        .speedPerTierBeyondFirst(3, 1, TooltipTier.ITEM_PIPE_CASING)
         .euModifier(1)
         .build();
     private static final StructureParameter.Of<MTEIndustrialMixer, Integer> ITEM_PIPE = StructureParameter
@@ -145,7 +138,7 @@ public class MTEIndustrialMixer extends MTEExtendedPowerMultiBlockBase<MTEIndust
                     }})
                 //spotless:on
                 .addElement('A', chainAllGlasses(-1, (te, t) -> te.glassTier = t, te -> te.glassTier))
-                .addElement('B', chainItemPipeCasings(-1, ITEM_PIPE))
+                .addElement('B', ITEM_PIPE)
                 .addElement('C', Casings.TitaniumTurbineCasing.asElement())
                 .addElement('D', ofSheetMetal(Materials.Tungsten))
                 .addElement(

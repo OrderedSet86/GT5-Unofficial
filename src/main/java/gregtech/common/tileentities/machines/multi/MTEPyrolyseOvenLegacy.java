@@ -14,9 +14,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_PYROLYSE_OVEN
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_PYROLYSE_OVEN_ACTIVE;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_PYROLYSE_OVEN_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_PYROLYSE_OVEN_GLOW;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.util.List;
 
@@ -67,7 +65,7 @@ public class MTEPyrolyseOvenLegacy extends MTEEnhancedMultiBlockBase<MTEPyrolyse
                     { "ccccc", "c---c", "c---c", "c---c", "ccccc" }, { "ccccc", "c---c", "c---c", "c---c", "ccccc" },
                     { "bb~bb", "bCCCb", "bCCCb", "bCCCb", "bbbbb" }, }))
         .addElement('c', onElementPass(MTEPyrolyseOvenLegacy::onCasingAdded, ofBlock(GregTechAPI.sBlockCasingsNH, 2)))
-        .addElement('C', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
+        .addElement('C', COIL)
         .addElement(
             'b',
             buildHatchAdder(MTEPyrolyseOvenLegacy.class).atLeast(OutputBus, OutputHatch, Energy, Maintenance)

@@ -7,12 +7,9 @@ import static gregtech.api.enums.HatchElement.InputBus;
 import static gregtech.api.enums.HatchElement.Maintenance;
 import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
-import static gregtech.api.util.GTStructureUtility.ofSolenoidCoil;
 
 import java.util.List;
 
@@ -45,9 +42,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
@@ -65,20 +60,11 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
     private HeatingCoilLevel coilLevel = null;
     private Byte solenoidLevel = null;
 
-    private static final double SPEED_PER_COIL = 0.05;
-    private static final int PARALLELS_PER_SOLENOID = 2;
-    private static final double HEATING_COIL_EU_MULTIPLIER = 0.95;
-
-    private static final double BASE_SPEED_BONUS = 2.5;
-    private static final double BASE_EU_MULTIPLIER = 0.8;
-    private static final int BASE_PARALLELS = 8;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallelPerTier(BASE_PARALLELS, TooltipTier.VOLTAGE)
-        .parallelPerTier(PARALLELS_PER_SOLENOID, TooltipTier.SOLENOID)
-        .durationMultiplier(in -> 1.0 / (BASE_SPEED_BONUS + SPEED_PER_COIL * in.tier(TooltipTier.COIL)))
-        .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo((float) BASE_SPEED_BONUS))
-        .euModifier(in -> BASE_EU_MULTIPLIER * GTUtility.powInt(HEATING_COIL_EU_MULTIPLIER, in.tier(TooltipTier.COIL)))
-        .customTooltip(ProcessingSpec.Quantity.EU_MODIFIER, tt -> tt.addStaticEuEffInfo((float) BASE_EU_MULTIPLIER))
+        .parallelPerTier(8, TooltipTier.VOLTAGE)
+        .parallelPerTier(2, TooltipTier.SOLENOID)
+        .speedPerTierBeyondFirst(2.5, 0.05, TooltipTier.COIL)
+        .euModifierPerTierBeyondFirst(0.8, 0.95, TooltipTier.COIL)
         .build();
     private static final StructureParameter.Of<MTEIndustrialThermalCentrifuge, HeatingCoilLevel> COIL = StructureParameter
         .coil(MTEIndustrialThermalCentrifuge::getCoilLevel, MTEIndustrialThermalCentrifuge::setCoilLevel);
@@ -104,18 +90,6 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Thermal Centrifuge, LTR")
             .addProcessingSpecInfo(SPEC)
-            .addInfo(
-                String.format(
-                    "Every coil tier gives a %s speed bonus and a %s EU/t discount (multiplicative)",
-                    TooltipHelper.speedText("+") + TooltipHelper.speedText((float) SPEED_PER_COIL),
-                    TooltipHelper.effText((float) (1 - HEATING_COIL_EU_MULTIPLIER))))
-            .addInfo(
-                String.format(
-                    "The EU multiplier is %s%.2f * (%.2f ^ Heating Coil Tier)%s, prior to overclocks",
-                    EnumChatFormatting.ITALIC,
-                    BASE_EU_MULTIPLIER,
-                    HEATING_COIL_EU_MULTIPLIER,
-                    EnumChatFormatting.GRAY))
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 8, 6, false)
             .addController("Front bottom center")
@@ -162,8 +136,8 @@ public class MTEIndustrialThermalCentrifuge extends MTEExtendedPowerMultiBlockBa
                         onElementPass(x -> ++x.casingAmount, Casings.ThermalProcessingCasing.asElement())))
                 .addElement('A', chainAllGlasses())
                 .addElement('B', Casings.HeatProofMachineCasing.asElement())
-                .addElement('C', GTStructureChannels.SOLENOID.use(ofSolenoidCoil(SOLENOID)))
-                .addElement('D', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
+                .addElement('C', SOLENOID)
+                .addElement('D', COIL)
                 .addElement('E', ofFrame(Materials.RedSteel))
                 .build();
         }

@@ -1,6 +1,7 @@
 package gregtech.api.structure;
 
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -12,12 +13,15 @@ import java.util.function.ToIntFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.gtnewhorizon.structurelib.structure.IStructureElement;
+
 import gregtech.api.enums.GTValues;
 import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.tooltip.TooltipTier;
+import gregtech.common.misc.GTStructureChannels;
 
 /**
  * One value a multiblock's structure check finds that its recipe numbers read, such as its coil or solenoid tier. For
@@ -32,8 +36,9 @@ import gregtech.api.util.tooltip.TooltipTier;
  * <li>{@link TooltipTier#LENGTH}: the count of repeated slices or layers</li>
  * <li>anything else: the machine's own numbering, between {@link #min} and {@link #max}</li>
  * </ul>
- * A parameter the structure check sets through a structure element is declared once, as an {@link Of} constant that
- * both the element and {@link MTEMultiBlockBase#getStructureParametersForInspection()} use.
+ * A parameter the structure check sets through a structure element is declared once, as an {@link Of} constant that is
+ * that structure element and that {@link MTEMultiBlockBase#getStructureParametersForInspection()} binds with
+ * {@link Of#of}: {@code .addElement('C', COIL)}.
  */
 public final class StructureParameter {
 
@@ -86,10 +91,13 @@ public final class StructureParameter {
         return new Builder(kind);
     }
 
-    /** A heating coil, for a machine that stores the {@link HeatingCoilLevel} its check found. */
+    /**
+     * Heating coils, for a machine that stores the {@link HeatingCoilLevel} its check found. The element accepts one
+     * coil type, is set from the heating coil channel and records the coils it finds as the machine's active coils.
+     */
     @Nonnull
-    public static <T> Of<T, HeatingCoilLevel> coil(@Nonnull Function<T, HeatingCoilLevel> getter,
-        @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
+    public static <T extends MTEMultiBlockBase> Of<T, HeatingCoilLevel> coil(
+        @Nonnull Function<T, HeatingCoilLevel> getter, @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
         return new Of<>(
             TooltipTier.COIL,
             0,
@@ -99,10 +107,15 @@ public final class StructureParameter {
             coil -> (coil == null ? HeatingCoilLevel.None : coil).getTier(),
             tier -> HeatingCoilLevel.getFromTier((byte) tier),
             tier -> HeatingCoilLevel.getFromTier((byte) tier)
-                .getName());
+                .getName(),
+            GTStructureChannels.HEATING_COIL
+                .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /** A solenoid, for a machine that stores the voltage tier its check found, as solenoid blocks report it. */
+    /**
+     * Solenoids, for a machine that stores the voltage tier its check found, as solenoid blocks report it. The element
+     * accepts one solenoid tier and is set from the solenoid channel.
+     */
     @Nonnull
     public static <T> Of<T, Byte> solenoid(@Nonnull Function<T, Byte> getter, @Nonnull BiConsumer<T, Byte> setter) {
         return new Of<>(
@@ -113,14 +126,24 @@ public final class StructureParameter {
             setter,
             tier -> tier == null ? 0 : tier,
             tier -> (byte) tier,
-            tier -> GTValues.VN[tier]);
+            tier -> GTValues.VN[tier],
+            GTStructureChannels.SOLENOID.use(GTStructureUtility.ofSolenoidCoil(setter, getter)));
     }
 
-    /** An item pipe casing, from 1 for the lowest, as {@link GTStructureUtility#chainItemPipeCasings} reports it. */
+    /**
+     * Item pipe casings, from 1 for the lowest, as {@link GTStructureUtility#chainItemPipeCasings} reports them; -1
+     * before the check finds one.
+     */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
-        return tiered(TooltipTier.ITEM_PIPE_CASING, 1, GTStructureUtility.ITEM_PIPE_CASING_TIERS, getter, setter);
+        return tiered(
+            TooltipTier.ITEM_PIPE_CASING,
+            1,
+            GTStructureUtility.ITEM_PIPE_CASING_TIERS,
+            getter,
+            setter,
+            (set, get) -> GTStructureUtility.chainItemPipeCasings(-1, set, get));
     }
 
     /**
@@ -135,21 +158,36 @@ public final class StructureParameter {
         }, index -> setter.accept(values[index]), index -> values[index].name());
     }
 
-    /** Any other value a structure element reports as a number, such as a casing tier from {@code ofBlocksTiered}. */
+    /**
+     * Any other value a structure element reports as a number, such as a casing tier from {@code ofBlocksTiered}.
+     *
+     * @param element Builds the structure element from the setter and getter; wrap it in {@code lazy} if it names
+     *                blocks, which may not exist yet when the machine class loads
+     */
     @Nonnull
     public static <T> Of<T, Integer> tiered(@Nonnull TooltipTier kind, int min, int max,
-        @Nonnull Function<T, Integer> getter, @Nonnull BiConsumer<T, Integer> setter) {
-        return new Of<>(kind, min, max, getter, setter, tier -> tier == null ? min - 1 : tier, tier -> tier, null);
+        @Nonnull Function<T, Integer> getter, @Nonnull BiConsumer<T, Integer> setter,
+        @Nonnull BiFunction<BiConsumer<T, Integer>, Function<T, Integer>, IStructureElement<T>> element) {
+        return new Of<>(
+            kind,
+            min,
+            max,
+            getter,
+            setter,
+            tier -> tier == null ? min - 1 : tier,
+            tier -> tier,
+            null,
+            element.apply(setter, getter));
     }
 
     /**
-     * A parameter declared once for a machine class, which its structure element takes {@link #getter()} and
-     * {@link #setter()} from, and which {@link #of} binds to one machine for inspection.
+     * A parameter declared once for a machine class. It is the structure element that finds the value, and
+     * {@link #of} binds it to one machine for inspection.
      *
      * @param <T> The machine
      * @param <V> The value the machine stores, such as a {@link HeatingCoilLevel}
      */
-    public static final class Of<T, V> {
+    public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
         private final TooltipTier kind;
         private final int min;
@@ -162,7 +200,9 @@ public final class StructureParameter {
         private final IntFunction<String> labels;
 
         private Of(TooltipTier kind, int min, int max, Function<T, V> getter, BiConsumer<T, V> setter,
-            ToIntFunction<V> toTier, IntFunction<V> fromTier, @Nullable IntFunction<String> labels) {
+            ToIntFunction<V> toTier, IntFunction<V> fromTier, @Nullable IntFunction<String> labels,
+            IStructureElement<T> element) {
+            super(element);
             this.kind = kind;
             this.min = min;
             this.max = max;
@@ -173,28 +213,17 @@ public final class StructureParameter {
             this.labels = labels;
         }
 
-        /** For the structure element. */
-        @Nonnull
-        public Function<T, V> getter() {
-            return getter;
-        }
-
-        /** For the structure element. */
-        @Nonnull
-        public BiConsumer<T, V> setter() {
-            return setter;
-        }
-
         /**
          * Runs {@code derive} after each {@link StructureParameter#set}, for a machine that works out other values from
-         * this one once its structure check is done.
+         * this one once its structure check is done. The structure element is unchanged: the machine derives them
+         * itself after the check.
          */
         @Nonnull
         public Of<T, V> derivingAfterSet(@Nonnull Consumer<T> derive) {
             return new Of<>(kind, min, max, getter, (machine, value) -> {
                 setter.accept(machine, value);
                 derive.accept(machine);
-            }, toTier, fromTier, labels);
+            }, toTier, fromTier, labels, proxiedElement);
         }
 
         @Nonnull

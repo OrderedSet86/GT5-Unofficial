@@ -16,11 +16,8 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLA
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLAVE_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_AUTOCLAVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.getCasingTextureForId;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
-import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
 import java.text.DecimalFormat;
@@ -105,7 +102,18 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
         1,
         4,
         MTEMultiAutoclave::getFluidPipeTier,
-        MTEMultiAutoclave::setFluidPipeTier);
+        MTEMultiAutoclave::setFluidPipeTier,
+        (setter, getter) -> GTStructureChannels.PIPE_CASING.use(
+            ofBlocksTiered(
+                MTEMultiAutoclave::getFluidTierFromMeta,
+                ImmutableList.of(
+                    Pair.of(GregTechAPI.sBlockCasings2, 12),
+                    Pair.of(GregTechAPI.sBlockCasings2, 13),
+                    Pair.of(GregTechAPI.sBlockCasings2, 14),
+                    Pair.of(GregTechAPI.sBlockCasings2, 15)),
+                -1,
+                setter,
+                getter)));
 
     protected int itemPipeTier = 0;
     protected int fluidPipeTier = 0;
@@ -175,21 +183,9 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
                     onElementPass(MTEMultiAutoclave::onCasingAdded, ofBlock(GregTechAPI.sBlockCasings10, 3))))
         .addElement('B', chainAllGlasses()) // Steel Casings
         .addElement('C', ofFrame(Materials.Polytetrafluoroethylene)) // PTFE Frame
-        .addElement(
-            'D',
-            GTStructureChannels.PIPE_CASING.use(
-                ofBlocksTiered(
-                    MTEMultiAutoclave::getFluidTierFromMeta,
-                    ImmutableList.of(
-                        Pair.of(GregTechAPI.sBlockCasings2, 12),
-                        Pair.of(GregTechAPI.sBlockCasings2, 13),
-                        Pair.of(GregTechAPI.sBlockCasings2, 14),
-                        Pair.of(GregTechAPI.sBlockCasings2, 15)),
-                    -1,
-                    FLUID_PIPE.setter(),
-                    FLUID_PIPE.getter())))
-        .addElement('E', chainItemPipeCasings(-1, ITEM_PIPE))
-        .addElement('F', GTStructureChannels.HEATING_COIL.use(activeCoils(ofCoil(COIL))))
+        .addElement('D', FLUID_PIPE)
+        .addElement('E', ITEM_PIPE)
+        .addElement('F', COIL)
         .build();
 
     @Override

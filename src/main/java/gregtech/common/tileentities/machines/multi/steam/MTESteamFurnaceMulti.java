@@ -93,7 +93,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     private int tierGearboxCasing = -1;
     private int tierFireboxCasing = -1;
 
-    private static final int MACHINEMODE_FURNACE = 0;
     private static final int MACHINEMODE_BLASTING = 1;
     private static final int MACHINEMODE_SMOKER = 2;
     private static final SoundResource startSound = Railcraft.isModLoaded() ? SoundResource.RAILCRAFT_STEAM_BURST
@@ -105,10 +104,6 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
     }
 
     private static final String STRUCTURE_PIECE_MAIN = "main";
-    private static final ProcessingSpec SPEC = steamSpec()
-        .euModifierNotLimitingParallel(
-            in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * (in.mode() == MACHINEMODE_FURNACE ? 1 : 2))
-        .build();
     private static final List<MachineMode> MODES = EtFuturumRequiem.isModLoaded()
         ? List.of(
             MachineMode.of(RecipeMaps.furnaceRecipes)
@@ -127,6 +122,14 @@ public class MTESteamFurnaceMulti extends MTESteamMultiBlockBase<MTESteamFurnace
         : List.of(
             MachineMode.of(RecipeMaps.furnaceRecipes)
                 .nameKey("GT5U.GTPP_MULTI_STEAM_FURNACE.mode.0"));
+    private static final ProcessingSpec SPEC = steamSpec().modes(MODES)
+        .inMode(
+            MACHINEMODE_BLASTING,
+            mode -> mode.euModifierNotLimitingParallel(in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * 2))
+        .inMode(
+            MACHINEMODE_SMOKER,
+            mode -> mode.euModifierNotLimitingParallel(in -> 1.25 * in.tier(TooltipTier.STRUCTURE) * 2))
+        .build();
 
     private IStructureDefinition<MTESteamFurnaceMulti> STRUCTURE_DEFINITION = null;
 

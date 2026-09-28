@@ -2248,23 +2248,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return Collections.emptyList();
     }
 
-    /**
-     * Whether this machine's processing logic overrides {@link ProcessingLogic#createOverclockCalculator}, so its
-     * overclocks are not its {@link #getProcessingSpec()} alone. For external tools such as factory planners, on a
-     * prototype.
-     */
-    public final boolean hasCustomOverclockCalculatorForInspection() {
-        ProcessingLogic logic = createProcessingLogic();
-        if (logic == null) return false;
-        for (Class<?> type = logic.getClass(); type != ProcessingLogic.class; type = type.getSuperclass()) {
-            try {
-                type.getDeclaredMethod("createOverclockCalculator", GTRecipe.class);
-                return true;
-            } catch (NoSuchMethodException ignored) {}
-        }
-        return false;
-    }
-
     /** The structure parameter of this kind, if the machine declares one. */
     @Nonnull
     public Optional<StructureParameter> getStructureParameterForInspection(@Nonnull TooltipTier kind) {

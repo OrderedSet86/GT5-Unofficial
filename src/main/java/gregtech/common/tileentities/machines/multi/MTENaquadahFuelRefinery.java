@@ -1,5 +1,6 @@
 package gregtech.common.tileentities.machines.multi;
 
+import static com.gtnewhorizon.structurelib.structure.StructureUtility.lazy;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.ofBlocksTiered;
 import static com.gtnewhorizon.structurelib.structure.StructureUtility.onElementPass;
 import static gregtech.api.enums.HatchElement.Dynamo;
@@ -82,7 +83,9 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
         1,
         coils.length,
         MTENaquadahFuelRefinery::getCoilTier,
-        MTENaquadahFuelRefinery::setCoilTier);
+        MTENaquadahFuelRefinery::setCoilTier,
+        (setter, getter) -> lazy(
+            () -> ofBlocksTiered(fieldCoilTierConverter(), getAllFieldCoilTiers(), -1, setter, getter)));
     // Total casing without hatch = 483
     private static final int MIN_CASINGS = 470;
     private static int casingAmount;
@@ -179,14 +182,7 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
                         .buildAndChain(
                             onElementPass(x -> casingAmount++, Casings.NaquadahFuelRefineryCasing.asElement())))
                 .addElement('C', Casings.FieldRestrictionGlass.asElement())
-                .addElement(
-                    'B',
-                    ofBlocksTiered(
-                        fieldCoilTierConverter(),
-                        getAllFieldCoilTiers(),
-                        -1,
-                        COIL_TIER.setter(),
-                        COIL_TIER.getter()))
+                .addElement('B', COIL_TIER)
                 .addElement('D', Casings.SuperconductingCoilBlock.asElement())
                 .addElement('E', Casings.EuropiumReinforcedRadiationProofMachineCasing.asElement())
                 .addElement('F', Casings.RadiantProofSteelFrameBox.asElement())
