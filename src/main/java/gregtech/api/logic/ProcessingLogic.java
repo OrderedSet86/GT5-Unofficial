@@ -489,7 +489,9 @@ public class ProcessingLogic {
      */
     @Nonnull
     private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe recipe) {
-        CheckRecipeResult result = validateRecipe(recipe);
+        CheckRecipeResult result = spec == null ? CheckRecipeResultRegistry.SUCCESSFUL
+            : spec.check(recipe, specInputs.get());
+        if (result.wasSuccessful()) result = validateRecipe(recipe);
         if (!result.wasSuccessful()) {
             return CalculationResult.ofFailure(result);
         }
@@ -595,11 +597,18 @@ public class ProcessingLogic {
             .setAvailableEUt(availableVoltage * availableAmperage)
             .setMachine(machine, protectItems, protectFluids)
             .setRecipeLocked(recipeLockableMachine, isRecipeLocked)
-            .setMaxParallel(maxParallel)
+            .setMaxParallel(maxParallelFor(recipe))
             .setEUtModifier(euModifier)
             .enableBatchMode(batchSize)
             .setConsumption(true)
             .setOutputCalculation(true);
+    }
+
+    /** The spec's parallel for this recipe if it depends on the recipe, else {@link #maxParallel}. */
+    protected int maxParallelFor(@Nonnull GTRecipe recipe) {
+        return spec != null && spec.readsRecipe(ProcessingSpec.Quantity.PARALLEL)
+            ? spec.getMaxParallel(specInputs.get(), recipe)
+            : maxParallel;
     }
 
     /**
@@ -609,8 +618,11 @@ public class ProcessingLogic {
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
         double euModifierNotLimitingParallel = spec == null ? 1
             : spec.getEuModifierNotLimitingParallel(specInputs.get());
+        int duration = spec == null ? recipe.mDuration
+            : spec.getRecipeDuration(specInputs.get(), recipe)
+                .orElse(recipe.mDuration);
         if (spec != null && spec.isNoOverclock()) {
-            return OverclockCalculator.ofNoOverclock(recipe)
+            return OverclockCalculator.ofNoOverclock(recipe.mEUt, duration)
                 .setDurationModifier(speedBoost)
                 .setEUtDiscount(euModifier * euModifierNotLimitingParallel);
         }
@@ -618,12 +630,14 @@ public class ProcessingLogic {
             .setAmperage(availableAmperage)
             .setEUt(availableVoltage)
             .setMaxTierSkips(maxTierSkips)
-            .setDuration(recipe.mDuration)
+            .setDuration(duration)
             .setDurationModifier(speedBoost)
             .setEUtDiscount(euModifier * euModifierNotLimitingParallel)
             .setAmperageOC(amperageOC)
             .setDurationDecreasePerOC(overClockTimeReduction)
             .setEUtIncreasePerOC(overClockPowerIncrease);
+        if (spec != null) spec.getMaxOverclocks(specInputs.get(), recipe)
+            .ifPresent(calculator::setMaxOverclocks);
         if (spec != null) spec.getHeat()
             .ifPresent(
                 heat -> calculator.setMachineHeat(heat.getMachineHeat(specInputs.get()))
@@ -649,6 +663,10 @@ public class ProcessingLogic {
     @Nonnull
     public final ProcessingSpec.Run calculateForInspection(@Nonnull GTRecipe recipe) {
         resolveModifierSuppliers();
+        if (spec != null) {
+            CheckRecipeResult check = spec.check(recipe, specInputs.get());
+            if (!check.wasSuccessful()) return new ProcessingSpec.Run(check, 0, 0, 0, 0);
+        }
         GTRecipe run = spec == null ? recipe
             : spec.getRecipeOverride()
                 .map(override -> {
@@ -661,7 +679,7 @@ public class ProcessingLogic {
         OverclockCalculator calculator = createOverclockCalculator(run);
         ParallelHelper helper = new ParallelHelper().setRecipe(run)
             .setAvailableEUt(availableVoltage * availableAmperage)
-            .setMaxParallel(maxParallel)
+            .setMaxParallel(maxParallelFor(run))
             .setEUtModifier(euModifier)
             .setCalculator(calculator)
             .setConsumption(false)

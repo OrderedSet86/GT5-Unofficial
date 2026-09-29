@@ -31,8 +31,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.alignment.enumerable.ExtendedFacing;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -53,12 +51,10 @@ import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.metadata.CentrifugeRecipeKey;
 import gregtech.api.render.RenderOverlay;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtilityClient;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
@@ -96,6 +92,10 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
         .durationMultiplier(in -> 1.0 / (SPEED + EXTRA_SPEED * in.value(MOMENTUM) / MAX_MOMENTUM))
         .euModifier(0.9)
         .noTooltip(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
+        // heavy mode recipes are for the heavy centrifuge
+        .requires(
+            (in, recipe) -> !recipe.getMetadataOrDefault(CentrifugeRecipeKey.INSTANCE, Boolean.FALSE),
+            (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
         .build();
 
     private int momentum = 0;
@@ -226,16 +226,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Override
-            protected @NotNull CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                // ensures heavy mode recipes can not run
-                if (recipe.getMetadataOrDefault(CentrifugeRecipeKey.INSTANCE, Boolean.FALSE))
-                    return CheckRecipeResultRegistry.NO_RECIPE;
-                return super.validateRecipe(recipe);
-            }
-        };
+        return new ProcessingLogic();
     }
 
     @Override

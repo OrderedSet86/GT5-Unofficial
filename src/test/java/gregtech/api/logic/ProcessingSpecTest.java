@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.recipe.RecipeMap;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -358,6 +359,70 @@ class ProcessingSpecTest {
         assertTrue(
             lines.get(2)
                 .startsWith(distillery));
+    }
+
+    @Test
+    void requirementsDecideWhetherARecipeRuns() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .heat(in -> 1800, ProcessingSpec.HeatRule.REQUIRED)
+            .noTooltip(ProcessingSpec.Quantity.HEAT)
+            .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .build();
+        ProcessingSpec.Inputs ev = inputs(VoltageIndex.EV, 0);
+
+        assertTrue(
+            spec.check(recipe(30, 200, 1800), ev)
+                .wasSuccessful());
+        assertFalse(
+            spec.check(recipe(30, 200, 2700), ev)
+                .wasSuccessful(),
+            "hotter than the machine");
+        assertFalse(
+            spec.check(recipe(120, 200, 0), ev)
+                .wasSuccessful());
+        ProcessingSpec.Run run = spec.calculate(recipe(120, 200, 0), ev);
+        assertFalse(
+            run.result()
+                .wasSuccessful());
+        assertEquals(0, run.ticks());
+    }
+
+    @Test
+    void termsThatReadTheRecipeApplyOnceItIsKnown() {
+        ProcessingSpec parallel = ProcessingSpec.builder()
+            .parallel(2)
+            .parallelPerRecipe((in, recipe) -> recipe.mDuration / 100)
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+            .build();
+        ProcessingSpec.Inputs iv = inputs(VoltageIndex.IV, 0);
+
+        assertEquals(2, parallel.getMaxParallel(iv), "a display without a recipe leaves them out");
+        assertEquals(6, parallel.getMaxParallel(iv, recipe(30, 400, 0)));
+
+        ProcessingSpec timing = ProcessingSpec.builder()
+            .durationPerRecipe((in, recipe) -> 50)
+            .noTooltip(ProcessingSpec.Quantity.DURATION)
+            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .build();
+        ProcessingSpec.Run run = timing.calculate(recipe(30, 400, 0), iv);
+
+        // 50 ticks instead of the recipe's 400, then one overclock where IV would allow four
+        assertEquals(1, run.overclocks());
+        assertEquals(25, run.ticks());
+        assertEquals(120, run.euPerTick());
+    }
+
+    @Test
+    void termsThatReadTheRecipeApplyInEveryMode() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .inMode(0, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .inMode(0, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
     }
 
     @Test

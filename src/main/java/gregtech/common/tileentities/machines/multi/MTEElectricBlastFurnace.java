@@ -52,11 +52,8 @@ import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
@@ -71,7 +68,8 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         .heat(
             in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) + 100 * (in.voltageTier() - 2),
             ProcessingSpec.HeatRule.OVERCLOCK,
-            ProcessingSpec.HeatRule.DISCOUNT)
+            ProcessingSpec.HeatRule.DISCOUNT,
+            ProcessingSpec.HeatRule.REQUIRED)
         .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
     private static final Modifier.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = Modifier
@@ -204,14 +202,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Override
-            protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
-                return recipe.mSpecialValue <= mHeatingCapacity ? CheckRecipeResultRegistry.SUCCESSFUL
-                    : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
-            }
-        };
+        return new ProcessingLogic();
     }
 
     @Override

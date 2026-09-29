@@ -80,6 +80,7 @@ import gregtech.api.structure.error.ErrorType;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -150,13 +151,36 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .ordered()
         .register();
     // No ProcessingLogic: processRecipe reads the parallel from here. Duration, power and yield stay machine code.
+    /** The programmed circuit, 0 to 24: each step halves the time and quadruples the start-up EU. */
+    public static final ModifierKind CIRCUIT = ModifierKind.builder("tectech:eoh_circuit")
+        .name("GT5U.MBTT.Tiers.EohCircuit")
+        .source(ModifierKind.Source.ITEM)
+        .register();
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(
             in -> in.value(ASTRAL_ARRAYS) == 0 ? 1
                 : (int) GTUtility.powInt(2, parallelExponent(in.value(ASTRAL_ARRAYS))))
         .noTooltip(ProcessingSpec.Quantity.PARALLEL)
-        .alsoCustom(ProcessingSpec.Quantity.DURATION, ProcessingSpec.Quantity.EU_MODIFIER)
+        .durationPerRecipe(
+            (in, recipe) -> recipeTicks(
+                recipe.mDuration,
+                requiredSpacetimeTier(recipe),
+                in.value(SPACETIME_COMPRESSION_FIELD),
+                in.value(TIME_DILATION_FIELD),
+                in.value(CIRCUIT)))
+        .noTooltip(ProcessingSpec.Quantity.DURATION)
+        .noOverclock()
+        .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+        .requires(
+            (in, recipe) -> in.value(SPACETIME_COMPRESSION_FIELD) >= requiredSpacetimeTier(recipe),
+            (in, recipe) -> CheckRecipeResultRegistry.insufficientMachineTier((int) requiredSpacetimeTier(recipe)))
+        // start-up EU, EU output and yield
+        .alsoCustom(ProcessingSpec.Quantity.EU_MODIFIER)
         .build();
+
+    private static long requiredSpacetimeTier(GTRecipe recipe) {
+        return recipe.mSpecialItems instanceof EyeOfHarmonyRecipe eoh ? eoh.getSpacetimeCasingTierRequired() : 0;
+    }
 
     private static ModifierKind fieldKind(String id, String nameKey) {
         return ModifierKind.builder(id)
@@ -873,7 +897,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return MathHelper.clamp_double(yield, 0.0, 1.0);
     }
 
-    private int recipeProcessTimeCalculator(final long recipeTime, final long recipeSpacetimeCasingRequired) {
+    private static int recipeTicks(long recipeTime, long recipeSpacetimeCasingRequired, long spacetimeTier,
+        long timeDilationTier, long circuit) {
 
         // Tier 1 recipe.
         // Tier 2 spacetime blocks.
@@ -883,10 +908,10 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         // Tier 3 spacetime blocks.
         // = 3%*3% = 5.91% discount.
 
-        final long spacetimeCasingDifference = (recipeSpacetimeCasingRequired - spacetimeCompressionFieldMetadata);
-        final double recipeTimeDiscounted = recipeTime * GTUtility.powInt(2.0, -timeAccelerationFieldMetadata)
+        final long spacetimeCasingDifference = (recipeSpacetimeCasingRequired - spacetimeTier);
+        final double recipeTimeDiscounted = recipeTime * GTUtility.powInt(2.0, -timeDilationTier)
             * GTUtility.powInt(1 - SPACETIME_CASING_DIFFERENCE_DISCOUNT_PERCENTAGE, -spacetimeCasingDifference)
-            * Math.min(1, GTUtility.powInt(2, -currentCircuitMultiplier));
+            * Math.min(1, GTUtility.powInt(2, -circuit));
         return (int) Math.max(recipeTimeDiscounted, 1.0);
     }
 
@@ -917,6 +942,11 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
                 .between(0, (int) ASTRAL_ARRAY_LIMIT)
                 .getter(() -> (int) astralArrayAmount)
                 .setter(value -> astralArrayAmount = value)
+                .build(),
+            Modifier.builder(CIRCUIT)
+                .between(0, 24)
+                .getter(() -> (int) currentCircuitMultiplier)
+                .setter(value -> currentCircuitMultiplier = value)
                 .build());
     }
 
@@ -1260,9 +1290,12 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             return CheckRecipeResultRegistry.insufficientStartupPower(usedEU.abs());
         }
 
-        mMaxProgresstime = recipeProcessTimeCalculator(
+        mMaxProgresstime = recipeTicks(
             recipeObject.getRecipeTimeInTicks(),
-            recipeObject.getSpacetimeCasingTierRequired());
+            recipeObject.getSpacetimeCasingTierRequired(),
+            spacetimeCompressionFieldMetadata,
+            timeAccelerationFieldMetadata,
+            currentCircuitMultiplier);
 
         calculateInputFluidExcessValues(recipeObject.getHydrogenRequirement(), recipeObject.getHeliumRequirement());
 

@@ -12,6 +12,8 @@ import static net.minecraft.util.StatCollector.translateToLocal;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -93,12 +95,8 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     public static final String MAIN_NAME = "largeFusion";
     public static final int M = 1_000_000;
-    // Parallel and overclocks depend on the recipe's startup EU, which a spec does not read.
-    protected static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .unlimitedTierSkips()
-        .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
-        .alsoCustom(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.OVERCLOCK)
-        .build();
+    // One spec per subclass: parallel and overclocks follow each tier's constants.
+    private static final Map<Class<?>, ProcessingSpec> SPECS = new ConcurrentHashMap<>();
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
@@ -468,11 +466,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
                     if (powerToStart > maxEUStore()) {
                         return CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(powerToStart));
                     }
-                    if (recipe.mEUt > GTValues.V[tier()]) {
-                        return CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
-                    }
                 }
-                maxParallel = getMaxPara() * extraPara(powerToStart);
                 return CheckRecipeResultRegistry.SUCCESSFUL;
             }
 
@@ -495,7 +489,31 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     @Override
     public ProcessingSpec getProcessingSpec() {
-        return SPEC;
+        return SPECS
+            .computeIfAbsent(getClass(), c -> ((MTELargeFusionComputer) newMetaEntity(null)).createProcessingSpec());
+    }
+
+    private ProcessingSpec createProcessingSpec() {
+        FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
+        int maxParallel = getMaxPara();
+        return ProcessingSpec.builder()
+            .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+            .overclock(describer.durationDivisorPerOverclock(), describer.euMultiplierPerOverclock())
+            .maxOverclocksPerRecipe((in, recipe) -> describer.maxOverclocks(recipe))
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .unlimitedTierSkips()
+            .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
+            .requires(
+                (in, recipe) -> describer.canHandle(recipe),
+                (in, recipe) -> GTUtility.getTier(recipe.mEUt) > tier()
+                    ? CheckRecipeResultRegistry.insufficientPower(recipe.mEUt)
+                    : CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+            .build();
+    }
+
+    private static long startupEU(GTRecipe recipe) {
+        return recipe.getMetadataOrDefault(GTRecipeConstants.FUSION_THRESHOLD, 0L);
     }
 
     @Override
