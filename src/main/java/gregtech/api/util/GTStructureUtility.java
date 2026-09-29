@@ -986,6 +986,9 @@ public class GTStructureUtility {
         return meta + 1;
     }
 
+    /** How many item pipe casings {@link #chainItemPipeCasings} accepts, numbered from 1. */
+    public static final int ITEM_PIPE_CASING_TIERS = 8;
+
     public static <T> IStructureElement<T> chainItemPipeCasings() {
         return chainItemPipeCasings(-1, (t, tier) -> {}, t -> -1);
     }

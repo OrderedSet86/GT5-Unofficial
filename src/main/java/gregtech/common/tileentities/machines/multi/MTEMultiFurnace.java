@@ -14,14 +14,14 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_SMELTER
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_SMELTER_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_MULTI_SMELTER_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.casingTexturePages;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -42,6 +42,9 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -54,7 +57,6 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
-import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 
 public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
@@ -62,8 +64,21 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private int mLevel = 0;
 
-    private static final long RECIPE_EUT = 4;
-    private static final int RECIPE_DURATION = 128;
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(in -> 4 << (in.value(ModifierKind.COIL) + 1))
+        .customTooltip(
+            ProcessingSpec.Quantity.PARALLEL,
+            tt -> tt.addStaticParallelInfo(4)
+                .addDynamicMultiplicativeParallelInfo(2, ModifierKind.COIL))
+        .recipeOverride(
+            ProcessingSpec.RecipeOverride.eut(4)
+                .duration(128))
+        .noTooltip(ProcessingSpec.Quantity.RECIPE_OVERRIDE)
+        .build();
+    private static final ProcessingSpec.RecipeOverride RECIPE = SPEC.getRecipeOverride()
+        .get();
+    private static final Modifier.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
+        .coil(MTEMultiFurnace::getCoilLevel, MTEMultiFurnace::setCoilLevel);
     private static final int CASING_INDEX = 11;
     private static final String STRUCTURE_PIECE_MAIN = "main";
     private static final IStructureDefinition<MTEMultiFurnace> STRUCTURE_DEFINITION = StructureDefinition
@@ -78,10 +93,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
                 .hint(3)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEMultiFurnace::setCoilLevel, MTEMultiFurnace::getCoilLevel))))
+        .addElement('C', COIL)
         .addElement(
             'b',
             buildHatchAdder(MTEMultiFurnace.class).atLeast(Maintenance, InputBus, OutputBus, Energy)
@@ -107,8 +119,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Furnace")
-            .addStaticParallelInfo(4)
-            .addDynamicMultiplicativeParallelInfo(2, TooltipTier.COIL)
+            .addProcessingSpecInfo(SPEC)
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 3, 3, true)
             .addController("Front bottom center")
@@ -170,8 +181,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
         long availableEUt = GTUtility.roundUpVoltage(getMaxInputVoltage());
-        if (availableEUt < RECIPE_EUT) {
-            return CheckRecipeResultRegistry.insufficientPower(RECIPE_EUT);
+        if (availableEUt < RECIPE.eut()) {
+            return CheckRecipeResultRegistry.insufficientPower(RECIPE.eut());
         }
         if (tInput.isEmpty()) {
             return CheckRecipeResultRegistry.NO_RECIPE;
@@ -180,8 +191,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         int originalMaxParallel = this.mLevel;
 
         OverclockCalculator calculator = new OverclockCalculator().setEUt(availableEUt)
-            .setRecipeEUt(RECIPE_EUT)
-            .setDuration(RECIPE_DURATION)
+            .setRecipeEUt(RECIPE.eut())
+            .setDuration(RECIPE.duration())
             .setParallel(originalMaxParallel);
 
         maxParallel = GTUtility.longToInt((long) (maxParallel * calculator.calculateMultiplierUnderOneTick()));
@@ -191,7 +202,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
             maxParallel = GTUtility.longToInt((long) maxParallel * getMaxBatchSize());
         }
 
-        maxParallel = Math.min(maxParallel, GTUtility.longToInt(availableEUt / RECIPE_EUT));
+        maxParallel = Math.min(maxParallel, GTUtility.longToInt(availableEUt / RECIPE.eut()));
 
         int currentParallel = 0;
         for (ItemStack item : tInput) {
@@ -288,12 +299,29 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         if (getCoilLevel() == HeatingCoilLevel.None) {
             errors.add(StructureErrorRegistry.COIL_LEVEL_NOT_ENOUGH);
         } else {
-            this.mLevel = 4 << (getCoilLevel().ordinal() - 1);
+            updateParallel();
         }
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);
         checkHasInputBus(errors);
         checkHasOutputBus(errors);
+    }
+
+    private void updateParallel() {
+        this.mLevel = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(
+            COIL.derivingAfterSet(MTEMultiFurnace::updateParallel)
+                .of(this));
     }
 
     @Override

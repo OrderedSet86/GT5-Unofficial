@@ -27,6 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
 
 import javax.annotation.Nonnull;
 
@@ -66,6 +68,9 @@ import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -129,6 +134,46 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     private static final long PRECISION_MULTIPLIER = 1_000_000;
     // Exact value to get 2^21 parallels.
     private static final long ASTRAL_ARRAY_LIMIT = 8637;
+
+    public static final ModifierKind SPACETIME_COMPRESSION_FIELD = fieldKind(
+        "tectech:spacetime_compression_field",
+        "GT5U.MBTT.Tiers.SpacetimeCompressionField");
+    public static final ModifierKind TIME_DILATION_FIELD = fieldKind(
+        "tectech:time_dilation_field",
+        "GT5U.MBTT.Tiers.TimeDilationField");
+    public static final ModifierKind STABILISATION_FIELD = fieldKind(
+        "tectech:stabilisation_field",
+        "GT5U.MBTT.Tiers.StabilisationField");
+    /** Astral Array Fabricators inserted, up to {@link #ASTRAL_ARRAY_LIMIT}. */
+    public static final ModifierKind ASTRAL_ARRAYS = ModifierKind.builder("tectech:astral_arrays")
+        .name("GT5U.MBTT.Tiers.AstralArrays")
+        .source(ModifierKind.Source.ITEM)
+        .ordered()
+        .register();
+    // Duration, power and yield depend on the recipe and on the fields, in the machine's own code. This machine has no
+    // ProcessingLogic: processRecipe reads the parallel from here.
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallel(
+            in -> in.value(ASTRAL_ARRAYS) == 0 ? 1
+                : (int) GTUtility.powInt(2, parallelExponent(in.value(ASTRAL_ARRAYS))))
+        .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+        .alsoCustom(ProcessingSpec.Quantity.DURATION, ProcessingSpec.Quantity.EU_MODIFIER)
+        .build();
+
+    private static ModifierKind fieldKind(String id, String nameKey) {
+        return ModifierKind.builder(id)
+            .name(nameKey)
+            .ordered()
+            .labels(CommonValues::getLocalizedEohTierFancyNames)
+            .register();
+    }
+
+    /** 1 without astral arrays. */
+    private static long parallelExponent(long astralArrays) {
+        if (astralArrays == 0) return 1;
+        return (long) Math.floor(
+            Math.log(PARALLEL_FOR_FIRST_ASTRAL_ARRAY * Math.min(astralArrays, ASTRAL_ARRAY_LIMIT)) / LOG_CONSTANT);
+    }
 
     private UUID userUUID;
     private BigInteger outputEU_BigInt = BigInteger.ZERO;
@@ -852,6 +897,39 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return STRUCTURE_DEFINITION;
     }
 
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(
+            field(
+                SPACETIME_COMPRESSION_FIELD,
+                () -> spacetimeCompressionFieldMetadata,
+                value -> spacetimeCompressionFieldMetadata = value),
+            field(
+                TIME_DILATION_FIELD,
+                () -> timeAccelerationFieldMetadata,
+                value -> timeAccelerationFieldMetadata = value),
+            field(STABILISATION_FIELD, () -> stabilisationFieldMetadata, value -> stabilisationFieldMetadata = value),
+            Modifier.builder(ASTRAL_ARRAYS)
+                .between(0, (int) ASTRAL_ARRAY_LIMIT)
+                .getter(() -> (int) astralArrayAmount)
+                .setter(value -> astralArrayAmount = value)
+                .build());
+    }
+
+    private static Modifier field(ModifierKind kind, IntSupplier getter, IntConsumer setter) {
+        return Modifier.builder(kind)
+            .between(0, 8)
+            .getter(getter)
+            .setter(setter)
+            .build();
+    }
+
     public MTEEyeOfHarmony(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
     }
@@ -1120,16 +1198,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             }
         }
 
-        long parallelExponent = 1;
-
-        if (astralArrayAmount != 0) {
-            parallelExponent = (long) Math.floor(
-                Math.log(PARALLEL_FOR_FIRST_ASTRAL_ARRAY * Math.min(astralArrayAmount, ASTRAL_ARRAY_LIMIT))
-                    / LOG_CONSTANT);
-            parallelAmount = (long) GTUtility.powInt(2, parallelExponent);
-        } else {
-            parallelAmount = 1;
-        }
+        long parallelExponent = parallelExponent(astralArrayAmount);
+        parallelAmount = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
 
         // Debug mode, overwrites the required fluids to initiate the recipe to 100L of each.
         if (parallelAmount > 1) {

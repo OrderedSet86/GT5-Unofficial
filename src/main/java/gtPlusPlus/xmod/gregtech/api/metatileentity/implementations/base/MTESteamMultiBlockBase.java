@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+
+import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -37,7 +41,10 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -82,6 +89,13 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         + EnumChatFormatting.AQUA
         + "Steam Usage";
 
+    /** 1 for Basic, 2 for High Pressure. */
+    public static final ModifierKind PRESSURE = ModifierKind.builder("gregtech:steam_pressure")
+        .name("GT5U.MBTT.Tiers.SteamPressure")
+        .ordered()
+        .labels(1, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
+        .register();
+
     public MTESteamMultiBlockBase(String aName) {
         super(aName);
         this.overclockDescriber = createOverclockDescriber();
@@ -90,6 +104,34 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     public MTESteamMultiBlockBase(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
         this.overclockDescriber = createOverclockDescriber();
+    }
+
+    /**
+     * What a steam multiblock does: 8 parallels, and a High Pressure structure runs twice as fast for twice the steam.
+     * Recipes run at their own voltage without overclocks. Reads {@link #PRESSURE}; see {@link #pressure}.
+     */
+    @Nonnull
+    protected static ProcessingSpec.Builder steamSpec() {
+        return ProcessingSpec.builder()
+            .parallel(8)
+            .durationMultiplier(in -> 1.6 / in.value(PRESSURE))
+            .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
+            .euModifierNotLimitingParallel(in -> 1.25 * in.value(PRESSURE))
+            .customTooltip(
+                ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
+                tt -> tt.addStaticSteamEffInfo(0.625f))
+            .noOverclock()
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK);
+    }
+
+    /** The {@link #PRESSURE} a machine's structure check found, 1 or 2. */
+    @Nonnull
+    protected static Modifier pressure(@Nonnull IntSupplier getter, @Nonnull IntConsumer setter) {
+        return Modifier.builder(PRESSURE)
+            .between(1, 2)
+            .getter(getter)
+            .setter(setter)
+            .build();
     }
 
     public abstract String getMachineType();

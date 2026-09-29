@@ -29,6 +29,8 @@ import com.gtnewhorizon.structurelib.StructureLibAPI;
 import gregtech.GTMod;
 import gregtech.api.enums.GTAuthors;
 import gregtech.api.enums.GTValues;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.structure.IStructureChannels;
 import gregtech.api.util.tooltip.MarkdownTooltipLoader;
 import gregtech.api.util.tooltip.TooltipHelper;
@@ -71,6 +73,10 @@ public class MultiblockTooltipBuilder {
     private static final String TT_DynamicSpeedBonus = StatCollector.translateToLocal("GT5U.MBTT.Speed.Additional");
     private static final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private static final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
+    private static final String TT_SpeedBonusBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.Speed.AdditionalBeyondFirst");
+    private static final String TT_EuMultiplierBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.EuDiscount.MultiplicativeBeyondFirst");
     private static final String TT_Steam_StaticSteamEff = StatCollector
         .translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
@@ -197,11 +203,19 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicParallelInfo(Integer parallels, TooltipTier tier) {
+        return addDynamicParallelInfo(parallels, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
+        return addDynamicParallelInfo(parallels, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tier) {
         iLines.add(
             String.format(
                 parallels == 1 ? TT_SingularParallel : TT_DynamicParallels,
                 TooltipHelper.parallelText(parallels),
-                tier.getValue()));
+                tier));
         return this;
     }
 
@@ -225,8 +239,15 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(Integer factor, TooltipTier tier) {
-        iLines.add(
-            String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor.toString() + "x"), tier.getValue()));
+        return addDynamicMultiplicativeParallelInfo(factor, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, ModifierKind kind) {
+        return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tier) {
+        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tier));
         return this;
     }
 
@@ -250,17 +271,29 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, TooltipTier tier) {
+        return addDynamicSpeedBonusInfo(speed, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, ModifierKind kind) {
+        return addDynamicSpeedBonusInfo(speed, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, String tier) {
         iLines.add(
-            String.format(
-                TT_DynamicSpeedBonus,
-                TooltipHelper.speedText("+" + percentageFormat.format(speed)),
-                tier.getValue()));
+            String.format(TT_DynamicSpeedBonus, TooltipHelper.speedText("+" + percentageFormat.format(speed)), tier));
         return this;
     }
 
     public MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, TooltipTier tier) {
-        iLines.add(
-            String.format(TT_DynamicSpeed, TooltipHelper.speedText(percentageFormat.format(speed)), tier.getValue()));
+        return addDynamicSpeedInfo(speed, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, ModifierKind kind) {
+        return addDynamicSpeedInfo(speed, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, String tier) {
+        iLines.add(String.format(TT_DynamicSpeed, TooltipHelper.speedText(percentageFormat.format(speed)), tier));
         return this;
     }
 
@@ -283,9 +316,68 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, TooltipTier tier) {
+        return addDynamicEuEffInfo(euEff, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, ModifierKind kind) {
+        return addDynamicEuEffInfo(euEff, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, String tier) {
+        iLines.add(String.format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier));
+        return this;
+    }
+
+    /**
+     * "+5% Speed per Heating Coil Tier beyond the first".
+     *
+     * @param speed Speed increment per tier beyond the first
+     */
+    public MultiblockTooltipBuilder addSpeedBonusBeyondFirstInfo(float speed, ModifierKind kind) {
         iLines.add(
-            String
-                .format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier.getValue()));
+            String.format(
+                TT_SpeedBonusBeyondFirst,
+                TooltipHelper.speedText("+" + percentageFormat.format(speed)),
+                kind.getTierText()));
+        return this;
+    }
+
+    /**
+     * "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative".
+     *
+     * @param factor EU/t multiplier per tier beyond the first
+     */
+    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_EuMultiplierBeyondFirst,
+                TooltipHelper.effText("-" + percentageFormat.format(1 - factor)),
+                kind.getTierText()));
+        return this;
+    }
+
+    /**
+     * The info lines added so far, before {@link #toolTipFinisher()} adds its own: for instance a spec's lines alone,
+     * from {@code spec.describe(new MultiblockTooltipBuilder())}.
+     */
+    public List<String> getInfoLines() {
+        return Collections.unmodifiableList(iLines);
+    }
+
+    /** Adds the lines of {@code lines}, each after {@code prefix}. */
+    public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder lines) {
+        for (String line : lines.iLines) iLines.add(prefix + line);
+        return this;
+    }
+
+    /**
+     * Add the lines for everything the spec can describe: parallel, speed, EU, overclocks and tier skips, in that
+     * order.
+     *
+     * @return Instance this method was called on.
+     */
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
+        spec.describe(this);
         return this;
     }
 
