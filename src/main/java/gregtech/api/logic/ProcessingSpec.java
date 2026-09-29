@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -428,6 +429,7 @@ public final class ProcessingSpec {
     private final Set<Quantity> alsoCustom;
     private final List<MachineMode> modes;
     private final List<Variant> variants;
+    private final Set<Integer> unsupportedModes;
 
     private ProcessingSpec(Builder b) {
         this.parallel = new ArrayList<>(b.parallel);
@@ -445,6 +447,7 @@ public final class ProcessingSpec {
         this.alsoCustom = b.alsoCustom.clone();
         this.modes = b.modes;
         this.variants = new ArrayList<>(b.variants);
+        this.unsupportedModes = Collections.unmodifiableSet(new HashSet<>(b.unsupportedModes));
         this.recipeDuration = b.recipeDuration;
         this.maxOverclocks = b.maxOverclocks;
         this.requirements = new ArrayList<>(b.requirements);
@@ -656,9 +659,21 @@ public final class ProcessingSpec {
         return Collections.unmodifiableSet(alsoCustom);
     }
 
-    /** As {@link ProcessingLogic} would run the recipe. */
+    /** False where the machine's own code decides the numbers, so {@link #calculate} cannot describe them. */
+    public boolean supportsMode(int mode) {
+        return !unsupportedModes.contains(mode);
+    }
+
+    /**
+     * As {@link ProcessingLogic} would run the recipe.
+     *
+     * @throws IllegalArgumentException in a mode the spec does not support
+     */
     @Nonnull
     public Run calculate(@Nonnull GTRecipe recipe, @Nonnull Inputs inputs) {
+        if (!supportsMode(inputs.mode())) {
+            throw new IllegalArgumentException("the spec does not describe mode " + inputs.mode());
+        }
         return new ProcessingLogic().applySpec(this, () -> inputs)
             .calculateForInspection(recipe);
     }
@@ -817,6 +832,7 @@ public final class ProcessingSpec {
         private final EnumSet<Quantity> alsoCustom = EnumSet.noneOf(Quantity.class);
         private List<MachineMode> modes;
         private final List<Variant> variants = new ArrayList<>();
+        private final Set<Integer> unsupportedModes = new HashSet<>();
         private ToIntBiFunction<Inputs, GTRecipe> recipeDuration;
         private ToIntBiFunction<Inputs, GTRecipe> maxOverclocks;
         private final List<Requirement> requirements = new ArrayList<>();
@@ -1094,6 +1110,15 @@ public final class ProcessingSpec {
             return this;
         }
 
+        /**
+         * For a mode whose numbers the machine's own code decides, such as a simulation that is not a recipe. The spec
+         * still applies there; planners are told not to use it.
+         */
+        public Builder unsupportedInMode(int mode) {
+            this.unsupportedModes.add(mode);
+            return this;
+        }
+
         /** Names the {@link #inMode} lines. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
             this.modes = Objects.requireNonNull(modes, "declare the modes before the spec");
@@ -1125,7 +1150,9 @@ public final class ProcessingSpec {
                     throw new IllegalArgumentException(quantity + " cannot differ by mode or tier");
                 }
             }
-            if (!variant.alsoCustom.isEmpty() || !variant.variants.isEmpty() || variant.modes != null) {
+            if (!variant.alsoCustom.isEmpty() || !variant.variants.isEmpty()
+                || variant.modes != null
+                || !variant.unsupportedModes.isEmpty()) {
                 throw new IllegalArgumentException("a mode or tier takes terms and their tooltips only");
             }
             if (spec.readsRecipe(Quantity.PARALLEL) || spec.readsRecipe(Quantity.DURATION)

@@ -54,7 +54,8 @@ public final class ProcessingSpecs {
     /**
      * Tooltips missing a number their spec sets, and machines whose own calculator, max parallel or whole run differs
      * from their spec's without {@link ProcessingSpec.Builder#alsoCustom}. They are compared on a copy with every
-     * modifier at its maximum, in every mode, over sampled recipes; runs also over sampled energy hatches.
+     * modifier at its maximum, in every mode the spec supports, over sampled recipes; runs also over sampled energy
+     * hatches.
      */
     @Nonnull
     public static List<String> problems() {
@@ -106,6 +107,8 @@ public final class ProcessingSpecs {
             int modes = machine.getMachineModes()
                 .size();
             for (int mode = 0; mode < Math.max(1, modes); mode++) {
+                if (!entry.spec()
+                    .supportsMode(mode)) continue;
                 if (modes > 1) machine.setMachineMode(mode);
                 for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
                     for (List<ProcessingSpec.EnergyHatch> hatches : ENERGY_SAMPLES) {
@@ -155,6 +158,8 @@ public final class ProcessingSpecs {
             int modes = machine.getMachineModes()
                 .size();
             for (int mode = 0; mode < Math.max(1, modes); mode++) {
+                if (!entry.spec()
+                    .supportsMode(mode)) continue;
                 if (modes > 1) machine.setMachineMode(mode);
                 for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
                     OverclockCalculator own = machine.createOverclockCalculatorForInspection(recipe);

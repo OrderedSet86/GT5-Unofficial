@@ -161,6 +161,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                 (in, recipe) -> (int) GTUtility.log4(in.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
             .maxTierSkips(0)
             .inMode(ArcFurnaceMode.Blast.ordinal(), mode -> mode.recipeEuMultiplier(BLAST_MODE_POWER_MULTIPLIER))
+            // ore mode smelts ore by ore in runMachine, not as recipes
+            .unsupportedInMode(ArcFurnaceMode.Ore.ordinal())
             .allAmps()
             .unlimitedEnergy(in -> electrode(in) == ArcFurnaceElectrode.InfinityElectrode)
             .requires(

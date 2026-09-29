@@ -581,6 +581,21 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void anUnsupportedModeIsNotCalculated() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .unsupportedInMode(2)
+            .build();
+
+        assertTrue(spec.supportsMode(0));
+        assertFalse(spec.supportsMode(2));
+        assertTrue(
+            spec.calculate(recipe(30, 100, 0), inMode(0))
+                .result()
+                .wasSuccessful());
+        assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
+    }
+
+    @Test
     void theVoltageTierReadsTheSummedHatchVoltage() {
         ProcessingSpec.Inputs twoLuv = ProcessingSpec.Inputs.builder()
             .energyHatches(VoltageIndex.LuV, 2)
