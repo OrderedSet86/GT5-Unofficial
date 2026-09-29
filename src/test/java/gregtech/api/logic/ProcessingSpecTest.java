@@ -100,7 +100,7 @@ class ProcessingSpecTest {
     @Test
     void coilTermsCountFromOne() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .speedPerTier(0.5, ModifierKind.COIL)
+            .speedPerTier(0, 0.5, ModifierKind.COIL)
             .euDiscountPerTier(0.1, ModifierKind.COIL)
             .maxEuDiscount(0.5)
             .build();
@@ -109,6 +109,24 @@ class ProcessingSpecTest {
         assertEquals(1 / 0.5, spec.getDurationMultiplier(inputs(1, 0)));
         assertEquals(0.9, spec.getEuModifier(inputs(1, 0)), 1e-12);
         assertEquals(0.5, spec.getEuModifier(inputs(1, 9)));
+    }
+
+    @Test
+    void speedPerTierAddsItsBase() {
+        ProcessingSpec withBase = ProcessingSpec.builder()
+            .speedPerTier(1, 1, ModifierKind.ITEM_PIPE_CASING)
+            .build();
+        ProcessingSpec withoutBase = ProcessingSpec.builder()
+            .speedPerTier(0, 0.5, ModifierKind.ITEM_PIPE_CASING)
+            .build();
+        ProcessingSpec.Inputs lowestCasing = ProcessingSpec.Inputs.builder()
+            .value(ModifierKind.ITEM_PIPE_CASING, 1)
+            .build();
+
+        assertEquals(1 / 2.0, withBase.getDurationMultiplier(lowestCasing));
+        assertEquals(1 / 0.5, withoutBase.getDurationMultiplier(lowestCasing));
+        assertEquals(1, lines(withBase).size());
+        assertEquals(1, lines(withoutBase).size());
     }
 
     @Test

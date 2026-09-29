@@ -598,26 +598,19 @@ public final class ProcessingSpec {
             return this;
         }
 
-        public Builder speedPerTier(double speed, @Nonnull ModifierKind kind) {
+        /** {@code base} plus {@code perTier} per tier of {@code kind}: 1 and 1 is 200% at the first tier. */
+        public Builder speedPerTier(double base, double perTier, @Nonnull ModifierKind kind) {
             this.duration = new Term(
-                in -> 1 / (speed * shownTier(in, kind)),
-                tt -> tt.addDynamicSpeedInfo((float) speed, kind));
+                in -> 1 / (base + perTier * shownTier(in, kind)),
+                tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
             return this;
         }
 
-        public Builder speedBonusPerTier(double bonus, @Nonnull ModifierKind kind) {
+        /** {@code first} at the first tier, plus {@code perTier} per further tier. */
+        public Builder speedPerTierBeyondFirst(double first, double perTier, @Nonnull ModifierKind kind) {
             this.duration = new Term(
-                in -> 1 / (1 + bonus * shownTier(in, kind)),
-                tt -> tt.addDynamicSpeedBonusInfo((float) bonus, kind));
-            return this;
-        }
-
-        /** {@code speed} at the first tier, plus {@code bonus} per further tier. */
-        public Builder speedPerTierBeyondFirst(double speed, double bonus, @Nonnull ModifierKind kind) {
-            this.duration = new Term(
-                in -> 1.0 / (speed + bonus * (shownTier(in, kind) - 1)),
-                tt -> tt.addStaticSpeedInfo((float) speed)
-                    .addSpeedBonusBeyondFirstInfo((float) bonus, kind));
+                in -> 1.0 / (first + perTier * (shownTier(in, kind) - 1)),
+                tt -> tt.addSpeedPerTierBeyondFirstInfo((float) first, (float) perTier, kind));
             return this;
         }
 

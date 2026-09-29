@@ -75,8 +75,9 @@ public class MultiblockTooltipBuilder {
     private static final String TT_DynamicSpeedBonus = StatCollector.translateToLocal("GT5U.MBTT.Speed.Additional");
     private static final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private static final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
-    private static final String TT_SpeedBonusBeyondFirst = StatCollector
-        .translateToLocal("GT5U.MBTT.Speed.AdditionalBeyondFirst");
+    private static final String TT_SpeedBasePerTier = StatCollector.translateToLocal("GT5U.MBTT.Speed.BasePerTier");
+    private static final String TT_SpeedBasePerTierBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.Speed.BasePerTierBeyondFirst");
     private static final String TT_EuMultiplierBeyondFirst = StatCollector
         .translateToLocal("GT5U.MBTT.EuDiscount.MultiplicativeBeyondFirst");
     private static final String TT_Steam_StaticSteamEff = StatCollector
@@ -274,29 +275,39 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, TooltipTier tier) {
-        return addDynamicSpeedBonusInfo(speed, tier.getValue());
-    }
-
-    public MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, ModifierKind kind) {
-        return addDynamicSpeedBonusInfo(speed, kind.getTierText());
-    }
-
-    private MultiblockTooltipBuilder addDynamicSpeedBonusInfo(float speed, String tier) {
         iLines.add(
-            String.format(TT_DynamicSpeedBonus, TooltipHelper.speedText("+" + percentageFormat.format(speed)), tier));
+            String.format(
+                TT_DynamicSpeedBonus,
+                TooltipHelper.speedText("+" + percentageFormat.format(speed)),
+                tier.getValue()));
         return this;
     }
 
     public MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, TooltipTier tier) {
-        return addDynamicSpeedInfo(speed, tier.getValue());
+        iLines.add(
+            String.format(TT_DynamicSpeed, TooltipHelper.speedText(percentageFormat.format(speed)), tier.getValue()));
+        return this;
     }
 
-    public MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, ModifierKind kind) {
-        return addDynamicSpeedInfo(speed, kind.getTierText());
+    /** "Speed: 100% + 100% per Item Pipe Casing Tier" */
+    public MultiblockTooltipBuilder addSpeedPerTierInfo(float base, float perTier, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_SpeedBasePerTier,
+                TooltipHelper.speedText(percentageFormat.format(base)),
+                TooltipHelper.speedText(percentageFormat.format(perTier)),
+                kind.getTierText()));
+        return this;
     }
 
-    private MultiblockTooltipBuilder addDynamicSpeedInfo(float speed, String tier) {
-        iLines.add(String.format(TT_DynamicSpeed, TooltipHelper.speedText(percentageFormat.format(speed)), tier));
+    /** "Speed: 250% + 5% per Heating Coil Tier beyond the first" */
+    public MultiblockTooltipBuilder addSpeedPerTierBeyondFirstInfo(float first, float perTier, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_SpeedBasePerTierBeyondFirst,
+                TooltipHelper.speedText(percentageFormat.format(first)),
+                TooltipHelper.speedText(percentageFormat.format(perTier)),
+                kind.getTierText()));
         return this;
     }
 
@@ -328,16 +339,6 @@ public class MultiblockTooltipBuilder {
 
     private MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, String tier) {
         iLines.add(String.format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier));
-        return this;
-    }
-
-    /** "+5% Speed per Heating Coil Tier beyond the first" */
-    public MultiblockTooltipBuilder addSpeedBonusBeyondFirstInfo(float speed, ModifierKind kind) {
-        iLines.add(
-            String.format(
-                TT_SpeedBonusBeyondFirst,
-                TooltipHelper.speedText("+" + percentageFormat.format(speed)),
-                kind.getTierText()));
         return this;
     }
 
