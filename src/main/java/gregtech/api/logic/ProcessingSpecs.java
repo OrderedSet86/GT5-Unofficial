@@ -19,22 +19,17 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
 
-/** The registered multiblocks that declare a {@link ProcessingSpec}, for external tools such as factory planners. */
+/** The registered multiblocks with a {@link ProcessingSpec}. */
 public final class ProcessingSpecs {
 
-    /** Recipes per recipe map that {@link #problems()} compares calculators on, spread over their heat and EU/t. */
     private static final int SAMPLE_RECIPES = 8;
 
-    /**
-     * @param machine   The registered prototype; use {@link MTEMultiBlockBase#newMetaEntity} before changing anything
-     * @param modifiers Its modifiers, for their kinds and ranges; set values on a copy only
-     */
+    /** @param machine The prototype: use {@link MTEMultiBlockBase#newMetaEntity} before changing anything */
     public record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec,
         @Nonnull List<Modifier> modifiers) {}
 
     private ProcessingSpecs() {}
 
-    /** Every registered multiblock with a spec. */
     @Nonnull
     public static Stream<Entry> all() {
         return Arrays.stream(GregTechAPI.METATILEENTITIES)
@@ -47,9 +42,6 @@ public final class ProcessingSpecs {
             .filter(Objects::nonNull);
     }
 
-    /**
-     * @throws IllegalStateException listing {@link #problems()}, if there are any
-     */
     public static void check() {
         List<String> problems = problems();
         if (!problems.isEmpty()) {
@@ -58,10 +50,9 @@ public final class ProcessingSpecs {
     }
 
     /**
-     * Each machine whose tooltip leaves out a number its spec sets, and each machine whose own code gives its overclock
-     * calculator a number its spec does not, without saying so with {@link ProcessingSpec.Builder#alsoCustom}. The
-     * second compares the calculator the machine builds with the one its spec alone builds, on a copy of the machine
-     * with every modifier at its maximum, in every mode, for a sample of the mode's recipes.
+     * Tooltips missing a number their spec sets, and machines whose own calculator differs from their spec's without
+     * {@link ProcessingSpec.Builder#alsoCustom}. Calculators are compared on a copy with every modifier at its maximum,
+     * in every mode, over sampled recipes.
      */
     @Nonnull
     public static List<String> problems() {
@@ -70,7 +61,6 @@ public final class ProcessingSpecs {
         return problems;
     }
 
-    /** The {@link #problems()} of one machine. */
     @Nonnull
     public static List<String> problems(@Nonnull Entry entry) {
         List<String> problems = new ArrayList<>();
@@ -98,10 +88,7 @@ public final class ProcessingSpecs {
         return problems;
     }
 
-    /**
-     * The quantities where the machine's calculator differs from its spec's and the spec does not mark them
-     * {@link ProcessingSpec.Builder#alsoCustom}. Empty for a machine that cannot be inspected without a world.
-     */
+    /** Empty for a machine that cannot be inspected without a world. */
     private static Set<ProcessingSpec.Quantity> undeclaredCustom(Entry entry) {
         EnumSet<ProcessingSpec.Quantity> differ = EnumSet.noneOf(ProcessingSpec.Quantity.class);
         try {
@@ -135,7 +122,7 @@ public final class ProcessingSpecs {
         return differ;
     }
 
-    /** Up to {@link #SAMPLE_RECIPES} of the map's recipes, from the lowest heat and EU/t to the highest. */
+    /** Spread from the lowest heat and EU/t to the highest. */
     private static List<GTRecipe> sample(@Nullable RecipeMap<?> map) {
         if (map == null) return Collections.emptyList();
         List<GTRecipe> recipes = new ArrayList<>(map.getAllRecipes());
@@ -150,10 +137,7 @@ public final class ProcessingSpecs {
         return sample;
     }
 
-    /**
-     * The quantities whose calculator inputs differ. The energy hatches' voltage and amperage are not compared, nor
-     * heat values while neither calculator overclocks or discounts by heat.
-     */
+    /** Leaves out hatch voltage and amperage, and heat unless either calculator uses it. */
     private static Set<ProcessingSpec.Quantity> differences(OverclockCalculator a, OverclockCalculator b) {
         EnumSet<ProcessingSpec.Quantity> differ = EnumSet.noneOf(ProcessingSpec.Quantity.class);
         if (a.getParallel() != b.getParallel()) differ.add(ProcessingSpec.Quantity.PARALLEL);

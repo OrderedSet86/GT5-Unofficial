@@ -17,30 +17,23 @@ import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.util.tooltip.TooltipHelper;
 
 /**
- * A kind of value a multiblock's recipe numbers read, such as its heating coil tier, an item it holds or its momentum.
- * A {@link ProcessingSpec} reads each kind's value from its {@link ProcessingSpec.Inputs}, and a machine declares where
- * its values come from as {@link Modifier}s.
- * <p>
- * The kinds many machines share are the constants here. A kind only one machine has is registered in that machine's
- * class, such as {@code ModifierKind.builder("kubatech:electrode")...register()}.
+ * A value a {@link ProcessingSpec} reads, such as a coil tier, an item or momentum. Shared kinds are the constants
+ * here; a kind only one machine has is registered in its class.
  */
 public final class ModifierKind {
 
-    /** Where a value comes from, which tells a planner how to ask for it. */
+    /** Tells a planner how to ask for the value. */
     public enum Source {
-        /** The energy hatches. */
         ENERGY,
-        /** A block the structure check finds. */
         STRUCTURE,
-        /** An item the machine holds, such as an upgrade chip. */
+        /** Such as an upgrade chip. */
         ITEM,
-        /** State the machine builds up while it runs, such as momentum. */
+        /** Built up while running, such as momentum. */
         RUNTIME
     }
 
     private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
 
-    /** The energy hatch tier, as {@link gregtech.api.util.GTUtility#getTier} numbers it. */
     public static final ModifierKind VOLTAGE = builder("gregtech:voltage").name("GT5U.MBTT.Tiers.Voltage")
         .source(Source.ENERGY)
         .ordered()
@@ -96,19 +89,18 @@ public final class ModifierKind {
         this.labels = b.labels;
     }
 
-    /** Such as "Heating Coil". */
     @Nonnull
     public String getName() {
         return StatCollector.translateToLocal(nameKey);
     }
 
-    /** The name as tooltips show a tier, such as "Heating Coil" in its tier colour. */
+    /** In the tooltip tier colour. */
     @Nonnull
     public String getTierText() {
         return TooltipHelper.tierText(getName());
     }
 
-    /** A name for the value, such as "LuV" or "High Pressure"; the number itself when the kind has no names. */
+    /** Such as "LuV"; the number itself if the kind has no labels. */
     @Nonnull
     public String label(int value) {
         return labels == null ? String.valueOf(value) : StatCollector.translateToLocal(labels.apply(value));
@@ -119,10 +111,7 @@ public final class ModifierKind {
         return id;
     }
 
-    /**
-     * Every registered kind, in the order they were registered. Complete only once the machines are registered, since
-     * machine classes register their own kinds.
-     */
+    /** Complete only once the machine classes, which register their own kinds, are loaded. */
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
@@ -139,7 +128,7 @@ public final class ModifierKind {
         return new Builder(id);
     }
 
-    /** One of {@code values}, numbered by ordinal and labelled by constant name. Not ordered. */
+    /** Numbered by ordinal, labelled by constant name. */
     @Nonnull
     public static <E extends Enum<E>> Builder ofEnum(@Nonnull String id, @Nonnull E[] values) {
         return builder(id).labels(index -> index >= 0 && index < values.length ? values[index].name() : "None");
@@ -170,7 +159,6 @@ public final class ModifierKind {
             return this;
         }
 
-        /** See {@link ModifierKind#ordered}. */
         public Builder ordered() {
             this.ordered = true;
             return this;
@@ -181,7 +169,7 @@ public final class ModifierKind {
             return this;
         }
 
-        /** Names or translation keys for the values from {@code first} up, one each. */
+        /** Names or translation keys, from {@code first} up. */
         public Builder labels(int first, @Nonnull String... labels) {
             return labels(
                 value -> value - first >= 0 && value - first < labels.length ? labels[value - first]

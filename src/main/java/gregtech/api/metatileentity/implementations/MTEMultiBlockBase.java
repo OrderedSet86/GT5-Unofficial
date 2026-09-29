@@ -1147,7 +1147,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
             logic.applySpec(spec, this::getCurrentProcessingSpecInputs);
-            // Adds the power panel's limit, and any getMaxParallelRecipes() override, to the spec's parallel
+            // Keeps the power panel's limit and any getMaxParallelRecipes() override
             if (spec.sets(ProcessingSpec.Quantity.PARALLEL)) logic.setMaxParallelSupplier(this::getTrueParallel);
         }
     }
@@ -2114,7 +2114,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return fluidsFromME;
     }
 
-    /** The recipe map of the current mode for a machine with {@link #getMachineModes()}; null otherwise. */
     @Override
     public RecipeMap<?> getRecipeMap() {
         List<MachineMode> modes = getMachineModes();
@@ -2124,10 +2123,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
             .recipeMap();
     }
 
-    /**
-     * The recipe map this machine runs in a mode, as {@link #getMachineMode()} numbers it. A machine whose recipe map
-     * depends on its mode lists its modes in {@link #getMachineModes()}.
-     */
     public RecipeMap<?> getRecipeMapForMode(int mode) {
         List<MachineMode> modes = getMachineModes();
         return modes.isEmpty() ? getRecipeMap()
@@ -2135,11 +2130,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                 .recipeMap();
     }
 
-    /**
-     * The modes of a machine that switches between recipe maps, in the order the mode button cycles through them.
-     * Everything else about modes follows from the list: the recipe map, the mode count, the names and the icons. Empty
-     * for a machine with one recipe map. Return a static constant, so external tools can read it from a prototype.
-     */
+    /** In mode button order; the recipe map, mode count, names and icons follow from it. Return a static constant. */
     @Nonnull
     public List<MachineMode> getMachineModes() {
         return Collections.emptyList();
@@ -2166,23 +2157,16 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * What this machine does to the recipes it runs. {@link #setupProcessingLogic} applies it to the logic from
-     * {@link #createProcessingLogic()} and {@link #getMaxParallelRecipes()} reads it, so a machine that declares one
-     * sets none of its numbers anywhere else.
-     * Return a static constant: external tools such as factory planners read it from the prototypes in
-     * {@link gregtech.api.GregTechAPI#METATILEENTITIES}.
+     * Applied in {@link #setupProcessingLogic} and read by {@link #getMaxParallelRecipes()}. Return a static constant,
+     * so planners can read it from the prototype.
      *
-     * @return null if this machine's numbers are its own code
+     * @return null if the machine's numbers are its own code
      */
     @Nullable
     public ProcessingSpec getProcessingSpec() {
         return null;
     }
 
-    /**
-     * What {@link #getProcessingSpec()} reads while this machine runs: the tier of its best energy hatch, the amperage
-     * it runs recipes with, its mode, and its {@link #getModifiersForInspection() modifiers}.
-     */
     @Nonnull
     public ProcessingSpec.Inputs getCurrentProcessingSpecInputs() {
         boolean useSingleAmp = !debugEnergyPresent && mEnergyHatches.size() == 1 && mExoticEnergyHatches.isEmpty();
@@ -2194,25 +2178,18 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
             .build();
     }
 
-    /**
-     * @return This machine's processing logic, or null if it has none. The prototypes in
-     *         {@link gregtech.api.GregTechAPI#METATILEENTITIES} have none, so use {@link #newMetaEntity} first.
-     */
+    /** @return null on a prototype; use {@link #newMetaEntity} first */
     @Nullable
     public ProcessingLogic getProcessingLogic() {
         return processingLogic;
     }
 
     /**
-     * For external tools such as factory planners that inspect a machine's overclock setup, usually on a
-     * {@link #newMetaEntity} copy. Machine code must not call this: it sets up the processing logic, which a running
-     * machine does in {@link #checkProcessing()}.
-     * <p>
-     * Returns the overclock calculator this machine would build for the recipe with its current hatches and structure,
-     * before {@link OverclockCalculator#calculate()}. Nothing is consumed. The max parallel it would use is then
-     * {@code getProcessingLogic().getResolvedMaxParallel()}.
+     * For planners, on a {@link #newMetaEntity} copy; machine code must not call this. The calculator comes before
+     * {@link OverclockCalculator#calculate()}; the max parallel is then {@code
+     * getProcessingLogic().getResolvedMaxParallel()}.
      *
-     * @return null if this machine has no processing logic
+     * @return null if the machine has no processing logic
      */
     @Nullable
     public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
@@ -2222,16 +2199,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The values this machine's recipe numbers read besides its energy hatches and mode, such as its coil tier or an
-     * item it holds, which is what a {@link #getProcessingSpec()} reads them through. Empty when no recipe number
-     * depends on anything else.
-     * <p>
-     * External tools such as factory planners read the ranges from the prototypes in
-     * {@link gregtech.api.GregTechAPI#METATILEENTITIES}, and may set values on a {@link #newMetaEntity} copy as if the
-     * machine had found them; setters may derive other values from the energy hatches, so add those first. Machine code
+     * Values the recipe numbers read besides energy hatches and mode. Planners read the ranges from the prototype and
+     * set values on a {@link #newMetaEntity} copy, after its hatches, since setters may derive from them. Machine code
      * must not call {@link Modifier#set}.
-     * <p>
-     * Override this when a recipe number reads a field that {@link #checkMachine} or the machine's own running sets.
      */
     @Nonnull
     public List<Modifier> getModifiersForInspection() {
@@ -3415,7 +3385,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return machineMode;
     }
 
-    /** How many modes {@link #nextMachineMode()} cycles through; 1 for a machine without modes. */
     public int getMachineModeCount() {
         List<MachineMode> modes = getMachineModes();
         if (!modes.isEmpty()) return modes.size();

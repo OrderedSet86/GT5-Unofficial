@@ -295,11 +295,7 @@ public class ProcessingLogic {
         return this;
     }
 
-    /**
-     * Runs recipes with whatever the spec sets: max parallel, speed, EU modifier, overclocks, tier skips and heat.
-     *
-     * @param inputs Read at every recipe check
-     */
+    /** @param inputs Read at every recipe check */
     public ProcessingLogic applySpec(@Nonnull ProcessingSpec spec, @Nonnull Supplier<ProcessingSpec.Inputs> inputs) {
         this.spec = spec;
         this.specInputs = inputs;
@@ -471,10 +467,6 @@ public class ProcessingLogic {
         return checkRecipeResult;
     }
 
-    /**
-     * Updates max parallel, EU modifier and speed bonus from their suppliers, if set. {@link #process()} does this
-     * first.
-     */
     protected void resolveModifierSuppliers() {
         if (maxParallelSupplier != null) {
             maxParallel = maxParallelSupplier.get();
@@ -642,11 +634,8 @@ public class ProcessingLogic {
     }
 
     /**
-     * For external tools such as factory planners that inspect a machine's overclock setup. Machine code must not call
-     * this; override {@link #createOverclockCalculator} instead.
-     * <p>
-     * Resolves the modifier suppliers, then returns the calculator this logic would build for the recipe, before
-     * {@link OverclockCalculator#calculate()}. Some overrides update their machine's state while building it.
+     * For planners; machine code overrides {@link #createOverclockCalculator} instead. Some overrides change their
+     * machine's state while building the calculator.
      */
     @Nonnull
     public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
@@ -655,8 +644,7 @@ public class ProcessingLogic {
     }
 
     /**
-     * For external tools such as factory planners: what this logic does with one recipe, given unlimited inputs and
-     * output space. Runs the same parallel and overclock calculation as {@link #process()}, without a machine.
+     * For planners: {@link #process()}'s parallel and overclock calculation, with unlimited inputs and output space.
      */
     @Nonnull
     public final ProcessingSpec.Run calculateForInspection(@Nonnull GTRecipe recipe) {
@@ -737,12 +725,7 @@ public class ProcessingLogic {
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
     }
 
-    /**
-     * Named apart from the getMaxParallel() that many machines declare, which anonymous subclasses would otherwise
-     * shadow.
-     *
-     * @return The max parallel, as of the last {@link #process()} or inspection if a supplier is set
-     */
+    /** Not getMaxParallel(): many machines declare one, and anonymous subclasses would shadow it. */
     public int getResolvedMaxParallel() {
         return maxParallel;
     }

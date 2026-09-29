@@ -84,7 +84,6 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final double EXTRA_SPEED = 1;
     private static final double MAX_SPEED = SPEED + EXTRA_SPEED;
     private static final int MAX_MOMENTUM = 100;
-    /** Built up while the machine runs, from 0 to {@link #MAX_MOMENTUM}. */
     public static final ModifierKind MOMENTUM = ModifierKind.builder("gregtech:centrifuge_momentum")
         .name("GT5U.MBTT.Tiers.Momentum")
         .source(ModifierKind.Source.RUNTIME)

@@ -106,10 +106,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         this.overclockDescriber = createOverclockDescriber();
     }
 
-    /**
-     * What a steam multiblock does: 8 parallels, and a High Pressure structure runs twice as fast for twice the steam.
-     * Recipes run at their own voltage without overclocks. Reads {@link #PRESSURE}; see {@link #pressure}.
-     */
+    /** 8 parallels, no overclocks; High Pressure runs twice as fast for twice the steam. */
     @Nonnull
     protected static ProcessingSpec.Builder steamSpec() {
         return ProcessingSpec.builder()
@@ -124,7 +121,6 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
             .noTooltip(ProcessingSpec.Quantity.OVERCLOCK);
     }
 
-    /** The {@link #PRESSURE} a machine's structure check found, 1 or 2. */
     @Nonnull
     protected static Modifier pressure(@Nonnull IntSupplier getter, @Nonnull IntConsumer setter) {
         return Modifier.builder(PRESSURE)

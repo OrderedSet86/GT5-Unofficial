@@ -121,13 +121,12 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int ARC_SURGE_CHANCE_PERCENT = 5;
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
-    /** The electrode in the electrode hatch. No electrode is best at everything, so planners ask for one. */
+    /** Not ordered: no electrode is best at everything. */
     public static final ModifierKind ELECTRODE = ModifierKind.ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
         .register();
-    // The electrode's parallel limit stays in setProcessingLogicPower: the Infinity electrode's special effect
-    // replaces it with a parallel that doubles every run.
+    // The Infinity electrode replaces the parallel limit at runtime, so it stays in setProcessingLogicPower.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .durationMultiplier(in -> {
             ArcFurnaceElectrode electrode = electrode(in);

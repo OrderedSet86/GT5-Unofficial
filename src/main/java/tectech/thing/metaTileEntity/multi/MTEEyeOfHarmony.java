@@ -144,14 +144,12 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     public static final ModifierKind STABILISATION_FIELD = fieldKind(
         "tectech:stabilisation_field",
         "GT5U.MBTT.Tiers.StabilisationField");
-    /** Astral Array Fabricators inserted, up to {@link #ASTRAL_ARRAY_LIMIT}. */
     public static final ModifierKind ASTRAL_ARRAYS = ModifierKind.builder("tectech:astral_arrays")
         .name("GT5U.MBTT.Tiers.AstralArrays")
         .source(ModifierKind.Source.ITEM)
         .ordered()
         .register();
-    // Duration, power and yield depend on the recipe and on the fields, in the machine's own code. This machine has no
-    // ProcessingLogic: processRecipe reads the parallel from here.
+    // No ProcessingLogic: processRecipe reads the parallel from here. Duration, power and yield stay machine code.
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(
             in -> in.value(ASTRAL_ARRAYS) == 0 ? 1

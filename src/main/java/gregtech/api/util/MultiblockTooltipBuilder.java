@@ -328,11 +328,7 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /**
-     * "+5% Speed per Heating Coil Tier beyond the first".
-     *
-     * @param speed Speed increment per tier beyond the first
-     */
+    /** "+5% Speed per Heating Coil Tier beyond the first" */
     public MultiblockTooltipBuilder addSpeedBonusBeyondFirstInfo(float speed, ModifierKind kind) {
         iLines.add(
             String.format(
@@ -342,11 +338,7 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /**
-     * "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative".
-     *
-     * @param factor EU/t multiplier per tier beyond the first
-     */
+    /** "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative" */
     public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind kind) {
         iLines.add(
             String.format(
@@ -356,26 +348,17 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /**
-     * The info lines added so far, before {@link #toolTipFinisher()} adds its own: for instance a spec's lines alone,
-     * from {@code spec.describe(new MultiblockTooltipBuilder())}.
-     */
+    /** The info lines so far, before {@link #toolTipFinisher()} adds its own. */
     public List<String> getInfoLines() {
         return Collections.unmodifiableList(iLines);
     }
 
-    /** Adds the lines of {@code lines}, each after {@code prefix}. */
     public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder lines) {
         for (String line : lines.iLines) iLines.add(prefix + line);
         return this;
     }
 
-    /**
-     * Add the lines for everything the spec can describe: parallel, speed, EU, overclocks and tier skips, in that
-     * order.
-     *
-     * @return Instance this method was called on.
-     */
+    /** Adds the lines {@link ProcessingSpec#describe} writes. */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
         spec.describe(this);
         return this;

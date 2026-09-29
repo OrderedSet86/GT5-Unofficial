@@ -21,13 +21,8 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * Where one machine gets the value of a {@link ModifierKind} its recipe numbers read, such as its coil tier from its
- * structure check or its momentum while it runs. For external tools such as factory planners, which inspect a machine
- * without a world; see {@link MTEMultiBlockBase#getModifiersForInspection()}.
- * <p>
- * A modifier the structure check sets through a structure element is declared once, as an {@link Of} constant that is
- * that structure element and that {@link MTEMultiBlockBase#getModifiersForInspection()} binds with {@link Of#of}:
- * {@code .addElement('C', COIL)}.
+ * Where one machine gets a {@link ModifierKind}'s value. An {@link Of} constant is also the structure element that
+ * finds it: {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 
@@ -48,15 +43,15 @@ public final class Modifier {
         this.setter = setter;
     }
 
-    /** May be outside {@link #min} to {@link #max} while the structure is unchecked. */
+    /** Outside the range while the structure is unchecked. */
     public int get() {
         return getter.getAsInt();
     }
 
     /**
-     * Sets the value as if the machine had found it, including anything the machine derives from it.
+     * As if the machine had found it, including values it derives.
      *
-     * @throws IllegalArgumentException if the value is outside {@link #min} to {@link #max}
+     * @throws IllegalArgumentException if the value is out of range
      */
     public void set(int value) {
         if (value < min || value > max) {
@@ -65,16 +60,13 @@ public final class Modifier {
         setter.accept(value);
     }
 
-    /** For a value the machine sets outside a structure element, such as after its structure check. */
+    /** For a value set outside a structure element. */
     @Nonnull
     public static Builder builder(@Nonnull ModifierKind kind) {
         return new Builder(kind);
     }
 
-    /**
-     * Heating coils, for a machine that stores the {@link HeatingCoilLevel} its check found. The element accepts one
-     * coil type, is set from the heating coil channel and records the coils it finds as the machine's active coils.
-     */
+    /** Accepts one coil type, uses the heating coil channel and records the active coils. */
     @Nonnull
     public static <T extends MTEMultiBlockBase> Of<T, HeatingCoilLevel> coil(
         @Nonnull Function<T, HeatingCoilLevel> getter, @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
@@ -90,10 +82,7 @@ public final class Modifier {
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /**
-     * Solenoids, for a machine that stores the voltage tier its check found, as solenoid blocks report it. The element
-     * accepts one solenoid tier and is set from the solenoid channel.
-     */
+    /** Accepts one solenoid tier and uses the solenoid channel. */
     @Nonnull
     public static <T> Of<T, Byte> solenoid(@Nonnull Function<T, Byte> getter, @Nonnull BiConsumer<T, Byte> setter) {
         return new Of<>(
@@ -107,10 +96,7 @@ public final class Modifier {
             GTStructureChannels.SOLENOID.use(GTStructureUtility.ofSolenoidCoil(setter, getter)));
     }
 
-    /**
-     * Item pipe casings, from 1 for the lowest, as {@link GTStructureUtility#chainItemPipeCasings} reports them; -1
-     * before the check finds one.
-     */
+    /** -1 before the check finds one. */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
@@ -123,10 +109,7 @@ public final class Modifier {
             (set, get) -> GTStructureUtility.chainItemPipeCasings(-1, set, get));
     }
 
-    /**
-     * One of {@code values}, such as an electrode, numbered by ordinal as {@link ModifierKind#ofEnum} labels it; -1
-     * while there is none.
-     */
+    /** -1 while there is none. */
     @Nonnull
     public static <E extends Enum<E>> Modifier ofEnum(@Nonnull ModifierKind kind, @Nonnull E[] values,
         @Nonnull Supplier<E> getter, @Nonnull Consumer<E> setter) {
@@ -137,10 +120,7 @@ public final class Modifier {
     }
 
     /**
-     * Any other value a structure element reports as a number, such as a casing tier from {@code ofBlocksTiered}.
-     *
-     * @param element Builds the structure element from the setter and getter; wrap it in {@code lazy} if it names
-     *                blocks, which may not exist yet when the machine class loads
+     * @param element Wrap it in {@code lazy} if it names blocks, which may not exist yet when the machine class loads
      */
     @Nonnull
     public static <T> Of<T, Integer> tiered(@Nonnull ModifierKind kind, int min, int max,
@@ -157,13 +137,7 @@ public final class Modifier {
             element.apply(setter, getter));
     }
 
-    /**
-     * A modifier declared once for a machine class. It is the structure element that finds the value, and {@link #of}
-     * binds it to one machine for inspection.
-     *
-     * @param <T> The machine
-     * @param <V> The value the machine stores, such as a {@link HeatingCoilLevel}
-     */
+    /** Bound to one machine with {@link #of}. */
     public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
         private final ModifierKind kind;
@@ -187,9 +161,7 @@ public final class Modifier {
         }
 
         /**
-         * Runs {@code derive} after each {@link Modifier#set}, for a machine that works out other values from this one
-         * once its structure check is done. The structure element is unchanged: the machine derives them itself after
-         * the check.
+         * For values the machine derives after its structure check. The structure element does not run {@code derive}.
          */
         @Nonnull
         public Of<T, V> derivingAfterSet(@Nonnull Consumer<T> derive) {

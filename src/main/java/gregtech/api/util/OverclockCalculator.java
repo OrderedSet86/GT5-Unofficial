@@ -6,9 +6,8 @@ import javax.annotation.Nonnull;
 
 public class OverclockCalculator {
 
-    /** How many voltage tiers above the machine's a recipe may be, unless set. */
     public static final int DEFAULT_MAX_TIER_SKIPS = 1;
-    /** The EU/t multiplier per 900K of heat headroom, unless set. */
+    /** Per 900K of heat headroom. */
     public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
 
     // Basic properties
@@ -332,7 +331,6 @@ public class OverclockCalculator {
     }
 
     // region input getters
-    // These return what the setters were given, so a machine's overclock setup can be read without running it.
 
     public long getRecipeEUt() {
         return recipeEUt;
@@ -372,7 +370,6 @@ public class OverclockCalculator {
         return eutIncreasePerOC;
     }
 
-    /** @return 4 for perfect overclocks */
     public double getDurationDecreasePerOC() {
         return durationDecreasePerOC;
     }

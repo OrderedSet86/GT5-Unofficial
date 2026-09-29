@@ -37,35 +37,24 @@ import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipHelper;
 
 /**
- * What a multiblock does to the recipes it runs, as functions of its energy hatch tier, its mode and its
- * {@link Modifier}s. A machine that returns one from {@link MTEMultiBlockBase#getProcessingSpec()} runs its
- * {@link ProcessingLogic} from it and describes it in its tooltip with
- * {@link MultiblockTooltipBuilder#addProcessingSpecInfo}, so the numbers are written once. External tools such as
- * factory planners evaluate it with their own {@link Inputs}, without a world.
+ * What a multiblock does to its recipes, as a function of its energy hatch tier, mode and {@link Modifier}s.
+ * {@link MTEMultiBlockBase} applies it to the machine's {@link ProcessingLogic} and tooltip; planners evaluate it
+ * without a world.
  * <p>
- * Keep one per machine class in a static field. Anything a spec leaves unset is the machine's own business: its
- * {@link ProcessingLogic} keeps whatever the machine sets, and a factory planner reads the plain default.
- * <p>
- * Every number a spec sets appears in the tooltip. The terms such as {@link Builder#parallelPerTier} write their own
- * line; a number given as a plain function needs {@link Builder#customTooltip} or {@link Builder#noTooltip}.
- * <p>
- * Numbers that differ by machine mode or by a modifier's value are declared with {@link Builder#inMode} and
- * {@link Builder#whenTier}, whose lines the tooltip heads with the mode's name or the value's label.
+ * Keep one per machine class in a static field. Numbers a spec leaves unset stay in the machine's own code. Numbers it
+ * sets must reach the tooltip: terms write their own line, plain functions need {@link Builder#customTooltip} or {@link
+ * Builder#noTooltip}.
  */
 public final class ProcessingSpec {
 
     /**
-     * What a spec reads.
-     *
-     * @param voltageTier The energy hatch tier, as {@link gregtech.api.util.GTUtility#getTier} numbers it
-     * @param amperage    The amperage the machine runs recipes with: 1 with a single energy hatch
-     * @param mode        The machine mode, as {@link MTEMultiBlockBase#getMachineMode()} numbers it
-     * @param values      The value of each {@link Modifier}, by kind
+     * @param voltageTier As {@link gregtech.api.util.GTUtility#getTier} numbers it
+     * @param amperage    1 with a single energy hatch
      */
     public record Inputs(int voltageTier, long amperage, int mode, @Nonnull Map<ModifierKind, Integer> values) {
 
         /**
-         * {@link ModifierKind#VOLTAGE} is the energy hatch tier; any other kind is a modifier's value.
+         * {@link ModifierKind#VOLTAGE} reads {@link #voltageTier}.
          *
          * @throws IllegalArgumentException if no value was given for the kind
          */
@@ -95,7 +84,6 @@ public final class ProcessingSpec {
                 return this;
             }
 
-            /** 1 unless set, as for a machine with a single energy hatch. */
             public Builder amperage(long amperage) {
                 this.amperage = amperage;
                 return this;
@@ -111,13 +99,12 @@ public final class ProcessingSpec {
                 return this;
             }
 
-            /** Each modifier's current value, as the machine has it. */
             public Builder modifiers(@Nonnull List<Modifier> modifiers) {
                 for (Modifier modifier : modifiers) value(modifier.kind, modifier.get());
                 return this;
             }
 
-            /** Each modifier at its maximum, which is the best machine for an {@link ModifierKind#ordered} kind. */
+            /** The best machine only for ordered kinds. */
             public Builder modifiersAtMax(@Nonnull List<Modifier> modifiers) {
                 for (Modifier modifier : modifiers) value(modifier.kind, modifier.max);
                 return this;
@@ -130,10 +117,10 @@ public final class ProcessingSpec {
         }
     }
 
-    /** A fixed recipe cost that replaces the recipe's own, such as the Multi Smelter's. */
+    /** Replaces every recipe's cost, as the Multi Smelter does. */
     public record RecipeOverride(long eut, int duration) {
 
-        /** Starts a cost: {@code RecipeOverride.eut(4).duration(128)}. */
+        /** {@code RecipeOverride.eut(4).duration(128)} */
         @Nonnull
         public static WithEut eut(long eut) {
             return new WithEut(eut);
@@ -148,15 +135,11 @@ public final class ProcessingSpec {
         }
     }
 
-    /** How a spec overclocks recipes, if it says. */
     public sealed interface OverclockRule {
 
-        /** Recipes run at their own voltage and are never overclocked, as {@link OverclockCalculator#ofNoOverclock}. */
+        /** As {@link OverclockCalculator#ofNoOverclock}. */
         record None() implements OverclockRule {}
 
-        /**
-         * Each overclock divides the duration by {@code durationDivisor} and multiplies EU/t by {@code euMultiplier}.
-         */
         record Ratio(double durationDivisor, double euMultiplier) implements OverclockRule {
 
             public boolean isPerfect() {
@@ -172,7 +155,6 @@ public final class ProcessingSpec {
         DISCOUNT
     }
 
-    /** A machine's heat and what it does with it. */
     public static final class Heat {
 
         private final ToIntFunction<Inputs> machineHeat;
@@ -189,12 +171,11 @@ public final class ProcessingSpec {
             return machineHeat.applyAsInt(inputs);
         }
 
-        /** The heat a recipe is overclocked against: a fixed floor if the machine has one, else the recipe's own. */
+        /** The fixed recipe heat if there is one, else the recipe's. */
         public int getRecipeHeat(@Nonnull GTRecipe recipe) {
             return fixedRecipeHeat.orElse(recipe.mSpecialValue);
         }
 
-        /** Empty when recipes are overclocked against their own heat. */
         @Nonnull
         public OptionalInt getFixedRecipeHeat() {
             return fixedRecipeHeat;
@@ -209,12 +190,12 @@ public final class ProcessingSpec {
         }
     }
 
-    /** The numbers a spec may set, in the order the tooltip shows them. */
+    /** In tooltip order. */
     public enum Quantity {
         PARALLEL,
         DURATION,
         EU_MODIFIER,
-        /** An EU/t multiplier that, unlike {@link #EU_MODIFIER}, does not limit how many parallels energy allows. */
+        /** Unlike {@link #EU_MODIFIER}, does not lower the parallels energy allows. */
         EU_MODIFIER_NOT_LIMITING_PARALLEL,
         OVERCLOCK,
         TIER_SKIPS,
@@ -223,37 +204,27 @@ public final class ProcessingSpec {
     }
 
     /**
-     * What a machine does with one recipe.
-     *
-     * @param result    Whether it can run the recipe at all; the numbers are 0 when it cannot
-     * @param parallel  Recipes run at once, after the energy limit
-     * @param ticks     Duration of one run
-     * @param euPerTick EU/t of one run, all parallels together
+     * @param result    Unsuccessful means every number is 0
+     * @param parallel  After the energy limit
+     * @param euPerTick For all parallels together
      */
     public record Run(@Nonnull CheckRecipeResult result, int parallel, int overclocks, int ticks, long euPerTick) {}
 
-    /** The heat of the heating coils, as {@link HeatingCoilLevel#getHeat()}. */
     public static final ToIntFunction<Inputs> COIL_HEAT = in -> (int) HeatingCoilLevel
         .getFromTier((byte) in.value(ModifierKind.COIL))
         .getHeat();
 
-    /** For a machine that runs recipes as a plain {@link ProcessingLogic} does. */
+    /** For a machine that runs a plain {@link ProcessingLogic}. */
     public static final ProcessingSpec STANDARD = builder().build();
 
     private record ParallelTerm(ToIntFunction<Inputs> value, @Nullable Consumer<MultiblockTooltipBuilder> tooltip) {}
 
     private record Term(ToDoubleFunction<Inputs> value, @Nullable Consumer<MultiblockTooltipBuilder> tooltip) {}
 
-    /**
-     * Terms that replace the spec's own while {@code appliesTo} holds.
-     *
-     * @param name The translation key or text that heads the variant's tooltip lines, from the spec's modes; null
-     *             for a mode the machine does not have
-     */
+    /** @param name Heads the tooltip lines, given the spec's modes; null leaves them out */
     private record Variant(Predicate<Inputs> appliesTo, Function<List<MachineMode>, String> name,
         ProcessingSpec terms) {}
 
-    /** The quantities {@link Builder#inMode} and {@link Builder#whenTier} can set. */
     private static final Set<Quantity> VARIABLE = Collections.unmodifiableSet(
         EnumSet.of(
             Quantity.PARALLEL,
@@ -303,7 +274,7 @@ public final class ProcessingSpec {
         return new Builder();
     }
 
-    /** The sum of the parallel terms, and at least 1. */
+    /** At least 1. */
     public int getMaxParallel(@Nonnull Inputs inputs) {
         List<ParallelTerm> terms = parallel;
         for (Variant variant : variants) {
@@ -319,22 +290,20 @@ public final class ProcessingSpec {
         return Math.max(1, sum);
     }
 
-    /** The duration multiplier, as {@link ProcessingLogic#setSpeedBonus} takes it: 0.5 halves recipe time. */
+    /** 0.5 halves recipe time. */
     public double getDurationMultiplier(@Nonnull Inputs inputs) {
         return value(inputs, spec -> spec.duration);
     }
 
-    /** The EU/t multiplier, as {@link ProcessingLogic#setEuModifier} takes it. */
     public double getEuModifier(@Nonnull Inputs inputs) {
         return value(inputs, spec -> spec.euModifier);
     }
 
-    /** See {@link Quantity#EU_MODIFIER_NOT_LIMITING_PARALLEL}. */
     public double getEuModifierNotLimitingParallel(@Nonnull Inputs inputs) {
         return value(inputs, spec -> spec.euModifierNotLimitingParallel);
     }
 
-    /** The first variant's term that applies, else the spec's own, else 1. */
+    /** The first matching variant's term, else the spec's own, else 1. */
     private double value(Inputs inputs, Function<ProcessingSpec, Term> quantity) {
         Term term = quantity.apply(this);
         for (Variant variant : variants) {
@@ -347,7 +316,6 @@ public final class ProcessingSpec {
         return term == null ? 1 : term.value.applyAsDouble(inputs);
     }
 
-    /** Empty when the machine's own overclocks apply. */
     @Nonnull
     public Optional<OverclockRule> getOverclock() {
         return Optional.ofNullable(overclock);
@@ -361,7 +329,7 @@ public final class ProcessingSpec {
         return overclock instanceof OverclockRule.Ratio ratio && ratio.isPerfect();
     }
 
-    /** Empty when the machine's own tier skips apply; {@link Integer#MAX_VALUE} for unlimited. */
+    /** {@link Integer#MAX_VALUE} for unlimited. */
     @Nonnull
     public OptionalInt getMaxTierSkips() {
         return maxTierSkips;
@@ -397,8 +365,7 @@ public final class ProcessingSpec {
     }
 
     /**
-     * False when the machine also changes the numbers in code of its own, so the spec alone does not give them. A
-     * planner then asks the machine, as {@link MTEMultiBlockBase#createOverclockCalculatorForInspection}.
+     * False if the machine's own code also changes numbers ({@link Builder#alsoCustom}); planners then ask the machine.
      */
     public boolean isComplete() {
         return alsoCustom.isEmpty();
@@ -409,10 +376,7 @@ public final class ProcessingSpec {
         return Collections.unmodifiableSet(alsoCustom);
     }
 
-    /**
-     * What the machine does with one recipe at these inputs: the parallel it gets after the energy limit, its
-     * overclocks, duration and EU/t, as {@link ProcessingLogic} works them out.
-     */
+    /** As {@link ProcessingLogic} would run the recipe. */
     @Nonnull
     public Run calculate(@Nonnull GTRecipe recipe, @Nonnull Inputs inputs) {
         return new ProcessingLogic().setAvailableVoltage(GTValues.V[inputs.voltageTier()])
@@ -423,10 +387,9 @@ public final class ProcessingSpec {
     }
 
     /**
-     * Adds the tooltip lines for everything this spec sets, in {@link Quantity} order, then the lines of each
-     * {@link Builder#inMode} and {@link Builder#whenTier}, headed by its name.
+     * Writes the lines in {@link Quantity} order, then each variant's under its name.
      *
-     * @return The quantities the tooltip accounts for: a line written, or {@link Builder#noTooltip}
+     * @return The quantities accounted for, {@link Builder#noTooltip} ones included
      */
     @Nonnull
     public Set<Quantity> describe(@Nonnull MultiblockTooltipBuilder tt) {
@@ -462,7 +425,6 @@ public final class ProcessingSpec {
         return described;
     }
 
-    /** The lines for this spec's own terms, leaving out {@code skip}. */
     private EnumSet<Quantity> describe(MultiblockTooltipBuilder tt, Set<Quantity> skip) {
         EnumSet<Quantity> described = EnumSet.noneOf(Quantity.class);
         for (Quantity quantity : Quantity.values()) {
@@ -482,7 +444,6 @@ public final class ProcessingSpec {
         return described;
     }
 
-    /** The quantities this spec sets that its tooltip does not account for. */
     @Nonnull
     public Set<Quantity> getUndescribed() {
         EnumSet<Quantity> undescribed = EnumSet.noneOf(Quantity.class);
@@ -535,7 +496,7 @@ public final class ProcessingSpec {
         return true;
     }
 
-    /** A tier as tooltips count it: heating coils from 1 for Cupronickel, everything else as {@link Inputs} has it. */
+    /** Tooltips count coil tiers from 1, for Cupronickel. */
     private static int shownTier(Inputs inputs, ModifierKind kind) {
         return kind == ModifierKind.COIL ? inputs.value(kind) + 1 : inputs.value(kind);
     }
@@ -561,20 +522,17 @@ public final class ProcessingSpec {
 
         private Builder() {}
 
-        /** Adds a fixed parallel. Parallel terms add up. */
+        /** Parallel terms add up. */
         public Builder parallel(int parallel) {
             return parallelTerm(in -> parallel, tt -> tt.addStaticParallelInfo(parallel));
         }
 
-        /** Adds a fixed parallel read when used, such as from the config. */
+        /** Read on every use, such as a config value. */
         public Builder parallel(@Nonnull IntSupplier parallel) {
             return parallelTerm(in -> parallel.getAsInt(), tt -> tt.addStaticParallelInfo(parallel.getAsInt()));
         }
 
-        /**
-         * Adds {@code parallel} times the product of the tiers of {@code kinds}; {@link ModifierKind#VOLTAGE} is the
-         * energy hatch tier.
-         */
+        /** {@code parallel} times the product of the kinds' tiers. */
         public Builder parallelPerTier(int parallel, @Nonnull ModifierKind... kinds) {
             if (kinds.length == 0) throw new IllegalArgumentException("parallelPerTier needs a tier");
             Consumer<MultiblockTooltipBuilder> tooltip = kinds.length == 1
@@ -593,14 +551,13 @@ public final class ProcessingSpec {
             }, tooltip);
         }
 
-        /** Adds {@code parallel} per energy hatch tier, counting ULV as LV. */
+        /** Counts ULV as LV. */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(
                 in -> parallel * Math.max(1, in.voltageTier()),
                 tt -> tt.addVoltageParallelInfo(parallel));
         }
 
-        /** Adds a parallel; its tooltip line is {@link #customTooltip} or {@link #noTooltip}. */
         public Builder parallel(@Nonnull ToIntFunction<Inputs> parallel) {
             return parallelTerm(parallel, null);
         }
@@ -610,19 +567,17 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** A fixed speed as the tooltip shows it: 2.5 reads as 250% and runs recipes in 1 / 2.5 of the time. */
+        /** 2.5 is 250% speed: recipes take 1 / 2.5 of the time. */
         public Builder speed(double speed) {
             this.duration = new Term(in -> 1 / speed, tt -> tt.addStaticSpeedInfo((float) speed));
             return this;
         }
 
-        /** A speed as the tooltip shows it; its tooltip line is {@link #customTooltip} or {@link #noTooltip}. */
         public Builder speed(@Nonnull ToDoubleFunction<Inputs> speed) {
             this.duration = new Term(in -> 1 / speed.applyAsDouble(in), null);
             return this;
         }
 
-        /** {@code speed} times the tier of {@code kind}: 0.5 per coil tier reads as 50% per tier. */
         public Builder speedPerTier(double speed, @Nonnull ModifierKind kind) {
             this.duration = new Term(
                 in -> 1 / (speed * shownTier(in, kind)),
@@ -630,7 +585,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** 100% speed plus {@code bonus} per tier of {@code kind}: 0.05 reads as +5% per tier. */
         public Builder speedBonusPerTier(double bonus, @Nonnull ModifierKind kind) {
             this.duration = new Term(
                 in -> 1 / (1 + bonus * shownTier(in, kind)),
@@ -638,11 +592,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /**
-         * {@code speed} at the first tier of {@code kind}, plus {@code bonus} for each tier beyond it: 2.5 and 0.05
-         * read
-         * as 250% speed, +5% per tier beyond the first.
-         */
+        /** {@code speed} at the first tier, plus {@code bonus} per further tier. */
         public Builder speedPerTierBeyondFirst(double speed, double bonus, @Nonnull ModifierKind kind) {
             this.duration = new Term(
                 in -> 1.0 / (speed + bonus * (shownTier(in, kind) - 1)),
@@ -651,28 +601,23 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /**
-         * A duration multiplier, as {@link ProcessingLogic#setSpeedBonus} takes it; its tooltip line is
-         * {@link #customTooltip} or {@link #noTooltip}.
-         */
+        /** As {@link ProcessingLogic#setSpeedBonus} takes it: 0.5 halves recipe time. */
         public Builder durationMultiplier(@Nonnull ToDoubleFunction<Inputs> durationMultiplier) {
             this.duration = new Term(durationMultiplier, null);
             return this;
         }
 
-        /** A fixed EU/t multiplier: 0.8 reads as 80% EU usage. */
         public Builder euModifier(double euModifier) {
             this.euModifier = new Term(in -> euModifier, tt -> tt.addStaticEuEffInfo((float) euModifier));
             return this;
         }
 
-        /** An EU/t multiplier; its tooltip line is {@link #customTooltip} or {@link #noTooltip}. */
         public Builder euModifier(@Nonnull ToDoubleFunction<Inputs> euModifier) {
             this.euModifier = new Term(euModifier, null);
             return this;
         }
 
-        /** {@code discount} less EU/t per tier of {@code kind}; follow with {@link #maxEuDiscount} for a cap. */
+        /** Follow with {@link #maxEuDiscount} for a cap. */
         public Builder euDiscountPerTier(double discount, @Nonnull ModifierKind kind) {
             this.euModifier = new Term(
                 in -> 1 - discount * shownTier(in, kind),
@@ -680,10 +625,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /**
-         * {@code euModifier} at the first tier of {@code kind}, multiplied by {@code factor} for each tier beyond it:
-         * 0.8 and 0.95 read as 80% EU usage, 5% less per tier beyond the first.
-         */
+        /** {@code euModifier} at the first tier, times {@code factor} per further tier. */
         public Builder euModifierPerTierBeyondFirst(double euModifier, double factor, @Nonnull ModifierKind kind) {
             this.euModifier = new Term(
                 in -> euModifier * GTUtility.powInt(factor, shownTier(in, kind) - 1),
@@ -692,7 +634,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Caps the discount of {@link #euDiscountPerTier}, which the tooltip states. */
         public Builder maxEuDiscount(double maxDiscount) {
             Term perTier = this.euModifier;
             if (perTier == null || perTier.tooltip == null) {
@@ -705,89 +646,77 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** See {@link Quantity#EU_MODIFIER_NOT_LIMITING_PARALLEL}; its tooltip line is {@link #customTooltip}. */
         public Builder euModifierNotLimitingParallel(@Nonnull ToDoubleFunction<Inputs> euModifier) {
             this.euModifierNotLimitingParallel = new Term(euModifier, null);
             return this;
         }
 
-        /** Runs recipes at their own voltage, without overclocks, as {@link OverclockCalculator#ofNoOverclock}. */
+        /** As {@link OverclockCalculator#ofNoOverclock}. */
         public Builder noOverclock() {
             this.overclock = new OverclockRule.None();
             return this;
         }
 
-        /** 4x speed for 4x EU/t per overclock, which the tooltip states. */
         public Builder perfectOverclock() {
             return overclock(4, 4);
         }
 
-        /** As {@link ProcessingLogic#setOverclock}. */
         public Builder overclock(double durationDivisor, double euMultiplier) {
             this.overclock = new OverclockRule.Ratio(durationDivisor, euMultiplier);
             return this;
         }
 
-        /** As {@link ProcessingLogic#setMaxTierSkips}; the tooltip states more than 1. */
+        /** The tooltip only states values above 1. */
         public Builder maxTierSkips(int tierSkips) {
             this.maxTierSkips = OptionalInt.of(tierSkips);
             return this;
         }
 
-        /** As {@link ProcessingLogic#setUnlimitedTierSkips}, which the tooltip states. */
         public Builder unlimitedTierSkips() {
             return maxTierSkips(Integer.MAX_VALUE);
         }
 
-        /** The machine's heat, such as {@link #COIL_HEAT}, and what it does with it. */
         public Builder heat(@Nonnull ToIntFunction<Inputs> machineHeat, @Nonnull HeatRule... rules) {
             this.heatFunction = machineHeat;
             Collections.addAll(this.heatRules, rules);
             return this;
         }
 
-        /** Overclocks against this heat rather than the recipe's. */
+        /** Overclocks against this heat instead of the recipe's. */
         public Builder recipeHeat(int heat) {
             this.recipeHeat = OptionalInt.of(heat);
             return this;
         }
 
-        /** Runs every recipe at this cost instead of its own. */
         public Builder recipeOverride(@Nonnull RecipeOverride recipeOverride) {
             this.recipeOverride = recipeOverride;
             return this;
         }
 
-        /** Writes these lines instead of the ones the spec would write for {@code quantity}. */
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);
             return this;
         }
 
-        /** Writes no line for these quantities: the machine's tooltip covers them elsewhere, or not at all. */
+        /** For numbers the tooltip covers elsewhere, or not at all. */
         public Builder noTooltip(@Nonnull Quantity... quantities) {
             Collections.addAll(this.noTooltip, quantities);
             return this;
         }
 
-        /** Marks quantities the machine also changes in code of its own, so the spec alone does not give them. */
+        /** For numbers the machine's own code also changes. */
         public Builder alsoCustom(@Nonnull Quantity... quantities) {
             Collections.addAll(this.alsoCustom, quantities);
             return this;
         }
 
-        /**
-         * The machine's modes, as {@link MTEMultiBlockBase#getMachineModes()} lists them, for naming {@link #inMode}.
-         */
+        /** Names the {@link #inMode} lines. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
             this.modes = Objects.requireNonNull(modes, "declare the modes before the spec");
             return this;
         }
 
-        /**
-         * Terms that apply in machine mode {@code mode} only, in place of the spec's own. The tooltip heads their lines
-         * with the mode's name from {@link #modes}, and leaves them out for a mode the machine does not have.
-         */
+        /** Replaces the spec's terms in one mode. The lines are headed by the mode's name. */
         public Builder inMode(int mode, @Nonnull Consumer<Builder> terms) {
             return variant(
                 in -> in.mode() == mode,
@@ -796,10 +725,7 @@ public final class ProcessingSpec {
                 terms);
         }
 
-        /**
-         * Terms that apply while modifier {@code kind} is {@code value} only, in place of the spec's own. The tooltip
-         * heads their lines with {@link ModifierKind#label} of the value.
-         */
+        /** Replaces the spec's terms at one value. The lines are headed by {@link ModifierKind#label}. */
         public Builder whenTier(@Nonnull ModifierKind kind, int value, @Nonnull Consumer<Builder> terms) {
             return variant(in -> in.value(kind) == value, modes -> kind.label(value), terms);
         }
