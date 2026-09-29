@@ -110,6 +110,7 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SingleRecipeCheck;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.ErrorType;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
@@ -124,6 +125,7 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.GTWaila;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.OutputHatchWrapper;
+import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 import gregtech.api.util.VoidProtectionHelper;
 import gregtech.api.util.shutdown.ShutDownReason;
@@ -2114,6 +2116,48 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @ApiStatus.OverrideOnly
     protected ProcessingLogic createProcessingLogic() {
         return null;
+    }
+
+    /**
+     * @return This machine's processing logic, or null if it has none. The prototypes in
+     *         {@link gregtech.api.GregTechAPI#METATILEENTITIES} have none, so use {@link #newMetaEntity} first.
+     */
+    @Nullable
+    public ProcessingLogic getProcessingLogic() {
+        return processingLogic;
+    }
+
+    /**
+     * For external tools such as factory planners that inspect a machine's overclock setup, usually on a
+     * {@link #newMetaEntity} copy. Machine code must not call this: it sets up the processing logic, which a running
+     * machine does in {@link #checkProcessing()}.
+     * <p>
+     * Returns the overclock calculator this machine would build for the recipe with its current hatches and structure,
+     * before {@link OverclockCalculator#calculate()}. Nothing is consumed. The max parallel it would use is then
+     * {@code getProcessingLogic().getResolvedMaxParallel()}.
+     *
+     * @return null if this machine has no processing logic
+     */
+    @Nullable
+    public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
+        if (processingLogic == null) return null;
+        setupProcessingLogic(processingLogic);
+        return processingLogic.createOverclockCalculatorForInspection(recipe);
+    }
+
+    /**
+     * For external tools such as factory planners, which inspect a {@link #newMetaEntity} copy without a world. Machine
+     * code must not call this.
+     * <p>
+     * The values this machine's structure check finds that its recipe numbers read, each settable as if the check had
+     * found it. Setters may derive other values from the energy hatches, so add those first. Empty when no recipe
+     * number depends on the structure.
+     * <p>
+     * Override this when a recipe number reads a field that {@link #checkMachine} sets.
+     */
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return Collections.emptyList();
     }
 
     public void updateSlots() {

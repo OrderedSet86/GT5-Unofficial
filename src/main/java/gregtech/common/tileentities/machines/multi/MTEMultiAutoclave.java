@@ -61,7 +61,7 @@ import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -307,16 +307,18 @@ public class MTEMultiAutoclave extends MTEExtendedPowerMultiBlockBase<MTEMultiAu
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
+        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel)
+            .setEuModifierSupplier(() -> (double) euModifier(fluidPipeTier))
+            .setSpeedBonusSupplier(() -> (double) speedBoost(getCoilTier()));
+    }
 
-            @Override
-            @Nonnull
-            public CheckRecipeResult process() {
-                euModifier = euModifier(fluidPipeTier);
-                speedBoost = speedBoost(getCoilTier());
-                return super.process();
-            }
-        }.setMaxParallelSupplier(this::getTrueParallel);
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            new StructureParameter(TooltipTier.ITEM_PIPE_CASING, 1, 8, this::getItemPipeTier, this::setItemPipeTier),
+            StructureParameter.coil(this::getCoilLevel, this::setCoilLevel),
+            new StructureParameter(TooltipTier.PIPE_CASING, 1, 4, this::getFluidPipeTier, this::setFluidPipeTier));
     }
 
     @Override

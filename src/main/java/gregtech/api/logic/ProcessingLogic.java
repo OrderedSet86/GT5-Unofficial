@@ -385,17 +385,7 @@ public class ProcessingLogic {
     public CheckRecipeResult process() {
         RecipeMap<?> recipeMap = getCurrentRecipeMap();
 
-        if (maxParallelSupplier != null) {
-            maxParallel = maxParallelSupplier.get();
-        }
-
-        if (euModSupplier != null) {
-            euModifier = euModSupplier.get();
-        }
-
-        if (speedBoostSupplier != null) {
-            speedBoost = speedBoostSupplier.get();
-        }
+        resolveModifierSuppliers();
 
         if (inputItems == null) {
             inputItems = GTValues.emptyItemStackArray;
@@ -448,6 +438,24 @@ public class ProcessingLogic {
             }
         }
         return checkRecipeResult;
+    }
+
+    /**
+     * Updates max parallel, EU modifier and speed bonus from their suppliers, if set. {@link #process()} does this
+     * first.
+     */
+    protected void resolveModifierSuppliers() {
+        if (maxParallelSupplier != null) {
+            maxParallel = maxParallelSupplier.get();
+        }
+
+        if (euModSupplier != null) {
+            euModifier = euModSupplier.get();
+        }
+
+        if (speedBoostSupplier != null) {
+            speedBoost = speedBoostSupplier.get();
+        }
     }
 
     /**
@@ -589,6 +597,19 @@ public class ProcessingLogic {
     }
 
     /**
+     * For external tools such as factory planners that inspect a machine's overclock setup. Machine code must not call
+     * this; override {@link #createOverclockCalculator} instead.
+     * <p>
+     * Resolves the modifier suppliers, then returns the calculator this logic would build for the recipe, before
+     * {@link OverclockCalculator#calculate()}. Some overrides update their machine's state while building it.
+     */
+    @Nonnull
+    public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
+        resolveModifierSuppliers();
+        return createOverclockCalculator(recipe);
+    }
+
+    /**
      * Override to perform additional logic when recipe starts.
      * <p>
      * This is called when the recipe processing logic has finished all checks, consumed all inputs, but has not yet set
@@ -633,6 +654,24 @@ public class ProcessingLogic {
 
     public long getMaxAllowedRecipeEUt() {
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
+    }
+
+    // Named apart from the getSpeedBonus()/getEuModifier()/getMaxParallel() that many machines declare, which
+    // anonymous subclasses of this class would otherwise shadow.
+
+    /** @return The max parallel, as of the last {@link #process()} or inspection if a supplier is set */
+    public int getResolvedMaxParallel() {
+        return maxParallel;
+    }
+
+    /** @return The speed bonus, as of the last {@link #process()} or inspection if a supplier is set */
+    public double getResolvedSpeedBonus() {
+        return speedBoost;
+    }
+
+    /** @return The EU modifier, as of the last {@link #process()} or inspection if a supplier is set */
+    public double getResolvedEuModifier() {
+        return euModifier;
     }
 
     // endregion

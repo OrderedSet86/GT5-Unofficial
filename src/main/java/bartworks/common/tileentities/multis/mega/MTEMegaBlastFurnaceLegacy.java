@@ -64,6 +64,7 @@ import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.structure.error.StructureErrors;
@@ -367,9 +368,22 @@ public class MTEMegaBlastFurnaceLegacy extends MegaMultiBlockBase<MTEMegaBlastFu
             }
         }
         if (errors.isEmpty()) {
-            this.mHeatingCapacity = (int) this.getCoilLevel()
-                .getHeat() + 100 * (BWUtil.getTier(this.getMaxInputEu()) - 2);
+            this.updateHeatingCapacity();
         }
+    }
+
+    private void updateHeatingCapacity() {
+        this.mHeatingCapacity = (int) this.getCoilLevel()
+            .getHeat() + 100 * (BWUtil.getTier(this.getMaxInputEu()) - 2);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(StructureParameter.coil(this::getCoilLevel, coil -> {
+            this.setCoilLevel(coil);
+            this.updateHeatingCapacity();
+        }));
     }
 
     @Override

@@ -17,6 +17,8 @@ import static gregtech.api.util.GTStructureUtility.ofSheetMetal;
 import java.nio.DoubleBuffer;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
@@ -59,10 +61,12 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gregtech.common.render.IMTERenderer;
@@ -337,12 +341,41 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         return sawbladeTier.euModifier;
     }
 
+    private static ItemList getSawbladeItem(SawbladeTiers sawbladeTier) {
+        return switch (sawbladeTier) {
+            case TungstenTitaniumCarbide -> ItemList.T1Sawblade;
+            case MysteriousCrystal -> ItemList.T2Sawblade;
+            case Neutronium -> ItemList.T3Sawblade;
+            case TranscendentMetal -> ItemList.T4Sawblade;
+        };
+    }
+
     private static SawbladeTiers getSawbladeTier(ItemStack stack) {
-        if (ItemList.T1Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.TungstenTitaniumCarbide;
-        if (ItemList.T2Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.MysteriousCrystal;
-        if (ItemList.T3Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.Neutronium;
-        if (ItemList.T4Sawblade.isStackEqual(stack, false, true)) return SawbladeTiers.TranscendentMetal;
+        for (SawbladeTiers sawbladeTier : SawbladeTiers.values()) {
+            if (getSawbladeItem(sawbladeTier).isStackEqual(stack, false, true)) return sawbladeTier;
+        }
         return null;
+    }
+
+    private int getSawbladeTierIndex() {
+        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
+        return sawbladeTier == null ? -1 : sawbladeTier.ordinal();
+    }
+
+    private void setSawbladeTierIndex(int sawbladeTierIndex) {
+        mInventory[getControllerSlotIndex()] = getSawbladeItem(SawbladeTiers.values()[sawbladeTierIndex]).get(1);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List.of(
+            new StructureParameter(
+                TooltipTier.SAWBLADE,
+                0,
+                SawbladeTiers.values().length - 1,
+                this::getSawbladeTierIndex,
+                this::setSawbladeTierIndex));
     }
 
     public static boolean isValidSawblade(ItemStack stack) {
@@ -429,8 +462,7 @@ public class MTEIndustrialCuttingMachine extends MTEExtendedPowerMultiBlockBase<
         IGregTechTileEntity base = getBaseMetaTileEntity();
         if (base == null || !base.isServerSide()) return;
 
-        SawbladeTiers sawbladeTier = getSawbladeTier(getControllerSlot());
-        int sawbladeTierIndex = sawbladeTier == null ? -1 : sawbladeTier.ordinal();
+        int sawbladeTierIndex = getSawbladeTierIndex();
         if (renderSawbladeTier == sawbladeTierIndex) return;
 
         renderSawbladeTier = sawbladeTierIndex;

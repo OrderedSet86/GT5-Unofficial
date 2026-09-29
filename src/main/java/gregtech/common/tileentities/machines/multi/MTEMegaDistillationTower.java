@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ChatComponentTranslation;
@@ -55,11 +57,13 @@ import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBas
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 
@@ -82,6 +86,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     private static final int LAYER_OFFSET_BASE = 9;
     private static final int LAYER_OFFSET_INCREMENT = 6;
     private static final int FINAL_LAYER_OFFSET = 12;
+    private static final int MAX_LAYERS = 5;
 
     protected static final String STRUCTURE_PIECE_LAYER = "layer";
     protected static final String STRUCTURE_PIECE_TOP = "top";
@@ -228,7 +233,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
         List<Integer> missingLayers = new ArrayList<>();
 
-        while (this.height <= 5) {
+        while (this.height <= MAX_LAYERS) {
 
             if (this.isTopLayerFound) {
                 break; // needed to break out of the loop in the case the structure isn't max height.
@@ -282,9 +287,17 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     }
 
     @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        // checkMachine leaves height one above the middle layer count
+        return List.of(
+            new StructureParameter(TooltipTier.LENGTH, 1, MAX_LAYERS, () -> height - 1, layers -> height = layers + 1));
+    }
+
+    @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece(STRUCTURE_PIECE_BASE, stackSize, hintsOnly, HORIZONTAL_OFFSET, VERTICAL_OFFSET, DEPTH_OFFSET);
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, 5);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             buildPiece(
                 STRUCTURE_PIECE_LAYER,
@@ -321,7 +334,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             true);
         if (built >= 0) return built;
 
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, 5);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
 
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             built = this.survivalBuildPiece(
@@ -334,7 +347,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
                 env,
                 false,
                 true);
-            if (currentLayer == 5) {
+            if (currentLayer == MAX_LAYERS) {
                 // workaround as for some reason highest middle level was not building the top piece
                 built += this.survivalBuildPiece(
                     STRUCTURE_PIECE_TOP,

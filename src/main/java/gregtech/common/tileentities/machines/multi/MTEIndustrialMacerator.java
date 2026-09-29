@@ -16,6 +16,7 @@ import static gregtech.api.util.GTStructureUtility.ofFrame;
 import java.util.List;
 import java.util.Random;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.Block;
@@ -55,10 +56,12 @@ import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBas
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gregtech.common.tileentities.machines.IDualInputHatch;
@@ -75,6 +78,9 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     private int controllerTier = 1;
     private int structureTier;
     private int casingAmount;
+
+    private static final int TIER_BASE = 1;
+    private static final int TIER_UPGRADED = 2;
 
     private static final String STRUCTURE_PIECE_MAIN_T1 = "main_t1";
     private static final String STRUCTURE_PIECE_MAIN_T2 = "main_t2";
@@ -216,9 +222,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         structureTier = -1;
         if (!checkPiece(getActiveStructurePiece(), getActiveOffsetX(), getActiveOffsetY(), getActiveOffsetZ(), errors))
             return;
-        if (controllerTier == 2) {
-            structureTier = 2;
-        } else structureTier = 1;
+        updateStructureTier();
         int minCasings = structureTier == 2 ? 69 : 26;
         checkCasingMin(errors, casingAmount, minCasings);
         checkHasEnergyHatch(errors);
@@ -227,6 +231,20 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         checkHasInputBus(errors);
         checkHasOutputBus(errors);
         if (errors.isEmpty()) updateHatchTexture();
+    }
+
+    private void updateStructureTier() {
+        structureTier = controllerTier == TIER_UPGRADED ? TIER_UPGRADED : TIER_BASE;
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List
+            .of(new StructureParameter(TooltipTier.MACHINE, TIER_BASE, TIER_UPGRADED, () -> controllerTier, t -> {
+                controllerTier = t;
+                updateStructureTier();
+            }));
     }
 
     protected void updateHatchTexture() {
@@ -459,9 +477,9 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     @Nullable
     private static Integer getStructureCasingTier(Block b, int m) {
         if (b == Casings.StableTitaniumMachineCasing.getBlock()
-            && m == Casings.StableTitaniumMachineCasing.getBlockMeta()) return 1;
+            && m == Casings.StableTitaniumMachineCasing.getBlockMeta()) return TIER_BASE;
         if (b == Casings.MacerationStackCasing.getBlock() && m == Casings.MacerationStackCasing.getBlockMeta())
-            return 2;
+            return TIER_UPGRADED;
         return null;
     }
 

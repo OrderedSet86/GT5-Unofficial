@@ -326,6 +326,94 @@ public class OverclockCalculator {
         return durationUnderOneTickSupplier.get();
     }
 
+    // region input getters
+    // These return what the setters were given, so a machine's overclock setup can be read without running it.
+
+    public long getRecipeEUt() {
+        return recipeEUt;
+    }
+
+    /** @return The recipe's duration before overclocking. {@link #getDuration()} is the result after. */
+    public int getRecipeDuration() {
+        return duration;
+    }
+
+    public long getMachineVoltage() {
+        return machineVoltage;
+    }
+
+    public long getMachineAmperage() {
+        return machineAmperage;
+    }
+
+    public int getParallel() {
+        return parallel;
+    }
+
+    /** @return {@link Integer#MAX_VALUE} for unlimited tier skips */
+    public int getMaxTierSkips() {
+        return maxTierSkip;
+    }
+
+    public double getEUtDiscount() {
+        return eutModifier;
+    }
+
+    public double getDurationModifier() {
+        return durationModifier;
+    }
+
+    public double getEUtIncreasePerOC() {
+        return eutIncreasePerOC;
+    }
+
+    /** @return 4 for perfect overclocks */
+    public double getDurationDecreasePerOC() {
+        return durationDecreasePerOC;
+    }
+
+    public boolean isLaserOC() {
+        return laserOC;
+    }
+
+    public boolean isAmperageOC() {
+        return amperageOC;
+    }
+
+    public boolean isNoOverclock() {
+        return noOverclock;
+    }
+
+    public int getMaxOverclocks() {
+        return maxOverclocks;
+    }
+
+    public int getMaxRegularOverclocks() {
+        return maxRegularOverclocks;
+    }
+
+    public int getRecipeHeat() {
+        return recipeHeat;
+    }
+
+    public int getMachineHeat() {
+        return machineHeat;
+    }
+
+    public boolean isHeatOC() {
+        return heatOC;
+    }
+
+    public boolean isHeatDiscount() {
+        return heatDiscount;
+    }
+
+    public double getHeatDiscountMultiplier() {
+        return heatDiscountExponent;
+    }
+
+    // endregion
+
     /** Call this when all values have been put it. */
     @Nonnull
     public OverclockCalculator calculate() {

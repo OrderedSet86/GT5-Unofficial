@@ -15,6 +15,8 @@ import static tectech.thing.metaTileEntity.multi.base.TTMultiblockBase.HatchElem
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -44,11 +46,13 @@ import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.structure.StructureParameter;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.tooltip.TooltipHelper;
+import gregtech.api.util.tooltip.TooltipTier;
 import tectech.thing.metaTileEntity.multi.base.TTMultiblockBase;
 
 public class MTENaquadahFuelRefinery extends TTMultiblockBase
@@ -252,6 +256,13 @@ public class MTENaquadahFuelRefinery extends TTMultiblockBase
         checkHasInputBus(errors);
         checkHasInputHatch(errors);
         checkHasOutputHatch(errors);
+    }
+
+    @Override
+    @Nonnull
+    public List<StructureParameter> getStructureParametersForInspection() {
+        return List
+            .of(new StructureParameter(TooltipTier.STRUCTURE, 1, coils.length, this::getCoilTier, this::setCoilTier));
     }
 
     @Override
