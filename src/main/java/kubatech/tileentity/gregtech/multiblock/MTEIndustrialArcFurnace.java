@@ -141,7 +141,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             ProcessingSpec.Quantity.DURATION,
             ProcessingSpec.Quantity.EU_MODIFIER,
             ProcessingSpec.Quantity.TIER_SKIPS)
-        .alsoCustom(ProcessingSpec.Quantity.OVERCLOCK)
+        .alsoCustom(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(arcFurnaceRecipes)

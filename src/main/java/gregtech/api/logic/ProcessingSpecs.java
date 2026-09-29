@@ -50,7 +50,8 @@ public final class ProcessingSpecs {
     }
 
     /**
-     * Tooltips missing a number their spec sets, and machines whose own calculator differs from their spec's without
+     * Tooltips missing a number their spec sets, and machines whose own calculator or max parallel differs from their
+     * spec's without
      * {@link ProcessingSpec.Builder#alsoCustom}. Calculators are compared on a copy with every modifier at its maximum,
      * in every mode, over sampled recipes.
      */
@@ -79,9 +80,9 @@ public final class ProcessingSpecs {
         Set<ProcessingSpec.Quantity> custom = undeclaredCustom(entry);
         if (!custom.isEmpty()) {
             problems.add(
-                name + " gives its overclock calculator its own "
+                name + " sets its own "
                     + custom
-                    + "; declare them in its spec or mark it alsoCustom("
+                    + " outside its spec; declare them in its spec or mark it alsoCustom("
                     + custom
                     + ")");
         }
@@ -104,10 +105,14 @@ public final class ProcessingSpecs {
                 for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
                     OverclockCalculator own = machine.createOverclockCalculatorForInspection(recipe);
                     if (own == null) return Collections.emptySet();
-                    OverclockCalculator fromSpec = new ProcessingLogic().setAmperageOC(true)
-                        .applySpec(entry.spec(), machine::getCurrentProcessingSpecInputs)
-                        .createOverclockCalculatorForInspection(recipe);
+                    ProcessingLogic specLogic = new ProcessingLogic().setAmperageOC(true)
+                        .applySpec(entry.spec(), machine::getCurrentProcessingSpecInputs);
+                    OverclockCalculator fromSpec = specLogic.createOverclockCalculatorForInspection(recipe);
                     differ.addAll(differences(own, fromSpec));
+                    if (machine.getProcessingLogic()
+                        .getResolvedMaxParallel() != specLogic.getResolvedMaxParallel()) {
+                        differ.add(ProcessingSpec.Quantity.PARALLEL);
+                    }
                 }
             }
         } catch (RuntimeException e) {
