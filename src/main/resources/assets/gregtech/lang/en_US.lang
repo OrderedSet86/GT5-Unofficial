@@ -1965,6 +1965,7 @@ GT5U.MBTT.Tiers.SteamPressure=Steam Pressure
 GT5U.MBTT.Tiers.MacerationUpgradeChip=Maceration Upgrade Chip
 GT5U.MBTT.Tiers.Momentum=Momentum
 GT5U.MBTT.Tiers.Electrode=Electrode
+GT5U.MBTT.Tiers.InfinityParallel=Infinity Electrode Parallel
 GT5U.MBTT.Tiers.SpacetimeCompressionField=Spacetime Compression Field
 GT5U.MBTT.Tiers.TimeDilationField=Time Dilation Field
 GT5U.MBTT.Tiers.StabilisationField=Stabilisation Field

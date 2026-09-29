@@ -52,30 +52,16 @@ public enum ArcFurnaceElectrode {
         }
     }),
     TritaniumElectrode(8, Materials.Tritanium, 3d, 48, 2d, 4d, 1200, 1.1d, 2d),
+    // The Arc Furnace's spec reads the target parallel and gives this electrode unlimited energy
     InfinityElectrode(9, Materials.Infinity, 4.2d, 0, 1d, 4d, 2000, 1d, 1d, event -> {
-        if (event instanceof ArcFurnaceProcessingEvent.EventConfigureProcessing configure) {
-            configure.processingLogic.setMaxParallel(getInfinityTargetParallel(configure.arcFurnace.getEffectState()));
-            return;
-        }
-        if (event instanceof ArcFurnaceProcessingEvent.EventCreateParallelHelper parallelHelperEvent) {
-            parallelHelperEvent.parallelHelper.setAvailableEUt(Long.MAX_VALUE);
-            return;
-        }
-        if (event instanceof ArcFurnaceProcessingEvent.EventConfigureOverclock configureOC) {
-            configureOC.overclockCalculator.setAmperage(1L);
-            configureOC.overclockCalculator.setEUt(Long.MAX_VALUE);
-            return;
-        }
         if (event instanceof ArcFurnaceProcessingEvent.EventRunCompleted completed) {
             NBTTagCompound state = completed.arcFurnace.getEffectState();
             int next = getInfinityTargetParallel(state);
-            next = next > Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : next * 2;
-            state.setInteger("infinityTargetParallel", next);
+            setInfinityTargetParallel(state, next > Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : next * 2);
             return;
         }
         if (event instanceof ArcFurnaceProcessingEvent.EventReset reset) {
-            reset.arcFurnace.getEffectState()
-                .setInteger("infinityTargetParallel", 1);
+            setInfinityTargetParallel(reset.arcFurnace.getEffectState(), 1);
         }
     }),
     HypogenElectrode(10, MaterialsElements.STANDALONE.HYPOGEN, 6.5d, 256, 1d, 4d, 2500, 1.3d, 0.5d),
@@ -227,10 +213,15 @@ public enum ArcFurnaceElectrode {
                 .ceil(30d / 32d * Math.max(1, this.parallelLimit) * (this.startupPenalty + 1d) * this.euModifier));
     }
 
-    private static int getInfinityTargetParallel(NBTTagCompound state) {
+    /** At least 1. */
+    public static int getInfinityTargetParallel(NBTTagCompound state) {
         int parallel = Math.max(1, state.getInteger(INFINITY_TARGET_PARALLEL_KEY));
         state.setInteger(INFINITY_TARGET_PARALLEL_KEY, parallel);
         return parallel;
+    }
+
+    public static void setInfinityTargetParallel(NBTTagCompound state, int parallel) {
+        state.setInteger(INFINITY_TARGET_PARALLEL_KEY, parallel);
     }
 
     private static String getModifierFormatted(int value, int lo_threshold, int mid_threshold, int hi_threshold) {
