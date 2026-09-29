@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
@@ -41,11 +43,11 @@ class ModifierTest {
         DIAMOND
     }
 
-    private static final ModifierKind PRESSURE = ModifierKind.builder("test:pressure")
+    private static final ModifierKind<Integer> PRESSURE = ModifierKind.ofInt("test:pressure")
         .ordered()
         .labels(1, "Basic", "High Pressure")
         .register();
-    private static final ModifierKind BLADE = ModifierKind.ofEnum("test:blade", Blade.values())
+    private static final ModifierKind<Integer> BLADE = ModifierKind.ofEnum("test:blade", Blade.values())
         .source(ModifierKind.Source.ITEM)
         .register();
 
@@ -100,10 +102,10 @@ class ModifierTest {
     @Test
     void theKindNamesItsValues() {
         int[] tier = { 1 };
-        Modifier modifier = Modifier.builder(PRESSURE)
+        Modifier<Integer> modifier = Modifier.builder(PRESSURE)
             .between(1, 2)
             .getter(() -> tier[0])
-            .setter(value -> tier[0] = (int) value)
+            .setter(value -> tier[0] = value)
             .build();
 
         modifier.set(2);
@@ -117,7 +119,7 @@ class ModifierTest {
     @Test
     void anEnumPartIsNumberedByOrdinal() {
         Blade[] blade = { null };
-        Modifier modifier = Modifier.ofEnum(BLADE, Blade.values(), () -> blade[0], value -> blade[0] = value);
+        Modifier<Integer> modifier = Modifier.ofEnum(BLADE, Blade.values(), () -> blade[0], value -> blade[0] = value);
 
         assertEquals(-1, modifier.get());
         modifier.set(1);
@@ -131,6 +133,30 @@ class ModifierTest {
     }
 
     @Test
+    void aValueHasItsKindsType() {
+        ModifierKind<Long> stored = ModifierKind.ofLong("test:stored_fluid")
+            .source(ModifierKind.Source.RUNTIME)
+            .register();
+        long[] litres = { 0 };
+        Modifier<Long> modifier = Modifier.builder(stored)
+            .between(0L, 10_000_000_000L)
+            .getter(() -> litres[0])
+            .setter(value -> litres[0] = value)
+            .build();
+
+        modifier.setToMax();
+        ProcessingSpec.Inputs inputs = ProcessingSpec.Inputs.builder()
+            .modifiers(List.of(modifier))
+            .value(ModifierKind.COIL, 3)
+            .build();
+        long amount = inputs.value(stored);
+        int coil = inputs.value(ModifierKind.COIL);
+
+        assertEquals(10_000_000_000L, amount);
+        assertEquals(3, coil);
+    }
+
+    @Test
     void kindsAreRegisteredOnceById() {
         assertSame(PRESSURE, ModifierKind.byId("test:pressure"));
         assertTrue(
@@ -138,7 +164,7 @@ class ModifierTest {
                 .contains(ModifierKind.COIL));
         assertThrows(
             IllegalStateException.class,
-            () -> ModifierKind.builder("test:pressure")
+            () -> ModifierKind.ofInt("test:pressure")
                 .register());
     }
 }

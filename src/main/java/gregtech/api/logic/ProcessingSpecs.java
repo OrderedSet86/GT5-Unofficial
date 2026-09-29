@@ -28,7 +28,7 @@ public final class ProcessingSpecs {
 
     /** @param machine The prototype: use {@link MTEMultiBlockBase#newMetaEntity} before changing anything */
     public record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec,
-        @Nonnull List<Modifier> modifiers) {}
+        @Nonnull List<Modifier<?>> modifiers) {}
 
     private ProcessingSpecs() {}
 
@@ -100,8 +100,8 @@ public final class ProcessingSpecs {
         try {
             MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
                 .newMetaEntity(null);
-            for (Modifier modifier : machine.getModifiersForInspection()) {
-                modifier.set(modifier.max);
+            for (Modifier<?> modifier : machine.getModifiersForInspection()) {
+                modifier.setToMax();
             }
             int modes = machine.getMachineModes()
                 .size();
@@ -149,8 +149,8 @@ public final class ProcessingSpecs {
         try {
             MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
                 .newMetaEntity(null);
-            for (Modifier modifier : machine.getModifiersForInspection()) {
-                modifier.set(modifier.max);
+            for (Modifier<?> modifier : machine.getModifiersForInspection()) {
+                modifier.setToMax();
             }
             int modes = machine.getMachineModes()
                 .size();

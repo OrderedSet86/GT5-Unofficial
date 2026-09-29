@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.LongConsumer;
-import java.util.function.LongSupplier;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 
@@ -93,7 +93,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     /** 1 for Basic, 2 for High Pressure. */
     private static final int STEAM_PARALLEL = 8;
 
-    public static final ModifierKind PRESSURE = ModifierKind.builder("gregtech:steam_pressure")
+    public static final ModifierKind<Integer> PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
         .labels(1, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
@@ -138,7 +138,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     }
 
     @Nonnull
-    protected static Modifier pressure(@Nonnull LongSupplier getter, @Nonnull LongConsumer setter) {
+    protected static Modifier<Integer> pressure(@Nonnull Supplier<Integer> getter, @Nonnull Consumer<Integer> setter) {
         return Modifier.builder(PRESSURE)
             .between(1, 2)
             .getter(getter)

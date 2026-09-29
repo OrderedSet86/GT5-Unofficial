@@ -318,7 +318,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return List.of(
             COIL.derivingAfterSet(MTEMultiFurnace::updateParallel)
                 .of(this));

@@ -238,7 +238,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return List.of(
             COIL.derivingAfterSet(MTEElectricBlastFurnace::updateHeatingCapacity)
                 .of(this));

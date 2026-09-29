@@ -80,7 +80,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final double EXTRA_SPEED = 1;
     private static final double MAX_SPEED = SPEED + EXTRA_SPEED;
     private static final int MAX_MOMENTUM = 100;
-    public static final ModifierKind MOMENTUM = ModifierKind.builder("gregtech:centrifuge_momentum")
+    public static final ModifierKind<Integer> MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
         .name("GT5U.MBTT.Tiers.Momentum")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()
@@ -236,12 +236,12 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return List.of(
             Modifier.builder(MOMENTUM)
                 .between(0, MAX_MOMENTUM)
                 .getter(() -> momentum)
-                .setter(value -> momentum = (int) value)
+                .setter(value -> momentum = value)
                 .build());
     }
 

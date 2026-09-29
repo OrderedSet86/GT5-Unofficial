@@ -24,11 +24,11 @@ import gregtech.api.util.OverclockCalculator;
 
 class ProcessingSpecTest {
 
-    private static final ModifierKind MOMENTUM = ModifierKind.builder("test:momentum")
+    private static final ModifierKind<Integer> MOMENTUM = ModifierKind.ofInt("test:momentum")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()
         .register();
-    private static final ModifierKind CASING = ModifierKind.builder("test:casing")
+    private static final ModifierKind<Integer> CASING = ModifierKind.ofInt("test:casing")
         .labels(0, "Heat Resistant Casing", "Heat Proof Casing")
         .register();
 
@@ -169,7 +169,7 @@ class ProcessingSpecTest {
             ProcessingSpec.builder()
                 .parallel(4)
                 .heat(
-                    in -> 1000 * (int) in.value(ModifierKind.COIL),
+                    in -> 1000 * in.value(ModifierKind.COIL),
                     ProcessingSpec.HeatRule.OVERCLOCK,
                     ProcessingSpec.HeatRule.DISCOUNT)
                 .build(),
@@ -203,7 +203,7 @@ class ProcessingSpecTest {
         int[] momentum = { 0 };
         ProcessingLogic logic = new ProcessingLogic().applySpec(
             ProcessingSpec.builder()
-                .parallel(in -> 4 + (int) in.value(MOMENTUM))
+                .parallel(in -> 4 + in.value(MOMENTUM))
                 .noTooltip(ProcessingSpec.Quantity.PARALLEL)
                 .build(),
             () -> ProcessingSpec.Inputs.builder()

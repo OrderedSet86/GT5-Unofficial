@@ -210,7 +210,7 @@ public class MultiblockTooltipBuilder {
         return addDynamicParallelInfo(parallels, tier.getValue());
     }
 
-    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
+    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind<?> kind) {
         return addDynamicParallelInfo(parallels, kind.getTierText());
     }
 
@@ -246,7 +246,7 @@ public class MultiblockTooltipBuilder {
         return addDynamicMultiplicativeParallelInfo(factor, tier.getValue());
     }
 
-    public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, ModifierKind kind) {
+    public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, ModifierKind<?> kind) {
         return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
     }
 
@@ -290,7 +290,7 @@ public class MultiblockTooltipBuilder {
     }
 
     /** "Speed: 100% + 100% per Item Pipe Casing Tier" */
-    public MultiblockTooltipBuilder addSpeedPerTierInfo(float base, float perTier, ModifierKind kind) {
+    public MultiblockTooltipBuilder addSpeedPerTierInfo(float base, float perTier, ModifierKind<?> kind) {
         iLines.add(
             String.format(
                 TT_SpeedBasePerTier,
@@ -301,7 +301,7 @@ public class MultiblockTooltipBuilder {
     }
 
     /** "Speed: 250% + 5% per Heating Coil Tier beyond the first" */
-    public MultiblockTooltipBuilder addSpeedPerTierBeyondFirstInfo(float first, float perTier, ModifierKind kind) {
+    public MultiblockTooltipBuilder addSpeedPerTierBeyondFirstInfo(float first, float perTier, ModifierKind<?> kind) {
         iLines.add(
             String.format(
                 TT_SpeedBasePerTierBeyondFirst,
@@ -333,7 +333,7 @@ public class MultiblockTooltipBuilder {
         return addDynamicEuEffInfo(euEff, tier.getValue());
     }
 
-    public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, ModifierKind kind) {
+    public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, ModifierKind<?> kind) {
         return addDynamicEuEffInfo(euEff, kind.getTierText());
     }
 
@@ -343,7 +343,7 @@ public class MultiblockTooltipBuilder {
     }
 
     /** "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative" */
-    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind kind) {
+    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind<?> kind) {
         iLines.add(
             String.format(
                 TT_EuMultiplierBeyondFirst,

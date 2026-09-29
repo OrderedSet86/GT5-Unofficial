@@ -90,8 +90,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             mode -> mode
                 // 512 - 1024 parallels min to max height
                 .parallel(
-                    in -> Configuration.Multiblocks.megaMachinesMax
-                        * (1 + (int) (in.value(ModifierKind.LENGTH) + 1) / 2))
+                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2))
                 .customTooltip(
                     ProcessingSpec.Quantity.PARALLEL,
                     tt -> tt.addInfo(
@@ -319,13 +318,13 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         // checkMachine leaves height one above the middle layer count
         return List.of(
             Modifier.builder(ModifierKind.LENGTH)
                 .between(1, MAX_LAYERS)
                 .getter(() -> height - 1)
-                .setter(layers -> height = (int) layers + 1)
+                .setter(layers -> height = layers + 1)
                 .build());
     }
 

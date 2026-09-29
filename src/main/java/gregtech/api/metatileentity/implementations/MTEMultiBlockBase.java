@@ -2237,7 +2237,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * must not call {@link Modifier#set}.
      */
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return Collections.emptyList();
     }
 

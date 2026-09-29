@@ -122,7 +122,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
     /** Not ordered: no electrode is best at everything. */
-    public static final ModifierKind ELECTRODE = ModifierKind.ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
+    public static final ModifierKind<Integer> ELECTRODE = ModifierKind
+        .ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
         .register();
@@ -314,7 +315,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return List
             .of(Modifier.ofEnum(ELECTRODE, ArcFurnaceElectrode.values(), () -> electrode, value -> electrode = value));
     }
@@ -1026,7 +1027,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Nullable
     private static ArcFurnaceElectrode electrode(ProcessingSpec.Inputs inputs) {
-        int index = (int) inputs.value(ELECTRODE);
+        int index = inputs.value(ELECTRODE);
         return index < 0 ? null : ArcFurnaceElectrode.values()[index];
     }
 

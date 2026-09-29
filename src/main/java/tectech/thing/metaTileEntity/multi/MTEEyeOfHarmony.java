@@ -27,8 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.LongConsumer;
-import java.util.function.LongSupplier;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 
@@ -136,23 +136,23 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     // Exact value to get 2^21 parallels.
     private static final long ASTRAL_ARRAY_LIMIT = 8637;
 
-    public static final ModifierKind SPACETIME_COMPRESSION_FIELD = fieldKind(
+    public static final ModifierKind<Integer> SPACETIME_COMPRESSION_FIELD = fieldKind(
         "tectech:spacetime_compression_field",
         "GT5U.MBTT.Tiers.SpacetimeCompressionField");
-    public static final ModifierKind TIME_DILATION_FIELD = fieldKind(
+    public static final ModifierKind<Integer> TIME_DILATION_FIELD = fieldKind(
         "tectech:time_dilation_field",
         "GT5U.MBTT.Tiers.TimeDilationField");
-    public static final ModifierKind STABILISATION_FIELD = fieldKind(
+    public static final ModifierKind<Integer> STABILISATION_FIELD = fieldKind(
         "tectech:stabilisation_field",
         "GT5U.MBTT.Tiers.StabilisationField");
-    public static final ModifierKind ASTRAL_ARRAYS = ModifierKind.builder("tectech:astral_arrays")
+    public static final ModifierKind<Integer> ASTRAL_ARRAYS = ModifierKind.ofInt("tectech:astral_arrays")
         .name("GT5U.MBTT.Tiers.AstralArrays")
         .source(ModifierKind.Source.ITEM)
         .ordered()
         .register();
     // No ProcessingLogic: processRecipe reads the parallel from here. Duration, power and yield stay machine code.
     /** The programmed circuit, 0 to 24: each step halves the time and quadruples the start-up EU. */
-    public static final ModifierKind CIRCUIT = ModifierKind.builder("tectech:eoh_circuit")
+    public static final ModifierKind<Integer> CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
         .register();
@@ -182,8 +182,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return recipe.mSpecialItems instanceof EyeOfHarmonyRecipe eoh ? eoh.getSpacetimeCasingTierRequired() : 0;
     }
 
-    private static ModifierKind fieldKind(String id, String nameKey) {
-        return ModifierKind.builder(id)
+    private static ModifierKind<Integer> fieldKind(String id, String nameKey) {
+        return ModifierKind.ofInt(id)
             .name(nameKey)
             .ordered()
             .labels(CommonValues::getLocalizedEohTierFancyNames)
@@ -927,33 +927,31 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier<?>> getModifiersForInspection() {
         return List.of(
             field(
                 SPACETIME_COMPRESSION_FIELD,
                 () -> spacetimeCompressionFieldMetadata,
-                value -> spacetimeCompressionFieldMetadata = (int) value),
+                value -> spacetimeCompressionFieldMetadata = value),
             field(
                 TIME_DILATION_FIELD,
                 () -> timeAccelerationFieldMetadata,
-                value -> timeAccelerationFieldMetadata = (int) value),
-            field(
-                STABILISATION_FIELD,
-                () -> stabilisationFieldMetadata,
-                value -> stabilisationFieldMetadata = (int) value),
+                value -> timeAccelerationFieldMetadata = value),
+            field(STABILISATION_FIELD, () -> stabilisationFieldMetadata, value -> stabilisationFieldMetadata = value),
             Modifier.builder(ASTRAL_ARRAYS)
-                .between(0, ASTRAL_ARRAY_LIMIT)
-                .getter(() -> astralArrayAmount)
+                .between(0, (int) ASTRAL_ARRAY_LIMIT)
+                .getter(() -> (int) astralArrayAmount)
                 .setter(value -> astralArrayAmount = value)
                 .build(),
             Modifier.builder(CIRCUIT)
                 .between(0, 24)
-                .getter(() -> currentCircuitMultiplier)
+                .getter(() -> (int) currentCircuitMultiplier)
                 .setter(value -> currentCircuitMultiplier = value)
                 .build());
     }
 
-    private static Modifier field(ModifierKind kind, LongSupplier getter, LongConsumer setter) {
+    private static Modifier<Integer> field(ModifierKind<Integer> kind, Supplier<Integer> getter,
+        Consumer<Integer> setter) {
         return Modifier.builder(kind)
             .between(0, 8)
             .getter(getter)

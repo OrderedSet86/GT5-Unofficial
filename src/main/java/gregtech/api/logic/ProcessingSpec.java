@@ -70,18 +70,21 @@ public final class ProcessingSpec {
     }
 
     /** @param energyHatches What the machine draws from, including hatches it cannot reach (voltage 0) */
-    public record Inputs(@Nonnull List<EnergyHatch> energyHatches, int mode, @Nonnull Map<ModifierKind, Long> values) {
+    public record Inputs(@Nonnull List<EnergyHatch> energyHatches, int mode,
+        @Nonnull Map<ModifierKind<?>, Number> values) {
 
         /**
          * {@link ModifierKind#VOLTAGE} reads {@link #voltageTier}.
          *
          * @throws IllegalArgumentException if no value was given for the kind
          */
-        public long value(@Nonnull ModifierKind kind) {
-            if (kind == ModifierKind.VOLTAGE) return voltageTier();
-            Long value = values.get(kind);
+        @Nonnull
+        @SuppressWarnings("unchecked") // the builder puts a T under each ModifierKind<T>
+        public <T extends Number & Comparable<T>> T value(@Nonnull ModifierKind<T> kind) {
+            if (ModifierKind.VOLTAGE.equals(kind)) return (T) Integer.valueOf(voltageTier());
+            Number value = values.get(kind);
             if (value == null) throw new IllegalArgumentException("no " + kind + " value given");
-            return value;
+            return (T) value;
         }
 
         /** The tier of the summed hatch voltages, as parallels per voltage tier read it. */
@@ -128,7 +131,7 @@ public final class ProcessingSpec {
 
             private final List<EnergyHatch> energyHatches = new ArrayList<>();
             private int mode;
-            private final Map<ModifierKind, Long> values = new HashMap<>();
+            private final Map<ModifierKind<?>, Number> values = new HashMap<>();
 
             private Builder() {}
 
@@ -153,20 +156,28 @@ public final class ProcessingSpec {
                 return this;
             }
 
-            public Builder value(@Nonnull ModifierKind kind, long value) {
+            public <T extends Number & Comparable<T>> Builder value(@Nonnull ModifierKind<T> kind, @Nonnull T value) {
                 this.values.put(kind, value);
                 return this;
             }
 
-            public Builder modifiers(@Nonnull List<Modifier> modifiers) {
-                for (Modifier modifier : modifiers) value(modifier.kind, modifier.get());
+            public Builder modifiers(@Nonnull List<? extends Modifier<?>> modifiers) {
+                for (Modifier<?> modifier : modifiers) current(modifier);
                 return this;
             }
 
             /** The best machine only for ordered kinds. */
-            public Builder modifiersAtMax(@Nonnull List<Modifier> modifiers) {
-                for (Modifier modifier : modifiers) value(modifier.kind, modifier.max);
+            public Builder modifiersAtMax(@Nonnull List<? extends Modifier<?>> modifiers) {
+                for (Modifier<?> modifier : modifiers) atMax(modifier);
                 return this;
+            }
+
+            private <T extends Number & Comparable<T>> void current(Modifier<T> modifier) {
+                value(modifier.kind, modifier.get());
+            }
+
+            private <T extends Number & Comparable<T>> void atMax(Modifier<T> modifier) {
+                value(modifier.kind, modifier.max);
             }
 
             @Nonnull
@@ -341,7 +352,9 @@ public final class ProcessingSpec {
     }
 
     public static final ToIntFunction<Inputs> COIL_HEAT = in -> (int) HeatingCoilLevel
-        .getFromTier((byte) in.value(ModifierKind.COIL))
+        .getFromTier(
+            in.value(ModifierKind.COIL)
+                .byteValue())
         .getHeat();
 
     /** The average hatch voltage, and all hatch amps, except that only 1 A of a lone regular hatch is used. */
@@ -730,8 +743,8 @@ public final class ProcessingSpec {
     }
 
     /** Tooltips count coil tiers from 1, for Cupronickel. */
-    private static int shownTier(Inputs inputs, ModifierKind kind) {
-        return (int) (kind == ModifierKind.COIL ? inputs.value(kind) + 1 : inputs.value(kind));
+    private static int shownTier(Inputs inputs, ModifierKind<Integer> kind) {
+        return kind == ModifierKind.COIL ? inputs.value(kind) + 1 : inputs.value(kind);
     }
 
     public static final class Builder {
@@ -773,7 +786,8 @@ public final class ProcessingSpec {
         }
 
         /** {@code parallel} times the product of the kinds' tiers. */
-        public Builder parallelPerTier(int parallel, @Nonnull ModifierKind... kinds) {
+        @SafeVarargs
+        public final Builder parallelPerTier(int parallel, @Nonnull ModifierKind<Integer>... kinds) {
             if (kinds.length == 0) throw new IllegalArgumentException("parallelPerTier needs a tier");
             Consumer<MultiblockTooltipBuilder> tooltip = kinds.length == 1
                 ? tt -> tt.addDynamicParallelInfo(parallel, kinds[0])
@@ -786,7 +800,7 @@ public final class ProcessingSpec {
                         + " Parallels");
             return parallelTerm(in -> {
                 int product = parallel;
-                for (ModifierKind kind : kinds) product *= shownTier(in, kind);
+                for (ModifierKind<Integer> kind : kinds) product *= shownTier(in, kind);
                 return product;
             }, tooltip);
         }
@@ -847,7 +861,7 @@ public final class ProcessingSpec {
         }
 
         /** {@code base} plus {@code perTier} per tier of {@code kind}: 1 and 1 is 200% at the first tier. */
-        public Builder speedPerTier(double base, double perTier, @Nonnull ModifierKind kind) {
+        public Builder speedPerTier(double base, double perTier, @Nonnull ModifierKind<Integer> kind) {
             this.duration = new Term(
                 in -> 1 / (base + perTier * shownTier(in, kind)),
                 tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
@@ -855,7 +869,7 @@ public final class ProcessingSpec {
         }
 
         /** {@code first} at the first tier, plus {@code perTier} per further tier. */
-        public Builder speedPerTierBeyondFirst(double first, double perTier, @Nonnull ModifierKind kind) {
+        public Builder speedPerTierBeyondFirst(double first, double perTier, @Nonnull ModifierKind<Integer> kind) {
             this.duration = new Term(
                 in -> 1.0 / (first + perTier * (shownTier(in, kind) - 1)),
                 tt -> tt.addSpeedPerTierBeyondFirstInfo((float) first, (float) perTier, kind));
@@ -879,7 +893,7 @@ public final class ProcessingSpec {
         }
 
         /** Follow with {@link #maxEuDiscount} for a cap. */
-        public Builder euDiscountPerTier(double discount, @Nonnull ModifierKind kind) {
+        public Builder euDiscountPerTier(double discount, @Nonnull ModifierKind<Integer> kind) {
             this.euModifier = new Term(
                 in -> 1 - discount * shownTier(in, kind),
                 tt -> tt.addDynamicEuEffInfo((float) discount, kind));
@@ -887,7 +901,8 @@ public final class ProcessingSpec {
         }
 
         /** {@code euModifier} at the first tier, times {@code factor} per further tier. */
-        public Builder euModifierPerTierBeyondFirst(double euModifier, double factor, @Nonnull ModifierKind kind) {
+        public Builder euModifierPerTierBeyondFirst(double euModifier, double factor,
+            @Nonnull ModifierKind<Integer> kind) {
             this.euModifier = new Term(
                 in -> euModifier * GTUtility.powInt(factor, shownTier(in, kind) - 1),
                 tt -> tt.addStaticEuEffInfo((float) euModifier)
@@ -1020,7 +1035,7 @@ public final class ProcessingSpec {
         }
 
         /** Replaces the spec's terms at one value. The lines are headed by {@link ModifierKind#label}. */
-        public Builder whenTier(@Nonnull ModifierKind kind, int value, @Nonnull Consumer<Builder> terms) {
+        public Builder whenTier(@Nonnull ModifierKind<Integer> kind, int value, @Nonnull Consumer<Builder> terms) {
             return variant(in -> in.value(kind) == value, modes -> kind.label(value), null, terms);
         }
 

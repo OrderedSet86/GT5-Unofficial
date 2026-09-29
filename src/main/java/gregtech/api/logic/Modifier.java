@@ -5,8 +5,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
-import java.util.function.LongConsumer;
-import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
@@ -24,18 +22,20 @@ import gregtech.common.misc.GTStructureChannels;
  * Where one machine gets a {@link ModifierKind}'s value. An {@link Of} constant is also the structure element that
  * finds it: {@code .addElement('C', COIL)}.
  */
-public final class Modifier {
+public final class Modifier<T extends Number & Comparable<T>> {
 
     @Nonnull
-    public final ModifierKind kind;
-    public final long min;
-    public final long max;
-    private final LongSupplier getter;
-    private final LongConsumer setter;
+    public final ModifierKind<T> kind;
+    @Nonnull
+    public final T min;
+    @Nonnull
+    public final T max;
+    private final Supplier<T> getter;
+    private final Consumer<T> setter;
 
-    private Modifier(@Nonnull ModifierKind kind, long min, long max, @Nonnull LongSupplier getter,
-        @Nonnull LongConsumer setter) {
-        if (min > max) throw new IllegalArgumentException(kind + ": min " + min + " > max " + max);
+    private Modifier(@Nonnull ModifierKind<T> kind, @Nonnull T min, @Nonnull T max, @Nonnull Supplier<T> getter,
+        @Nonnull Consumer<T> setter) {
+        if (min.compareTo(max) > 0) throw new IllegalArgumentException(kind + ": min " + min + " > max " + max);
         this.kind = kind;
         this.min = min;
         this.max = max;
@@ -44,8 +44,9 @@ public final class Modifier {
     }
 
     /** Outside the range while the structure is unchecked. */
-    public long get() {
-        return getter.getAsLong();
+    @Nonnull
+    public T get() {
+        return getter.get();
     }
 
     /**
@@ -53,17 +54,22 @@ public final class Modifier {
      *
      * @throws IllegalArgumentException if the value is out of range
      */
-    public void set(long value) {
-        if (value < min || value > max) {
+    public void set(@Nonnull T value) {
+        if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
             throw new IllegalArgumentException(kind + " " + value + " is outside " + min + " to " + max);
         }
         setter.accept(value);
     }
 
+    /** As {@link #set}, at the best value of an ordered kind. */
+    public void setToMax() {
+        set(max);
+    }
+
     /** For a value set outside a structure element. */
     @Nonnull
-    public static Builder builder(@Nonnull ModifierKind kind) {
-        return new Builder(kind);
+    public static <T extends Number & Comparable<T>> Builder<T> builder(@Nonnull ModifierKind<T> kind) {
+        return new Builder<>(kind);
     }
 
     /** Accepts one coil type, uses the heating coil channel and records the active coils. */
@@ -111,19 +117,19 @@ public final class Modifier {
 
     /** -1 while there is none. */
     @Nonnull
-    public static <E extends Enum<E>> Modifier ofEnum(@Nonnull ModifierKind kind, @Nonnull E[] values,
+    public static <E extends Enum<E>> Modifier<Integer> ofEnum(@Nonnull ModifierKind<Integer> kind, @Nonnull E[] values,
         @Nonnull Supplier<E> getter, @Nonnull Consumer<E> setter) {
-        return new Modifier(kind, 0, values.length - 1, () -> {
+        return new Modifier<>(kind, 0, values.length - 1, () -> {
             E value = getter.get();
             return value == null ? -1 : value.ordinal();
-        }, index -> setter.accept(values[(int) index]));
+        }, index -> setter.accept(values[index]));
     }
 
     /**
      * @param element Wrap it in {@code lazy} if it names blocks, which may not exist yet when the machine class loads
      */
     @Nonnull
-    public static <T> Of<T, Integer> tiered(@Nonnull ModifierKind kind, int min, int max,
+    public static <T> Of<T, Integer> tiered(@Nonnull ModifierKind<Integer> kind, int min, int max,
         @Nonnull Function<T, Integer> getter, @Nonnull BiConsumer<T, Integer> setter,
         @Nonnull BiFunction<BiConsumer<T, Integer>, Function<T, Integer>, IStructureElement<T>> element) {
         return new Of<>(
@@ -140,7 +146,7 @@ public final class Modifier {
     /** Bound to one machine with {@link #of}. */
     public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
-        private final ModifierKind kind;
+        private final ModifierKind<Integer> kind;
         private final int min;
         private final int max;
         private final Function<T, V> getter;
@@ -148,7 +154,7 @@ public final class Modifier {
         private final ToIntFunction<V> toTier;
         private final IntFunction<V> fromTier;
 
-        private Of(ModifierKind kind, int min, int max, Function<T, V> getter, BiConsumer<T, V> setter,
+        private Of(ModifierKind<Integer> kind, int min, int max, Function<T, V> getter, BiConsumer<T, V> setter,
             ToIntFunction<V> toTier, IntFunction<V> fromTier, IStructureElement<T> element) {
             super(element);
             this.kind = kind;
@@ -172,49 +178,50 @@ public final class Modifier {
         }
 
         @Nonnull
-        public Modifier of(@Nonnull T machine) {
-            return new Modifier(
+        public Modifier<Integer> of(@Nonnull T machine) {
+            return new Modifier<>(
                 kind,
                 min,
                 max,
                 () -> toTier.applyAsInt(getter.apply(machine)),
-                tier -> setter.accept(machine, fromTier.apply((int) tier)));
+                tier -> setter.accept(machine, fromTier.apply(tier)));
         }
     }
 
-    public static final class Builder {
+    public static final class Builder<T extends Number & Comparable<T>> {
 
-        private final ModifierKind kind;
-        private long min;
-        private long max;
-        private LongSupplier getter;
-        private LongConsumer setter;
+        private final ModifierKind<T> kind;
+        private T min;
+        private T max;
+        private Supplier<T> getter;
+        private Consumer<T> setter;
 
-        private Builder(ModifierKind kind) {
+        private Builder(ModifierKind<T> kind) {
             this.kind = kind;
         }
 
-        public Builder between(long min, long max) {
+        public Builder<T> between(@Nonnull T min, @Nonnull T max) {
             this.min = min;
             this.max = max;
             return this;
         }
 
-        public Builder getter(@Nonnull LongSupplier getter) {
+        public Builder<T> getter(@Nonnull Supplier<T> getter) {
             this.getter = getter;
             return this;
         }
 
-        public Builder setter(@Nonnull LongConsumer setter) {
+        public Builder<T> setter(@Nonnull Consumer<T> setter) {
             this.setter = setter;
             return this;
         }
 
         @Nonnull
-        public Modifier build() {
-            if (getter == null || setter == null)
-                throw new IllegalStateException(kind + " needs a getter and a setter");
-            return new Modifier(kind, min, max, getter, setter);
+        public Modifier<T> build() {
+            if (min == null || getter == null || setter == null) {
+                throw new IllegalStateException(kind + " needs a range, a getter and a setter");
+            }
+            return new Modifier<>(kind, min, max, getter, setter);
         }
     }
 }
