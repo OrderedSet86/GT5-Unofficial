@@ -13,6 +13,7 @@ import net.minecraft.util.EnumChatFormatting;
 
 import org.junit.jupiter.api.Test;
 
+import gregtech.api.enums.GTValues;
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -33,14 +34,14 @@ class ProcessingSpecTest {
 
     private static ProcessingSpec.Inputs inputs(int voltageTier, int coilTier) {
         return ProcessingSpec.Inputs.builder()
-            .voltageTier(voltageTier)
+            .energyHatches(voltageTier, 1)
             .value(ModifierKind.COIL, coilTier)
             .build();
     }
 
     private static ProcessingSpec.Inputs inMode(int mode) {
         return ProcessingSpec.Inputs.builder()
-            .voltageTier(VoltageIndex.LV)
+            .energyHatches(VoltageIndex.LV, 1)
             .mode(mode)
             .build();
     }
@@ -63,13 +64,14 @@ class ProcessingSpecTest {
     @Test
     void inputsNameEveryValue() {
         ProcessingSpec.Inputs luv = ProcessingSpec.Inputs.builder()
-            .voltageTier(VoltageIndex.LuV)
+            .energyHatches(VoltageIndex.LuV, 1)
             .value(ModifierKind.SOLENOID, VoltageIndex.LuV)
             .build();
 
         assertEquals(VoltageIndex.LuV, luv.value(ModifierKind.VOLTAGE));
         assertEquals(VoltageIndex.LuV, luv.value(ModifierKind.SOLENOID));
-        assertEquals(1, luv.amperage());
+        assertEquals(2, luv.amperage());
+        assertTrue(luv.isSingleRegularHatch());
         assertEquals(0, luv.mode());
         assertThrows(IllegalArgumentException.class, () -> luv.value(ModifierKind.COIL));
     }
@@ -91,7 +93,7 @@ class ProcessingSpecTest {
             .parallelPerTier(6, ModifierKind.VOLTAGE, ModifierKind.SOLENOID)
             .build();
         ProcessingSpec.Inputs luv = ProcessingSpec.Inputs.builder()
-            .voltageTier(VoltageIndex.LuV)
+            .energyHatches(VoltageIndex.LuV, 1)
             .value(ModifierKind.SOLENOID, VoltageIndex.LuV)
             .build();
 
@@ -167,7 +169,7 @@ class ProcessingSpecTest {
             ProcessingSpec.builder()
                 .parallel(4)
                 .heat(
-                    in -> 1000 * in.value(ModifierKind.COIL),
+                    in -> 1000 * (int) in.value(ModifierKind.COIL),
                     ProcessingSpec.HeatRule.OVERCLOCK,
                     ProcessingSpec.HeatRule.DISCOUNT)
                 .build(),
@@ -201,7 +203,7 @@ class ProcessingSpecTest {
         int[] momentum = { 0 };
         ProcessingLogic logic = new ProcessingLogic().applySpec(
             ProcessingSpec.builder()
-                .parallel(in -> 4 + in.value(MOMENTUM))
+                .parallel(in -> 4 + (int) in.value(MOMENTUM))
                 .noTooltip(ProcessingSpec.Quantity.PARALLEL)
                 .build(),
             () -> ProcessingSpec.Inputs.builder()
@@ -295,7 +297,7 @@ class ProcessingSpecTest {
             ProcessingSpec.Run run = forgeHammer.calculate(
                 ironPlates,
                 ProcessingSpec.Inputs.builder()
-                    .voltageTier(VoltageIndex.LuV)
+                    .energyHatches(VoltageIndex.LuV, 1)
                     .value(ModifierKind.SOLENOID, row[0])
                     .build());
 
@@ -315,7 +317,7 @@ class ProcessingSpecTest {
         ProcessingSpec.Run run = spec.calculate(
             recipe(480, 100, 0),
             ProcessingSpec.Inputs.builder()
-                .voltageTier(VoltageIndex.LuV)
+                .energyHatches(VoltageIndex.LuV, 1)
                 .build());
 
         assertEquals(32768 / 480, run.parallel());
@@ -423,6 +425,86 @@ class ProcessingSpecTest {
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .inMode(0, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
+    }
+
+    @Test
+    void standardPowerUsesOneAmpOfALoneRegularHatch() {
+        ProcessingSpec spec = ProcessingSpec.STANDARD;
+        long luv = GTValues.V[VoltageIndex.LuV];
+
+        assertEquals(new ProcessingSpec.Power(luv, 1, true), spec.getPower(inputs(VoltageIndex.LuV, 0)));
+        assertEquals(
+            new ProcessingSpec.Power(luv, 4, true),
+            spec.getPower(
+                ProcessingSpec.Inputs.builder()
+                    .energyHatches(VoltageIndex.LuV, 2)
+                    .build()),
+            "with two regular hatches, all four amps are used");
+        assertEquals(
+            new ProcessingSpec.Power(luv, 16, true),
+            spec.getPower(
+                ProcessingSpec.Inputs.builder()
+                    .energyHatch(ProcessingSpec.EnergyHatch.exotic(VoltageIndex.LuV, 16))
+                    .build()));
+        assertFalse(spec.sets(ProcessingSpec.Quantity.POWER));
+    }
+
+    @Test
+    void powerRulesReadTheHatchesAsTheMachineDoes() {
+        ProcessingSpec.Inputs oneHatch = inputs(VoltageIndex.LuV, 0);
+        long luv = GTValues.V[VoltageIndex.LuV];
+
+        ProcessingSpec atOneAmp = ProcessingSpec.builder()
+            .powerAtOneAmp()
+            .build();
+        assertEquals(new ProcessingSpec.Power(2 * luv, 1, true), atOneAmp.getPower(oneHatch));
+        assertTrue(atOneAmp.sets(ProcessingSpec.Quantity.POWER));
+
+        ProcessingSpec allAmps = ProcessingSpec.builder()
+            .allAmps()
+            .build();
+        assertEquals(new ProcessingSpec.Power(luv, 2, true), allAmps.getPower(oneHatch));
+
+        ProcessingSpec fixed = ProcessingSpec.builder()
+            .power(in -> 32, in -> 8)
+            .noAmperageOverclock()
+            .build();
+        assertEquals(new ProcessingSpec.Power(32, 8, false), fixed.getPower(oneHatch));
+    }
+
+    @Test
+    void theVoltageTierReadsTheSummedHatchVoltage() {
+        ProcessingSpec.Inputs twoLuv = ProcessingSpec.Inputs.builder()
+            .energyHatches(VoltageIndex.LuV, 2)
+            .build();
+        ProcessingSpec.Inputs mixed = ProcessingSpec.Inputs.builder()
+            .energyHatches(VoltageIndex.LuV, 1)
+            .energyHatches(VoltageIndex.IV, 1)
+            .build();
+
+        assertEquals(VoltageIndex.ZPM, twoLuv.voltageTier());
+        assertEquals((GTValues.V[VoltageIndex.LuV] + GTValues.V[VoltageIndex.IV]) / 2, mixed.averageVoltage());
+        assertEquals(4 * GTValues.V[VoltageIndex.LuV], twoLuv.totalEu());
+    }
+
+    @Test
+    void theRunCarriesTheStartupEu() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .startupEuPerRecipe((in, recipe) -> 1000L * recipe.mEUt)
+            .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .build();
+        ProcessingSpec.Inputs iv = inputs(VoltageIndex.IV, 0);
+
+        assertEquals(
+            30_000,
+            spec.calculate(recipe(30, 100, 0), iv)
+                .startupEu());
+        assertEquals(
+            0,
+            spec.calculate(recipe(120, 100, 0), iv)
+                .startupEu(),
+            "a recipe that cannot run starts nothing");
     }
 
     @Test

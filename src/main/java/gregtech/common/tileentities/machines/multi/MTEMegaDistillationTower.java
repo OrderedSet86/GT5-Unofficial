@@ -90,7 +90,8 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             mode -> mode
                 // 512 - 1024 parallels min to max height
                 .parallel(
-                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2))
+                    in -> Configuration.Multiblocks.megaMachinesMax
+                        * (1 + (int) (in.value(ModifierKind.LENGTH) + 1) / 2))
                 .customTooltip(
                     ProcessingSpec.Quantity.PARALLEL,
                     tt -> tt.addInfo(
@@ -99,6 +100,8 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
                 .speed(2)
                 .euModifier(0.5))
         .unlimitedTierSkips()
+        .powerAtOneAmp()
+        .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
 
     protected final List<List<MTEHatchOutput>> outputHatchesPerLayer = new ArrayList<>();
@@ -322,7 +325,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             Modifier.builder(ModifierKind.LENGTH)
                 .between(1, MAX_LAYERS)
                 .getter(() -> height - 1)
-                .setter(layers -> height = layers + 1)
+                .setter(layers -> height = (int) layers + 1)
                 .build());
     }
 
@@ -543,12 +546,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     public ProcessingSpec getProcessingSpec() {
         return SPEC;
-    }
-
-    @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        logic.setAvailableVoltage(this.getMaxInputEu());
-        logic.setAvailableAmperage(1);
     }
 
     @Override

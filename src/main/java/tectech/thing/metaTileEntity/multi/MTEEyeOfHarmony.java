@@ -27,8 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
+import java.util.function.LongConsumer;
+import java.util.function.LongSupplier;
 
 import javax.annotation.Nonnull;
 
@@ -932,25 +932,28 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             field(
                 SPACETIME_COMPRESSION_FIELD,
                 () -> spacetimeCompressionFieldMetadata,
-                value -> spacetimeCompressionFieldMetadata = value),
+                value -> spacetimeCompressionFieldMetadata = (int) value),
             field(
                 TIME_DILATION_FIELD,
                 () -> timeAccelerationFieldMetadata,
-                value -> timeAccelerationFieldMetadata = value),
-            field(STABILISATION_FIELD, () -> stabilisationFieldMetadata, value -> stabilisationFieldMetadata = value),
+                value -> timeAccelerationFieldMetadata = (int) value),
+            field(
+                STABILISATION_FIELD,
+                () -> stabilisationFieldMetadata,
+                value -> stabilisationFieldMetadata = (int) value),
             Modifier.builder(ASTRAL_ARRAYS)
-                .between(0, (int) ASTRAL_ARRAY_LIMIT)
-                .getter(() -> (int) astralArrayAmount)
+                .between(0, ASTRAL_ARRAY_LIMIT)
+                .getter(() -> astralArrayAmount)
                 .setter(value -> astralArrayAmount = value)
                 .build(),
             Modifier.builder(CIRCUIT)
                 .between(0, 24)
-                .getter(() -> (int) currentCircuitMultiplier)
+                .getter(() -> currentCircuitMultiplier)
                 .setter(value -> currentCircuitMultiplier = value)
                 .build());
     }
 
-    private static Modifier field(ModifierKind kind, IntSupplier getter, IntConsumer setter) {
+    private static Modifier field(ModifierKind kind, LongSupplier getter, LongConsumer setter) {
         return Modifier.builder(kind)
             .between(0, 8)
             .getter(getter)

@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
+import java.util.function.LongConsumer;
+import java.util.function.LongSupplier;
 
 import javax.annotation.Nonnull;
 
@@ -56,6 +56,7 @@ import gregtech.api.modularui2.GTGuiThemes;
 import gregtech.api.objects.overclockdescriber.OverclockDescriber;
 import gregtech.api.objects.overclockdescriber.SteamOverclockDescriber;
 import gregtech.api.recipe.RecipeMap;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
@@ -90,6 +91,8 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         + "Steam Usage";
 
     /** 1 for Basic, 2 for High Pressure. */
+    private static final int STEAM_PARALLEL = 8;
+
     public static final ModifierKind PRESSURE = ModifierKind.builder("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
@@ -106,11 +109,15 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         this.overclockDescriber = createOverclockDescriber();
     }
 
-    /** 8 parallels, no overclocks; High Pressure runs twice as fast for twice the steam. */
+    /**
+     * 8 parallels, no overclocks; High Pressure runs twice as fast for twice the steam.
+     *
+     * @param tierRecipes As {@link #getTierRecipes()}: the voltage tier of the recipes it can run
+     */
     @Nonnull
-    protected static ProcessingSpec.Builder steamSpec() {
+    protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
         return ProcessingSpec.builder()
-            .parallel(8)
+            .parallel(STEAM_PARALLEL)
             .durationMultiplier(in -> 1.6 / in.value(PRESSURE))
             .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
             .euModifierNotLimitingParallel(in -> 1.25 * in.value(PRESSURE))
@@ -118,11 +125,20 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
                 ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
                 tt -> tt.addStaticSteamEffInfo(0.625f))
             .noOverclock()
-            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK);
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .maxTierSkips(0)
+            .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
+            // an amp per parallel, so the energy limit never lowers the parallel
+            .power(in -> V[tierRecipes], in -> STEAM_PARALLEL)
+            .noAmperageOverclock()
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .requires(
+                (in, recipe) -> recipe.mEUt <= V[tierRecipes],
+                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt));
     }
 
     @Nonnull
-    protected static Modifier pressure(@Nonnull IntSupplier getter, @Nonnull IntConsumer setter) {
+    protected static Modifier pressure(@Nonnull LongSupplier getter, @Nonnull LongConsumer setter) {
         return Modifier.builder(PRESSURE)
             .between(1, 2)
             .getter(getter)

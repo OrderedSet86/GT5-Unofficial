@@ -137,10 +137,12 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             return electrode == null ? 1 : electrode.euModifier;
         })
         .maxTierSkips(0)
+        .allAmps()
         .noTooltip(
             ProcessingSpec.Quantity.DURATION,
             ProcessingSpec.Quantity.EU_MODIFIER,
-            ProcessingSpec.Quantity.TIER_SKIPS)
+            ProcessingSpec.Quantity.TIER_SKIPS,
+            ProcessingSpec.Quantity.POWER)
         .alsoCustom(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.OVERCLOCK)
         .build();
     private static final List<MachineMode> MODES = List.of(
@@ -1024,7 +1026,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Nullable
     private static ArcFurnaceElectrode electrode(ProcessingSpec.Inputs inputs) {
-        int index = inputs.value(ELECTRODE);
+        int index = (int) inputs.value(ELECTRODE);
         return index < 0 ? null : ArcFurnaceElectrode.values()[index];
     }
 

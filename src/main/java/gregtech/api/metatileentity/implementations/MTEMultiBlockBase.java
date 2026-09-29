@@ -214,6 +214,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     protected boolean usesTurbine = false;
     protected boolean canBeMuffled = true;
     protected boolean debugEnergyPresent = false;
+    private List<ProcessingSpec.EnergyHatch> energyHatchesForInspection;
     /** A pending IMMEDIATE recipe-check push (new inputs, drained output, user/structure change); never throttled. */
     protected boolean recipeCheckImmediately = false;
     /**
@@ -2169,13 +2170,33 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Nonnull
     public ProcessingSpec.Inputs getCurrentProcessingSpecInputs() {
-        boolean useSingleAmp = !debugEnergyPresent && mEnergyHatches.size() == 1 && mExoticEnergyHatches.isEmpty();
         return ProcessingSpec.Inputs.builder()
-            .voltageTier(GTUtility.getTier(getMaxInputVoltage()))
-            .amperage(useSingleAmp ? 1 : getMaxInputAmps())
+            .energyHatches(energyHatchesForInspection != null ? energyHatchesForInspection : getSpecEnergyHatches())
             .mode(getMachineMode())
             .modifiers(getModifiersForInspection())
             .build();
+    }
+
+    /** The hatches {@link #getAverageInputVoltage()} and the other power getters read. */
+    @Nonnull
+    protected List<? extends MTEHatch> getPowerHatches() {
+        return mEnergyHatches;
+    }
+
+    private List<ProcessingSpec.EnergyHatch> getSpecEnergyHatches() {
+        List<ProcessingSpec.EnergyHatch> hatches = new ArrayList<>();
+        for (MTEHatch hatch : getPowerHatches()) {
+            boolean exotic = !(hatch instanceof MTEHatchEnergy) || hatch instanceof MTEHatchEnergyDebug;
+            long voltage = hatch.isValid() ? hatch.getBaseMetaTileEntity()
+                .getInputVoltage() : 0;
+            hatches.add(new ProcessingSpec.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
+        }
+        return hatches;
+    }
+
+    /** For planners, on a {@link #newMetaEntity} copy: the energy hatches the copy reads instead of its own. */
+    public final void setEnergyHatchesForInspection(@Nonnull List<ProcessingSpec.EnergyHatch> hatches) {
+        this.energyHatchesForInspection = hatches;
     }
 
     /** @return null on a prototype; use {@link #newMetaEntity} first */
@@ -2196,6 +2217,18 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         if (processingLogic == null) return null;
         setupProcessingLogic(processingLogic);
         return processingLogic.createOverclockCalculatorForInspection(recipe);
+    }
+
+    /**
+     * For planners, on a {@link #newMetaEntity} copy: the recipe run through the machine's own processing logic.
+     *
+     * @return null if the machine has no processing logic
+     */
+    @Nullable
+    public final ProcessingSpec.Run calculateForInspection(@Nonnull GTRecipe recipe) {
+        if (processingLogic == null) return null;
+        setupProcessingLogic(processingLogic);
+        return processingLogic.calculateForInspection(recipe);
     }
 
     /**

@@ -295,10 +295,18 @@ public class ProcessingLogic {
         return this;
     }
 
-    /** @param inputs Read at every recipe check */
+    /**
+     * Sets the spec's power now, so call it at every recipe check.
+     *
+     * @param inputs Read at every recipe check
+     */
     public ProcessingLogic applySpec(@Nonnull ProcessingSpec spec, @Nonnull Supplier<ProcessingSpec.Inputs> inputs) {
         this.spec = spec;
         this.specInputs = inputs;
+        ProcessingSpec.Power power = spec.getPower(inputs.get());
+        setAvailableVoltage(power.voltage());
+        setAvailableAmperage(power.amperage());
+        setAmperageOC(power.amperageOverclock());
         if (spec.sets(ProcessingSpec.Quantity.PARALLEL)) {
             setMaxParallelSupplier(() -> spec.getMaxParallel(inputs.get()));
         }
@@ -489,8 +497,7 @@ public class ProcessingLogic {
      */
     @Nonnull
     private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe recipe) {
-        CheckRecipeResult result = spec == null ? CheckRecipeResultRegistry.SUCCESSFUL
-            : spec.check(recipe, specInputs.get());
+        CheckRecipeResult result = checkSpecRequirements(recipe);
         if (result.wasSuccessful()) result = validateRecipe(recipe);
         if (!result.wasSuccessful()) {
             return CalculationResult.ofFailure(result);
@@ -586,6 +593,12 @@ public class ProcessingLogic {
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
+    /** Override to skip the spec's requirements, such as when resuming a recipe after loading. */
+    @Nonnull
+    protected CheckRecipeResult checkSpecRequirements(@Nonnull GTRecipe recipe) {
+        return spec == null ? CheckRecipeResultRegistry.SUCCESSFUL : spec.check(recipe, specInputs.get());
+    }
+
     /**
      * Override to tweak parallel logic if needed.
      */
@@ -665,7 +678,7 @@ public class ProcessingLogic {
         resolveModifierSuppliers();
         if (spec != null) {
             CheckRecipeResult check = spec.check(recipe, specInputs.get());
-            if (!check.wasSuccessful()) return new ProcessingSpec.Run(check, 0, 0, 0, 0);
+            if (!check.wasSuccessful()) return ProcessingSpec.Run.failed(check);
         }
         GTRecipe run = spec == null ? recipe
             : spec.getRecipeOverride()
@@ -687,13 +700,14 @@ public class ProcessingLogic {
             .setInputConsumer((r, amount, fluids, items) -> {})
             .build();
         if (!helper.getResult()
-            .wasSuccessful()) return new ProcessingSpec.Run(helper.getResult(), 0, 0, 0, 0);
-        return new ProcessingSpec.Run(
-            helper.getResult(),
-            helper.getCurrentParallel(),
-            calculator.getPerformedOverclocks(),
-            calculator.getDuration(),
-            calculator.getConsumption());
+            .wasSuccessful()) return ProcessingSpec.Run.failed(helper.getResult());
+        return ProcessingSpec.Run.builder(helper.getResult())
+            .parallel(helper.getCurrentParallel())
+            .overclocks(calculator.getPerformedOverclocks())
+            .ticks(calculator.getDuration())
+            .euPerTick(calculator.getConsumption())
+            .startupEu(spec == null ? 0 : spec.getStartupEu(specInputs.get(), recipe))
+            .build();
     }
 
     /**

@@ -4,9 +4,9 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
-import java.util.function.IntSupplier;
+import java.util.function.LongConsumer;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
@@ -28,13 +28,13 @@ public final class Modifier {
 
     @Nonnull
     public final ModifierKind kind;
-    public final int min;
-    public final int max;
-    private final IntSupplier getter;
-    private final IntConsumer setter;
+    public final long min;
+    public final long max;
+    private final LongSupplier getter;
+    private final LongConsumer setter;
 
-    private Modifier(@Nonnull ModifierKind kind, int min, int max, @Nonnull IntSupplier getter,
-        @Nonnull IntConsumer setter) {
+    private Modifier(@Nonnull ModifierKind kind, long min, long max, @Nonnull LongSupplier getter,
+        @Nonnull LongConsumer setter) {
         if (min > max) throw new IllegalArgumentException(kind + ": min " + min + " > max " + max);
         this.kind = kind;
         this.min = min;
@@ -44,8 +44,8 @@ public final class Modifier {
     }
 
     /** Outside the range while the structure is unchecked. */
-    public int get() {
-        return getter.getAsInt();
+    public long get() {
+        return getter.getAsLong();
     }
 
     /**
@@ -53,7 +53,7 @@ public final class Modifier {
      *
      * @throws IllegalArgumentException if the value is out of range
      */
-    public void set(int value) {
+    public void set(long value) {
         if (value < min || value > max) {
             throw new IllegalArgumentException(kind + " " + value + " is outside " + min + " to " + max);
         }
@@ -116,7 +116,7 @@ public final class Modifier {
         return new Modifier(kind, 0, values.length - 1, () -> {
             E value = getter.get();
             return value == null ? -1 : value.ordinal();
-        }, index -> setter.accept(values[index]));
+        }, index -> setter.accept(values[(int) index]));
     }
 
     /**
@@ -178,34 +178,34 @@ public final class Modifier {
                 min,
                 max,
                 () -> toTier.applyAsInt(getter.apply(machine)),
-                tier -> setter.accept(machine, fromTier.apply(tier)));
+                tier -> setter.accept(machine, fromTier.apply((int) tier)));
         }
     }
 
     public static final class Builder {
 
         private final ModifierKind kind;
-        private int min;
-        private int max;
-        private IntSupplier getter;
-        private IntConsumer setter;
+        private long min;
+        private long max;
+        private LongSupplier getter;
+        private LongConsumer setter;
 
         private Builder(ModifierKind kind) {
             this.kind = kind;
         }
 
-        public Builder between(int min, int max) {
+        public Builder between(long min, long max) {
             this.min = min;
             this.max = max;
             return this;
         }
 
-        public Builder getter(@Nonnull IntSupplier getter) {
+        public Builder getter(@Nonnull LongSupplier getter) {
             this.getter = getter;
             return this;
         }
 
-        public Builder setter(@Nonnull IntConsumer setter) {
+        public Builder setter(@Nonnull LongConsumer setter) {
             this.setter = setter;
             return this;
         }

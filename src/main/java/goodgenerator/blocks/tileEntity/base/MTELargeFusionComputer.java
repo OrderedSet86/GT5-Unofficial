@@ -69,7 +69,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTRecipeConstants;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.HatchElementBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.common.tileentities.machines.IDualInputHatch;
@@ -454,20 +453,9 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
             @NotNull
             @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return overclockDescriber.createCalculator(super.createOverclockCalculator(recipe), recipe);
-            }
-
-            @NotNull
-            @Override
-            protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                long powerToStart = recipe.getMetadataOrDefault(GTRecipeConstants.FUSION_THRESHOLD, 0L);
-                if (!mRunningOnLoad) {
-                    if (powerToStart > maxEUStore()) {
-                        return CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(powerToStart));
-                    }
-                }
-                return CheckRecipeResultRegistry.SUCCESSFUL;
+            protected CheckRecipeResult checkSpecRequirements(@NotNull GTRecipe recipe) {
+                // The running recipe met them when it started
+                return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(recipe);
             }
 
             @NotNull
@@ -496,6 +484,9 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     private ProcessingSpec createProcessingSpec() {
         FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
         int maxParallel = getMaxPara();
+        long voltage = GTValues.V[tier()];
+        long amperage = getSingleHatchPower() * 32 / voltage;
+        long capableStartup = capableStartupCanonical();
         return ProcessingSpec.builder()
             .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
@@ -509,17 +500,23 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
                 (in, recipe) -> GTUtility.getTier(recipe.mEUt) > tier()
                     ? CheckRecipeResultRegistry.insufficientPower(recipe.mEUt)
                     : CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+            // the buffer holds a 32nd of the capacity per energy hatch
+            .requires(
+                (in, recipe) -> startupEU(recipe) <= capableStartup * Math.min(
+                    32,
+                    in.energyHatches()
+                        .size())
+                    / 32L,
+                (in, recipe) -> CheckRecipeResultRegistry
+                    .insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+            .power(in -> voltage, in -> amperage)
+            .startupEuPerRecipe((in, recipe) -> startupEU(recipe))
+            .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
     }
 
     private static long startupEU(GTRecipe recipe) {
         return recipe.getMetadataOrDefault(GTRecipeConstants.FUSION_THRESHOLD, 0L);
-    }
-
-    @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        logic.setAvailableVoltage(GTValues.V[tier()]);
-        logic.setAvailableAmperage(getSingleHatchPower() * 32 / GTValues.V[tier()]);
     }
 
     public int getChunkX() {

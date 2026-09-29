@@ -21,6 +21,8 @@ import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntBiFunction;
 import java.util.function.ToIntFunction;
+import java.util.function.ToLongBiFunction;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
@@ -51,22 +53,70 @@ import gregtech.api.util.tooltip.TooltipHelper;
  */
 public final class ProcessingSpec {
 
-    /**
-     * @param voltageTier As {@link gregtech.api.util.GTUtility#getTier} numbers it
-     * @param amperage    1 with a single energy hatch
-     */
-    public record Inputs(int voltageTier, long amperage, int mode, @Nonnull Map<ModifierKind, Integer> values) {
+    /** One energy hatch, as the machine's power getters read it. */
+    public record EnergyHatch(long voltage, long amperage, boolean exotic) {
+
+        /** Supplies 2 A. */
+        @Nonnull
+        public static EnergyHatch regular(int tier) {
+            return new EnergyHatch(GTValues.V[tier], 2, false);
+        }
+
+        /** A multi-amp or laser hatch, whose amps are always all used. */
+        @Nonnull
+        public static EnergyHatch exotic(int tier, long amperage) {
+            return new EnergyHatch(GTValues.V[tier], amperage, true);
+        }
+    }
+
+    /** @param energyHatches What the machine draws from, including hatches it cannot reach (voltage 0) */
+    public record Inputs(@Nonnull List<EnergyHatch> energyHatches, int mode, @Nonnull Map<ModifierKind, Long> values) {
 
         /**
          * {@link ModifierKind#VOLTAGE} reads {@link #voltageTier}.
          *
          * @throws IllegalArgumentException if no value was given for the kind
          */
-        public int value(@Nonnull ModifierKind kind) {
-            if (kind == ModifierKind.VOLTAGE) return voltageTier;
-            Integer value = values.get(kind);
+        public long value(@Nonnull ModifierKind kind) {
+            if (kind == ModifierKind.VOLTAGE) return voltageTier();
+            Long value = values.get(kind);
             if (value == null) throw new IllegalArgumentException("no " + kind + " value given");
             return value;
+        }
+
+        /** The tier of the summed hatch voltages, as parallels per voltage tier read it. */
+        public int voltageTier() {
+            return GTUtility.getTier(totalVoltage());
+        }
+
+        /** Summed over the hatches, divided by their count. */
+        public long averageVoltage() {
+            return energyHatches.isEmpty() ? 0 : totalVoltage() / energyHatches.size();
+        }
+
+        public long totalVoltage() {
+            long voltage = 0;
+            for (EnergyHatch hatch : energyHatches) voltage += hatch.voltage;
+            return voltage;
+        }
+
+        public long amperage() {
+            long amperage = 0;
+            for (EnergyHatch hatch : energyHatches) amperage += hatch.amperage;
+            return amperage;
+        }
+
+        /** Voltage times amperage, summed. */
+        public long totalEu() {
+            long eu = 0;
+            for (EnergyHatch hatch : energyHatches)
+                eu = GTUtility.addSafe(eu, GTUtility.mulSafe(hatch.voltage, hatch.amperage));
+            return eu;
+        }
+
+        /** From which a standard multiblock draws only 1 of its 2 A. */
+        public boolean isSingleRegularHatch() {
+            return energyHatches.size() == 1 && !energyHatches.get(0).exotic;
         }
 
         @Nonnull
@@ -76,20 +126,25 @@ public final class ProcessingSpec {
 
         public static final class Builder {
 
-            private int voltageTier;
-            private long amperage = 1;
+            private final List<EnergyHatch> energyHatches = new ArrayList<>();
             private int mode;
-            private final Map<ModifierKind, Integer> values = new HashMap<>();
+            private final Map<ModifierKind, Long> values = new HashMap<>();
 
             private Builder() {}
 
-            public Builder voltageTier(int voltageTier) {
-                this.voltageTier = voltageTier;
+            public Builder energyHatch(@Nonnull EnergyHatch hatch) {
+                this.energyHatches.add(hatch);
                 return this;
             }
 
-            public Builder amperage(long amperage) {
-                this.amperage = amperage;
+            /** {@code count} regular hatches. */
+            public Builder energyHatches(int tier, int count) {
+                for (int i = 0; i < count; i++) energyHatch(EnergyHatch.regular(tier));
+                return this;
+            }
+
+            public Builder energyHatches(@Nonnull List<EnergyHatch> hatches) {
+                this.energyHatches.addAll(hatches);
                 return this;
             }
 
@@ -98,7 +153,7 @@ public final class ProcessingSpec {
                 return this;
             }
 
-            public Builder value(@Nonnull ModifierKind kind, int value) {
+            public Builder value(@Nonnull ModifierKind kind, long value) {
                 this.values.put(kind, value);
                 return this;
             }
@@ -116,10 +171,16 @@ public final class ProcessingSpec {
 
             @Nonnull
             public Inputs build() {
-                return new Inputs(voltageTier, amperage, mode, Collections.unmodifiableMap(new HashMap<>(values)));
+                return new Inputs(
+                    Collections.unmodifiableList(new ArrayList<>(energyHatches)),
+                    mode,
+                    Collections.unmodifiableMap(new HashMap<>(values)));
             }
         }
     }
+
+    /** The voltage and amperage a machine's recipes see. */
+    public record Power(long voltage, long amperage, boolean amperageOverclock) {}
 
     /** Replaces every recipe's cost, as the Multi Smelter does. */
     public record RecipeOverride(long eut, int duration) {
@@ -210,19 +271,82 @@ public final class ProcessingSpec {
         OVERCLOCK,
         TIER_SKIPS,
         HEAT,
-        RECIPE_OVERRIDE
+        RECIPE_OVERRIDE,
+        /** Voltage, amperage and start-up EU. */
+        POWER
     }
 
     /**
      * @param result    Unsuccessful means every number is 0
      * @param parallel  After the energy limit
      * @param euPerTick For all parallels together
+     * @param startupEu Taken once when the machine starts from idle
      */
-    public record Run(@Nonnull CheckRecipeResult result, int parallel, int overclocks, int ticks, long euPerTick) {}
+    public record Run(@Nonnull CheckRecipeResult result, int parallel, int overclocks, int ticks, long euPerTick,
+        long startupEu) {
+
+        @Nonnull
+        public static Run failed(@Nonnull CheckRecipeResult result) {
+            return builder(result).build();
+        }
+
+        @Nonnull
+        public static Builder builder(@Nonnull CheckRecipeResult result) {
+            return new Builder(result);
+        }
+
+        public static final class Builder {
+
+            private final CheckRecipeResult result;
+            private int parallel;
+            private int overclocks;
+            private int ticks;
+            private long euPerTick;
+            private long startupEu;
+
+            private Builder(CheckRecipeResult result) {
+                this.result = result;
+            }
+
+            public Builder parallel(int parallel) {
+                this.parallel = parallel;
+                return this;
+            }
+
+            public Builder overclocks(int overclocks) {
+                this.overclocks = overclocks;
+                return this;
+            }
+
+            public Builder ticks(int ticks) {
+                this.ticks = ticks;
+                return this;
+            }
+
+            public Builder euPerTick(long euPerTick) {
+                this.euPerTick = euPerTick;
+                return this;
+            }
+
+            public Builder startupEu(long startupEu) {
+                this.startupEu = startupEu;
+                return this;
+            }
+
+            @Nonnull
+            public Run build() {
+                return new Run(result, parallel, overclocks, ticks, euPerTick, startupEu);
+            }
+        }
+    }
 
     public static final ToIntFunction<Inputs> COIL_HEAT = in -> (int) HeatingCoilLevel
         .getFromTier((byte) in.value(ModifierKind.COIL))
         .getHeat();
+
+    /** The average hatch voltage, and all hatch amps, except that only 1 A of a lone regular hatch is used. */
+    private static final ToLongFunction<Inputs> STANDARD_VOLTAGE = Inputs::averageVoltage;
+    private static final ToLongFunction<Inputs> STANDARD_AMPERAGE = in -> in.isSingleRegularHatch() ? 1 : in.amperage();
 
     /** For a machine that runs a plain {@link ProcessingLogic}. */
     public static final ProcessingSpec STANDARD = builder().build();
@@ -266,6 +390,13 @@ public final class ProcessingSpec {
     private final List<Requirement> requirements;
     @Nullable
     private final RecipeOverride recipeOverride;
+    @Nullable
+    private final ToLongFunction<Inputs> voltage;
+    @Nullable
+    private final ToLongFunction<Inputs> amperage;
+    private final boolean noAmperageOverclock;
+    @Nullable
+    private final ToLongBiFunction<Inputs, GTRecipe> startupEu;
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
     private final Set<Quantity> alsoCustom;
@@ -290,6 +421,10 @@ public final class ProcessingSpec {
         this.recipeDuration = b.recipeDuration;
         this.maxOverclocks = b.maxOverclocks;
         this.requirements = new ArrayList<>(b.requirements);
+        this.voltage = b.voltage;
+        this.amperage = b.amperage;
+        this.noAmperageOverclock = b.noAmperageOverclock;
+        this.startupEu = b.startupEu;
     }
 
     @Nonnull
@@ -355,6 +490,19 @@ public final class ProcessingSpec {
             if (!requirement.met.test(inputs, recipe)) return requirement.failure.apply(inputs, recipe);
         }
         return CheckRecipeResultRegistry.SUCCESSFUL;
+    }
+
+    @Nonnull
+    public Power getPower(@Nonnull Inputs inputs) {
+        return new Power(
+            (voltage == null ? STANDARD_VOLTAGE : voltage).applyAsLong(inputs),
+            (amperage == null ? STANDARD_AMPERAGE : amperage).applyAsLong(inputs),
+            !noAmperageOverclock);
+    }
+
+    /** 0 unless the spec sets it. */
+    public long getStartupEu(@Nonnull Inputs inputs, @Nonnull GTRecipe recipe) {
+        return startupEu == null ? 0 : startupEu.applyAsLong(inputs, recipe);
     }
 
     /** 0.5 halves recipe time. */
@@ -428,6 +576,7 @@ public final class ProcessingSpec {
             case TIER_SKIPS -> maxTierSkips.isPresent();
             case HEAT -> heat != null;
             case RECIPE_OVERRIDE -> recipeOverride != null;
+            case POWER -> voltage != null || amperage != null || noAmperageOverclock || startupEu != null;
         };
     }
 
@@ -446,10 +595,7 @@ public final class ProcessingSpec {
     /** As {@link ProcessingLogic} would run the recipe. */
     @Nonnull
     public Run calculate(@Nonnull GTRecipe recipe, @Nonnull Inputs inputs) {
-        return new ProcessingLogic().setAvailableVoltage(GTValues.V[inputs.voltageTier()])
-            .setAvailableAmperage(inputs.amperage())
-            .setAmperageOC(true)
-            .applySpec(this, () -> inputs)
+        return new ProcessingLogic().applySpec(this, () -> inputs)
             .calculateForInspection(recipe);
     }
 
@@ -585,7 +731,7 @@ public final class ProcessingSpec {
 
     /** Tooltips count coil tiers from 1, for Cupronickel. */
     private static int shownTier(Inputs inputs, ModifierKind kind) {
-        return kind == ModifierKind.COIL ? inputs.value(kind) + 1 : inputs.value(kind);
+        return (int) (kind == ModifierKind.COIL ? inputs.value(kind) + 1 : inputs.value(kind));
     }
 
     public static final class Builder {
@@ -609,6 +755,10 @@ public final class ProcessingSpec {
         private ToIntBiFunction<Inputs, GTRecipe> recipeDuration;
         private ToIntBiFunction<Inputs, GTRecipe> maxOverclocks;
         private final List<Requirement> requirements = new ArrayList<>();
+        private ToLongFunction<Inputs> voltage;
+        private ToLongFunction<Inputs> amperage;
+        private boolean noAmperageOverclock;
+        private ToLongBiFunction<Inputs, GTRecipe> startupEu;
 
         private Builder() {}
 
@@ -801,6 +951,38 @@ public final class ProcessingSpec {
 
         public Builder recipeOverride(@Nonnull RecipeOverride recipeOverride) {
             this.recipeOverride = recipeOverride;
+            return this;
+        }
+
+        /**
+         * Replaces the standard power: the average hatch voltage, and all amps except that only 1 A of a lone regular
+         * hatch is used.
+         */
+        public Builder power(@Nonnull ToLongFunction<Inputs> voltage, @Nonnull ToLongFunction<Inputs> amperage) {
+            this.voltage = voltage;
+            this.amperage = amperage;
+            return this;
+        }
+
+        /** All hatch EU as one amp. */
+        public Builder powerAtOneAmp() {
+            return power(Inputs::totalEu, in -> 1);
+        }
+
+        /** Uses both amps of a lone regular hatch too. */
+        public Builder allAmps() {
+            return power(STANDARD_VOLTAGE, Inputs::amperage);
+        }
+
+        /** Extra amps add parallels only, not overclocks. */
+        public Builder noAmperageOverclock() {
+            this.noAmperageOverclock = true;
+            return this;
+        }
+
+        /** EU taken once when the machine starts from idle; its tooltip line is customTooltip or noTooltip. */
+        public Builder startupEuPerRecipe(@Nonnull ToLongBiFunction<Inputs, GTRecipe> eu) {
+            this.startupEu = eu;
             return this;
         }
 

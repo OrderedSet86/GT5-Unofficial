@@ -48,11 +48,8 @@ import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -60,7 +57,7 @@ import mcp.mobius.waila.api.IWailaDataAccessor;
 
 public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHammer> implements ISurvivalConstructable {
 
-    private static final ProcessingSpec SPEC = steamSpec().build();
+    private static final ProcessingSpec SPEC = steamSpec(1).build();
 
     public MTESteamForgeHammer(String aName) {
         super(aName);
@@ -277,7 +274,7 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     @Override
     @Nonnull
     public List<Modifier> getModifiersForInspection() {
-        return List.of(pressure(() -> tierMachine, value -> tierMachine = value));
+        return List.of(pressure(() -> tierMachine, value -> tierMachine = (int) value));
     }
 
     @Override
@@ -293,17 +290,7 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Nonnull
-            @Override
-            protected CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
-                if (availableVoltage < recipe.mEUt) {
-                    return CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
-                }
-                return CheckRecipeResultRegistry.SUCCESSFUL;
-            }
-        }.noRecipeCaching();
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override

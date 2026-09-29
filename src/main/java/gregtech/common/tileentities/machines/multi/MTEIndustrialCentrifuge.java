@@ -241,7 +241,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
             Modifier.builder(MOMENTUM)
                 .between(0, MAX_MOMENTUM)
                 .getter(() -> momentum)
-                .setter(value -> momentum = value)
+                .setter(value -> momentum = (int) value)
                 .build());
     }
 

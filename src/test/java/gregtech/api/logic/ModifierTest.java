@@ -103,7 +103,7 @@ class ModifierTest {
         Modifier modifier = Modifier.builder(PRESSURE)
             .between(1, 2)
             .getter(() -> tier[0])
-            .setter(value -> tier[0] = value)
+            .setter(value -> tier[0] = (int) value)
             .build();
 
         modifier.set(2);
