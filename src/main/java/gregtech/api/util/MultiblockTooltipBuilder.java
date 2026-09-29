@@ -9,9 +9,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -115,6 +117,7 @@ public class MultiblockTooltipBuilder {
     private static final String TT_StructureAuthor = StatCollector.translateToLocal("GT5U.MBTT.StructureBy");
 
     private List<String> iLines;
+    private final Set<Object> specLinesWritten = Collections.newSetFromMap(new IdentityHashMap<>());
     private List<String> sLines;
     private List<String> hLines;
     private List<String> authors;
@@ -358,10 +361,24 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the lines {@link ProcessingSpec#describe} writes. */
+    /**
+     * Adds the lines {@link ProcessingSpec#describe} writes, leaving out modes already written with
+     * {@link #addProcessingSpecInfo(ProcessingSpec, int)}.
+     */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
         spec.describe(this);
         return this;
+    }
+
+    /** Adds the spec's lines for one machine mode, for that mode's section of the tooltip. */
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec, int mode) {
+        spec.describeMode(this, mode);
+        return this;
+    }
+
+    /** For {@link ProcessingSpec}: false if these lines were written to this tooltip already. */
+    public boolean markSpecLinesWritten(Object lines) {
+        return specLinesWritten.add(lines);
     }
 
     /**

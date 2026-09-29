@@ -223,7 +223,7 @@ public final class ProcessingSpec {
 
     /** @param name Heads the tooltip lines, given the spec's modes; null leaves them out */
     private record Variant(Predicate<Inputs> appliesTo, Function<List<MachineMode>, String> name,
-        ProcessingSpec terms) {}
+        @Nullable Integer mode, ProcessingSpec terms) {}
 
     private static final Set<Quantity> VARIABLE = Collections.unmodifiableSet(
         EnumSet.of(
@@ -393,15 +393,14 @@ public final class ProcessingSpec {
      */
     @Nonnull
     public Set<Quantity> describe(@Nonnull MultiblockTooltipBuilder tt) {
-        EnumSet<Quantity> overridden = EnumSet.copyOf(noTooltip);
-        overridden.addAll(customTooltips.keySet());
+        EnumSet<Quantity> overridden = overridden();
         Set<Quantity> ownDescribed = describe(tt, EnumSet.noneOf(Quantity.class));
         List<Set<Quantity>> variantDescribed = new ArrayList<>();
         for (Variant variant : variants) {
             MultiblockTooltipBuilder lines = new MultiblockTooltipBuilder();
             variantDescribed.add(variant.terms.describe(lines, overridden));
             String name = variant.name.apply(modes);
-            if (name != null) {
+            if (name != null && tt.markSpecLinesWritten(variant)) {
                 tt.addLinesFrom(
                     EnumChatFormatting.WHITE + StatCollector.translateToLocal(name) + EnumChatFormatting.GRAY + ": ",
                     lines);
@@ -423,6 +422,27 @@ public final class ProcessingSpec {
             if (all) described.add(quantity);
         }
         return described;
+    }
+
+    /**
+     * Writes the {@link Builder#inMode} lines for {@code mode} without the mode's name, for a tooltip section about
+     * that
+     * mode. A later {@link #describe} leaves them out.
+     */
+    public void describeMode(@Nonnull MultiblockTooltipBuilder tt, int mode) {
+        boolean any = false;
+        for (Variant variant : variants) {
+            if (variant.mode == null || variant.mode != mode) continue;
+            any = true;
+            if (tt.markSpecLinesWritten(variant)) variant.terms.describe(tt, overridden());
+        }
+        if (!any) throw new IllegalArgumentException("no inMode terms for mode " + mode);
+    }
+
+    private EnumSet<Quantity> overridden() {
+        EnumSet<Quantity> overridden = EnumSet.copyOf(noTooltip);
+        overridden.addAll(customTooltips.keySet());
+        return overridden;
     }
 
     private EnumSet<Quantity> describe(MultiblockTooltipBuilder tt, Set<Quantity> skip) {
@@ -722,16 +742,17 @@ public final class ProcessingSpec {
                 in -> in.mode() == mode,
                 modes -> modes != null && mode < modes.size() ? modes.get(mode)
                     .nameKey() : null,
+                mode,
                 terms);
         }
 
         /** Replaces the spec's terms at one value. The lines are headed by {@link ModifierKind#label}. */
         public Builder whenTier(@Nonnull ModifierKind kind, int value, @Nonnull Consumer<Builder> terms) {
-            return variant(in -> in.value(kind) == value, modes -> kind.label(value), terms);
+            return variant(in -> in.value(kind) == value, modes -> kind.label(value), null, terms);
         }
 
         private Builder variant(Predicate<Inputs> appliesTo, Function<List<MachineMode>, String> name,
-            Consumer<Builder> terms) {
+            @Nullable Integer mode, Consumer<Builder> terms) {
             Builder variant = new Builder();
             terms.accept(variant);
             ProcessingSpec spec = variant.build();
@@ -743,7 +764,7 @@ public final class ProcessingSpec {
             if (!variant.alsoCustom.isEmpty() || !variant.variants.isEmpty() || variant.modes != null) {
                 throw new IllegalArgumentException("a mode or tier takes terms and their tooltips only");
             }
-            this.variants.add(new Variant(appliesTo, name, spec));
+            this.variants.add(new Variant(appliesTo, name, mode, spec));
             return this;
         }
 

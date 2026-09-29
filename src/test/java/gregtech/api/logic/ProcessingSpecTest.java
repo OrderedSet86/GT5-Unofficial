@@ -343,6 +343,44 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void aModeWrittenInItsOwnSectionIsNotWrittenAgain() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(
+                List.of(
+                    MachineMode.of(mock(RecipeMap.class))
+                        .nameKey("Tower"),
+                    MachineMode.of(mock(RecipeMap.class))
+                        .nameKey("Distillery")))
+            .unlimitedTierSkips()
+            .inMode(0, mode -> mode.parallel(4))
+            .inMode(
+                1,
+                mode -> mode.parallel(8)
+                    .speed(2))
+            .build();
+        MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
+
+        spec.describeMode(tt, 1);
+        assertEquals(
+            2,
+            tt.getInfoLines()
+                .size());
+        assertFalse(
+            tt.getInfoLines()
+                .get(0)
+                .contains("Distillery"),
+            "a mode's own section needs no heading");
+
+        spec.describe(tt);
+        List<String> lines = tt.getInfoLines();
+        assertEquals(4, lines.size(), "then the tier skips line and the Tower's line, but not the Distillery's again");
+        assertTrue(
+            lines.get(3)
+                .startsWith(EnumChatFormatting.WHITE + "Tower" + EnumChatFormatting.GRAY + ": "));
+        assertThrows(IllegalArgumentException.class, () -> spec.describeMode(new MultiblockTooltipBuilder(), 2));
+    }
+
+    @Test
     void whenTierAppliesAtThatValueAndIsHeadedByItsLabel() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .whenTier(
