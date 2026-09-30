@@ -1,5 +1,6 @@
 package gregtech.api.logic;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
+import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntBiFunction;
 import java.util.function.ToIntFunction;
@@ -290,18 +292,25 @@ public final class ProcessingSpec {
         TIER_SKIPS,
         HEAT,
         RECIPE_OVERRIDE,
-        /** Voltage, amperage and start-up EU. */
-        POWER
+        /** Voltage, amperage, and EU taken or given once per start or run. */
+        POWER,
+        /** Success chance and yield. */
+        OUTPUT
     }
 
     /**
-     * @param result    Unsuccessful means every number is 0
-     * @param parallel  After the energy limit
-     * @param euPerTick For all parallels together
-     * @param startupEu Taken once when the machine starts from idle
+     * @param result            Unsuccessful means every number is 0
+     * @param parallel          After the energy limit
+     * @param euPerTick         For all parallels together
+     * @param startupEu         Taken once when the machine starts from idle
+     * @param euPerRun          Taken when each run starts, besides {@code euPerTick}
+     * @param euGeneratedPerRun Given when each run ends
+     * @param successChance     Of each parallel, 0 to 1
+     * @param outputYield       Multiplies the outputs of each parallel that succeeds
      */
     public record Run(@Nonnull CheckRecipeResult result, int parallel, int overclocks, int ticks, long euPerTick,
-        long startupEu) {
+        long startupEu, @Nonnull BigInteger euPerRun, @Nonnull BigInteger euGeneratedPerRun, double successChance,
+        double outputYield) {
 
         @Nonnull
         public static Run failed(@Nonnull CheckRecipeResult result) {
@@ -321,6 +330,10 @@ public final class ProcessingSpec {
             private int ticks;
             private long euPerTick;
             private long startupEu;
+            private BigInteger euPerRun = BigInteger.ZERO;
+            private BigInteger euGeneratedPerRun = BigInteger.ZERO;
+            private double successChance = 1;
+            private double outputYield = 1;
 
             private Builder(CheckRecipeResult result) {
                 this.result = result;
@@ -351,9 +364,39 @@ public final class ProcessingSpec {
                 return this;
             }
 
+            public Builder euPerRun(@Nonnull BigInteger euPerRun) {
+                this.euPerRun = euPerRun;
+                return this;
+            }
+
+            public Builder euGeneratedPerRun(@Nonnull BigInteger euGeneratedPerRun) {
+                this.euGeneratedPerRun = euGeneratedPerRun;
+                return this;
+            }
+
+            public Builder successChance(double successChance) {
+                this.successChance = successChance;
+                return this;
+            }
+
+            public Builder outputYield(double outputYield) {
+                this.outputYield = outputYield;
+                return this;
+            }
+
             @Nonnull
             public Run build() {
-                return new Run(result, parallel, overclocks, ticks, euPerTick, startupEu);
+                return new Run(
+                    result,
+                    parallel,
+                    overclocks,
+                    ticks,
+                    euPerTick,
+                    startupEu,
+                    euPerRun,
+                    euGeneratedPerRun,
+                    successChance,
+                    outputYield);
             }
         }
     }
@@ -424,6 +467,14 @@ public final class ProcessingSpec {
     private final Predicate<Inputs> unlimitedEnergy;
     @Nullable
     private final ToLongBiFunction<Inputs, GTRecipe> startupEu;
+    @Nullable
+    private final BiFunction<Inputs, GTRecipe, BigInteger> euPerRun;
+    @Nullable
+    private final BiFunction<Inputs, GTRecipe, BigInteger> euGeneratedPerRun;
+    @Nullable
+    private final ToDoubleBiFunction<Inputs, GTRecipe> successChance;
+    @Nullable
+    private final ToDoubleBiFunction<Inputs, GTRecipe> outputYield;
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
     private final Set<Quantity> alsoCustom;
@@ -457,6 +508,10 @@ public final class ProcessingSpec {
         this.noAmperageOverclock = b.noAmperageOverclock;
         this.unlimitedEnergy = b.unlimitedEnergy;
         this.startupEu = b.startupEu;
+        this.euPerRun = b.euPerRun;
+        this.euGeneratedPerRun = b.euGeneratedPerRun;
+        this.successChance = b.successChance;
+        this.outputYield = b.outputYield;
     }
 
     @Nonnull
@@ -551,6 +606,28 @@ public final class ProcessingSpec {
         return startupEu == null ? 0 : startupEu.applyAsLong(inputs, recipe);
     }
 
+    /** 0 unless the spec sets it. */
+    @Nonnull
+    public BigInteger getEuPerRun(@Nonnull Inputs inputs, @Nonnull GTRecipe recipe) {
+        return euPerRun == null ? BigInteger.ZERO : euPerRun.apply(inputs, recipe);
+    }
+
+    /** 0 unless the spec sets it. */
+    @Nonnull
+    public BigInteger getEuGeneratedPerRun(@Nonnull Inputs inputs, @Nonnull GTRecipe recipe) {
+        return euGeneratedPerRun == null ? BigInteger.ZERO : euGeneratedPerRun.apply(inputs, recipe);
+    }
+
+    /** 1 unless the spec sets it. */
+    public double getSuccessChance(@Nonnull Inputs inputs, @Nonnull GTRecipe recipe) {
+        return successChance == null ? 1 : successChance.applyAsDouble(inputs, recipe);
+    }
+
+    /** 1 unless the spec sets it. */
+    public double getOutputYield(@Nonnull Inputs inputs, @Nonnull GTRecipe recipe) {
+        return outputYield == null ? 1 : outputYield.applyAsDouble(inputs, recipe);
+    }
+
     /** 0.5 halves recipe time. */
     public double getDurationMultiplier(@Nonnull Inputs inputs) {
         return value(inputs, spec -> spec.duration);
@@ -643,7 +720,10 @@ public final class ProcessingSpec {
                 || noAmperageOverclock
                 || unlimitedEnergy != null
                 || startupEu != null
-                || !startRequirements.isEmpty();
+                || !startRequirements.isEmpty()
+                || euPerRun != null
+                || euGeneratedPerRun != null;
+            case OUTPUT -> successChance != null || outputYield != null;
         };
     }
 
@@ -842,6 +922,10 @@ public final class ProcessingSpec {
         private boolean noAmperageOverclock;
         private Predicate<Inputs> unlimitedEnergy;
         private ToLongBiFunction<Inputs, GTRecipe> startupEu;
+        private BiFunction<Inputs, GTRecipe, BigInteger> euPerRun;
+        private BiFunction<Inputs, GTRecipe, BigInteger> euGeneratedPerRun;
+        private ToDoubleBiFunction<Inputs, GTRecipe> successChance;
+        private ToDoubleBiFunction<Inputs, GTRecipe> outputYield;
 
         private Builder() {}
 
@@ -1090,6 +1174,30 @@ public final class ProcessingSpec {
         /** EU taken once when the machine starts from idle; its tooltip line is customTooltip or noTooltip. */
         public Builder startupEuPerRecipe(@Nonnull ToLongBiFunction<Inputs, GTRecipe> eu) {
             this.startupEu = eu;
+            return this;
+        }
+
+        /** EU taken when each run starts, besides EU/t; its tooltip line is customTooltip or noTooltip. */
+        public Builder euPerRunPerRecipe(@Nonnull BiFunction<Inputs, GTRecipe, BigInteger> eu) {
+            this.euPerRun = eu;
+            return this;
+        }
+
+        /** EU given when each run ends; its tooltip line is customTooltip or noTooltip. */
+        public Builder euGeneratedPerRecipe(@Nonnull BiFunction<Inputs, GTRecipe, BigInteger> eu) {
+            this.euGeneratedPerRun = eu;
+            return this;
+        }
+
+        /** The chance, 0 to 1, that each parallel succeeds; its tooltip line is customTooltip or noTooltip. */
+        public Builder successChancePerRecipe(@Nonnull ToDoubleBiFunction<Inputs, GTRecipe> chance) {
+            this.successChance = chance;
+            return this;
+        }
+
+        /** Multiplies the outputs of each parallel that succeeds; its tooltip line is customTooltip or noTooltip. */
+        public Builder outputYieldPerRecipe(@Nonnull ToDoubleBiFunction<Inputs, GTRecipe> yield) {
+            this.outputYield = yield;
             return this;
         }
 

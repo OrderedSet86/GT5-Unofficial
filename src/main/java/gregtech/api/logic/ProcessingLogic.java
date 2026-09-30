@@ -1,5 +1,6 @@
 package gregtech.api.logic;
 
+import java.math.BigInteger;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -733,6 +734,10 @@ public class ProcessingLogic {
             .ticks(calculator.getDuration())
             .euPerTick(calculator.getConsumption())
             .startupEu(spec == null ? 0 : spec.getStartupEu(specInputs.get(), run))
+            .euPerRun(spec == null ? BigInteger.ZERO : spec.getEuPerRun(specInputs.get(), run))
+            .euGeneratedPerRun(spec == null ? BigInteger.ZERO : spec.getEuGeneratedPerRun(specInputs.get(), run))
+            .successChance(spec == null ? 1 : spec.getSuccessChance(specInputs.get(), run))
+            .outputYield(spec == null ? 1 : spec.getOutputYield(specInputs.get(), run))
             .build();
     }
 

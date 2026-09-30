@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -593,6 +594,36 @@ class ProcessingSpecTest {
                 .result()
                 .wasSuccessful());
         assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
+    }
+
+    @Test
+    void theRunCarriesEuPerRunAndItsOutputOdds() {
+        ProcessingSpec plain = ProcessingSpec.STANDARD;
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .euPerRunPerRecipe(
+                (in, recipe) -> BigInteger.valueOf(recipe.mDuration)
+                    .pow(3))
+            .euGeneratedPerRecipe((in, recipe) -> BigInteger.TEN)
+            .successChancePerRecipe((in, recipe) -> 0.25)
+            .outputYieldPerRecipe((in, recipe) -> 0.5)
+            .noTooltip(ProcessingSpec.Quantity.POWER, ProcessingSpec.Quantity.OUTPUT)
+            .build();
+        ProcessingSpec.Inputs hv = inputs(VoltageIndex.HV, 0);
+
+        ProcessingSpec.Run defaults = plain.calculate(recipe(30, 100, 0), hv);
+        ProcessingSpec.Run run = spec.calculate(recipe(30, 100_000, 0), hv);
+
+        assertEquals(BigInteger.ZERO, defaults.euPerRun());
+        assertEquals(BigInteger.ZERO, defaults.euGeneratedPerRun());
+        assertEquals(1, defaults.successChance());
+        assertEquals(1, defaults.outputYield());
+        assertEquals(new BigInteger("1000000000000000"), run.euPerRun());
+        assertEquals(BigInteger.TEN, run.euGeneratedPerRun());
+        assertEquals(0.25, run.successChance());
+        assertEquals(0.5, run.outputYield());
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
     }
 
     @Test
