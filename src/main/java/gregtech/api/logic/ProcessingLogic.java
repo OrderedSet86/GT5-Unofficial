@@ -544,7 +544,7 @@ public class ProcessingLogic {
             return CheckRecipeResultRegistry.DURATION_OVERFLOW;
         }
 
-        calculatedEut = calculator.getConsumption();
+        calculatedEut = maxEuPerTick(calculator);
 
         double finalDuration = calculateDuration(recipe, helper, calculator);
         if (finalDuration >= Integer.MAX_VALUE) {
@@ -622,6 +622,11 @@ public class ProcessingLogic {
             .enableBatchMode(batchSize)
             .setConsumption(true)
             .setOutputCalculation(true);
+    }
+
+    private long maxEuPerTick(OverclockCalculator calculator) {
+        long consumption = calculator.getConsumption();
+        return spec == null ? consumption : Math.min(spec.getMaxEuPerTick(specInputs.get()), consumption);
     }
 
     private long availableEUt() {
@@ -732,7 +737,7 @@ public class ProcessingLogic {
             .parallel(helper.getCurrentParallel())
             .overclocks(calculator.getPerformedOverclocks())
             .ticks(calculator.getDuration())
-            .euPerTick(calculator.getConsumption())
+            .euPerTick(maxEuPerTick(calculator))
             .startupEu(spec == null ? 0 : spec.getStartupEu(specInputs.get(), run))
             .euPerRun(spec == null ? BigInteger.ZERO : spec.getEuPerRun(specInputs.get(), run))
             .euGeneratedPerRun(spec == null ? BigInteger.ZERO : spec.getEuGeneratedPerRun(specInputs.get(), run))

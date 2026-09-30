@@ -74,6 +74,11 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
             ProcessingSpec.RecipeOverride.eut(4)
                 .duration(128))
         .noTooltip(ProcessingSpec.Quantity.RECIPE_OVERRIDE)
+        // the summed hatch voltage, rounded up to a tier, at one amp; a run draws at most the average hatch's tier
+        .power(in -> GTUtility.roundUpVoltage(in.totalVoltage()), in -> 1)
+        .noAmperageOverclock()
+        .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])
+        .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
     private static final ProcessingSpec.RecipeOverride RECIPE = SPEC.getRecipeOverride()
         .get();
@@ -180,7 +185,9 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     @NotNull
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
-        long availableEUt = GTUtility.roundUpVoltage(getMaxInputVoltage());
+        ProcessingSpec.Inputs inputs = getCurrentProcessingSpecInputs();
+        long availableEUt = SPEC.getPower(inputs)
+            .voltage();
         if (availableEUt < RECIPE.eut()) {
             return CheckRecipeResultRegistry.insufficientPower(RECIPE.eut());
         }
@@ -270,7 +277,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         this.mEfficiency = 10000 - (getIdealStatus() - getRepairStatus()) * 1000;
         this.mEfficiencyIncrease = 10000;
         this.mMaxProgresstime = (int) (calculator.getDuration() * batchMultiplierMax);
-        this.lEUt = Math.min(VP[GTUtility.getTier(getAverageInputVoltage())], calculator.getConsumption());
+        this.lEUt = Math.min(SPEC.getMaxEuPerTick(inputs), calculator.getConsumption());
         if (this.lEUt > 0) {
             this.lEUt = -this.lEUt;
         }

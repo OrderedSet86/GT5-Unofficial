@@ -466,6 +466,8 @@ public final class ProcessingSpec {
     @Nullable
     private final Predicate<Inputs> unlimitedEnergy;
     @Nullable
+    private final ToLongFunction<Inputs> maxEuPerTick;
+    @Nullable
     private final ToLongBiFunction<Inputs, GTRecipe> startupEu;
     @Nullable
     private final BiFunction<Inputs, GTRecipe, BigInteger> euPerRun;
@@ -507,6 +509,7 @@ public final class ProcessingSpec {
         this.amperage = b.amperage;
         this.noAmperageOverclock = b.noAmperageOverclock;
         this.unlimitedEnergy = b.unlimitedEnergy;
+        this.maxEuPerTick = b.maxEuPerTick;
         this.startupEu = b.startupEu;
         this.euPerRun = b.euPerRun;
         this.euGeneratedPerRun = b.euGeneratedPerRun;
@@ -599,6 +602,11 @@ public final class ProcessingSpec {
             (amperage == null ? STANDARD_AMPERAGE : amperage).applyAsLong(inputs),
             !noAmperageOverclock,
             unlimitedEnergy != null && unlimitedEnergy.test(inputs));
+    }
+
+    /** {@link Long#MAX_VALUE} unless the spec caps it. */
+    public long getMaxEuPerTick(@Nonnull Inputs inputs) {
+        return maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs);
     }
 
     /** 0 unless the spec sets it. */
@@ -719,6 +727,7 @@ public final class ProcessingSpec {
             case POWER -> voltage != null || amperage != null
                 || noAmperageOverclock
                 || unlimitedEnergy != null
+                || maxEuPerTick != null
                 || startupEu != null
                 || !startRequirements.isEmpty()
                 || euPerRun != null
@@ -921,6 +930,7 @@ public final class ProcessingSpec {
         private ToLongFunction<Inputs> amperage;
         private boolean noAmperageOverclock;
         private Predicate<Inputs> unlimitedEnergy;
+        private ToLongFunction<Inputs> maxEuPerTick;
         private ToLongBiFunction<Inputs, GTRecipe> startupEu;
         private BiFunction<Inputs, GTRecipe, BigInteger> euPerRun;
         private BiFunction<Inputs, GTRecipe, BigInteger> euGeneratedPerRun;
@@ -1152,6 +1162,12 @@ public final class ProcessingSpec {
         /** Extra amps add parallels only, not overclocks. */
         public Builder noAmperageOverclock() {
             this.noAmperageOverclock = true;
+            return this;
+        }
+
+        /** The most EU/t a run draws, whatever its overclocks cost. */
+        public Builder maxEuPerTick(@Nonnull ToLongFunction<Inputs> maxEuPerTick) {
+            this.maxEuPerTick = maxEuPerTick;
             return this;
         }
 

@@ -627,6 +627,20 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void aRunDrawsNoMoreThanTheCap() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(16)
+            .maxEuPerTick(in -> 100)
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .build();
+
+        ProcessingSpec.Run run = spec.calculate(recipe(30, 100, 0), inputs(VoltageIndex.HV, 0));
+
+        assertEquals(16, run.parallel());
+        assertEquals(100, run.euPerTick(), "16 parallels at 30 EU/t would cost 480");
+    }
+
+    @Test
     void theVoltageTierReadsTheSummedHatchVoltage() {
         ProcessingSpec.Inputs twoLuv = ProcessingSpec.Inputs.builder()
             .energyHatches(VoltageIndex.LuV, 2)
