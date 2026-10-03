@@ -60,7 +60,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.misc.GTStructureChannels;
 
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
@@ -68,6 +67,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
+    private static final int MAX_LAYERS = 5;
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(RecipeMaps.distillationTowerRecipes)
             .nameKey("GT5U.MDT.mode.0")
@@ -90,14 +90,17 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             mode -> mode
                 // 512 - 1024 parallels min to max height
                 .parallel(
-                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2))
+                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2),
+                    ModifierKind.LENGTH)
                 .customTooltip(
                     ProcessingSpec.Quantity.PARALLEL,
-                    tt -> tt.addInfo(
-                        TooltipHelper.parallelText(
-                            Configuration.Multiblocks.megaMachinesMax + " * (1 + Tower Height/2)") + " Parallels"))
+                    tt -> tt.addParallelFormulaInfo(
+                        StatCollector.translateToLocalFormatted(
+                            "GT5U.MDT.parallel.distillery",
+                            Configuration.Multiblocks.megaMachinesMax)))
                 .speed(2)
                 .euModifier(0.5))
+        .range(ModifierKind.LENGTH, 1, MAX_LAYERS)
         .unlimitedTierSkips()
         .powerAtOneAmp()
         .noTooltip(ProcessingSpec.Quantity.POWER)
@@ -116,7 +119,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     private static final int LAYER_OFFSET_BASE = 9;
     private static final int LAYER_OFFSET_INCREMENT = 6;
     private static final int FINAL_LAYER_OFFSET = 12;
-    private static final int MAX_LAYERS = 5;
 
     protected static final String STRUCTURE_PIECE_LAYER = "layer";
     protected static final String STRUCTURE_PIECE_TOP = "top";
@@ -318,14 +320,9 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
+    public List<Modifier> getModifiersForInspection() {
         // checkMachine leaves height one above the middle layer count
-        return List.of(
-            Modifier.builder(ModifierKind.LENGTH)
-                .between(1, MAX_LAYERS)
-                .getter(() -> height - 1)
-                .setter(layers -> height = layers + 1)
-                .build());
+        return List.of(Modifier.of(ModifierKind.LENGTH, () -> height - 1, layers -> height = layers + 1));
     }
 
     @Override

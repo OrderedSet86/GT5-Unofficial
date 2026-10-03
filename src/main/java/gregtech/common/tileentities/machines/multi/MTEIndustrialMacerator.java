@@ -93,10 +93,11 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     private static final int OFFSET_Z_T2 = 0;
 
     /** {@link #TIER_UPGRADED} once a Maceration Upgrade Chip is inserted. */
-    public static final ModifierKind<Integer> UPGRADE_CHIP = ModifierKind.ofInt("gregtech:maceration_upgrade_chip")
+    public static final ModifierKind.IntKind UPGRADE_CHIP = ModifierKind.ofInt("gregtech:maceration_upgrade_chip")
         .name("GT5U.MBTT.Tiers.MacerationUpgradeChip")
         .source(ModifierKind.Source.ITEM)
         .ordered()
+        .range(TIER_BASE, TIER_UPGRADED)
         .labels(TIER_BASE, "GT5U.MBTT.Tiers.One", "GT5U.MBTT.Tiers.Two")
         .register();
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
@@ -236,7 +237,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         structureTier = -1;
         if (!checkPiece(getActiveStructurePiece(), getActiveOffsetX(), getActiveOffsetY(), getActiveOffsetZ(), errors))
             return;
-        updateStructureTier();
+        structureTier = controllerTier == TIER_UPGRADED ? TIER_UPGRADED : TIER_BASE;
         int minCasings = structureTier == 2 ? 69 : 26;
         checkCasingMin(errors, casingAmount, minCasings);
         checkHasEnergyHatch(errors);
@@ -247,22 +248,10 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         if (errors.isEmpty()) updateHatchTexture();
     }
 
-    private void updateStructureTier() {
-        structureTier = controllerTier == TIER_UPGRADED ? TIER_UPGRADED : TIER_BASE;
-    }
-
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
-        return List.of(
-            Modifier.builder(UPGRADE_CHIP)
-                .between(TIER_BASE, TIER_UPGRADED)
-                .getter(() -> controllerTier)
-                .setter(tier -> {
-                    controllerTier = tier;
-                    updateStructureTier();
-                })
-                .build());
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(Modifier.of(UPGRADE_CHIP, () -> controllerTier, tier -> controllerTier = tier));
     }
 
     protected void updateHatchTexture() {

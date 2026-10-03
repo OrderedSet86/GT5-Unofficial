@@ -5,26 +5,49 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTRecipe;
-import gregtech.api.util.OverclockCalculator;
 
 class ProcessingLogicTest {
 
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerTier(16, ModifierKind.VOLTAGE)
+        .speed(2)
+        .euModifier(0.75)
+        .build();
+    private static final ProcessingInputs LUV = ProcessingInputs.builder()
+        .energyHatches(VoltageIndex.LuV, 2)
+        .build();
+
     @Test
-    void inspectionCalculatorCarriesTheLogicsModifiers() {
-        ProcessingLogic logic = new ProcessingLogic().setSpeedBonus(0.5)
-            .setEuModifier(0.75)
-            .enablePerfectOverclock()
-            .setUnlimitedTierSkips();
+    void aMachineRunsARecipeAsItsSpecSays() {
         GTRecipe recipe = recipe(30, 200, 0);
 
-        OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe);
+        ProcessingRun machine = new ProcessingLogic().setSpec(SPEC, LUV)
+            .inspect(recipe);
 
-        assertEquals(30, calculator.getRecipeEUt());
-        assertEquals(200, calculator.getRecipeDuration());
-        assertEquals(0.5, calculator.getDurationModifier());
-        assertEquals(0.75, calculator.getEUtDiscount());
-        assertEquals(4, calculator.getDurationDecreasePerOC());
-        assertEquals(Integer.MAX_VALUE, calculator.getMaxTierSkips());
+        assertEquals(SPEC.calculate(recipe, LUV), machine);
+    }
+
+    /** As the scanner shows it. */
+    @Test
+    void theHighestRecipeVoltageFollowsTheSpec() {
+        ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)
+            .setSpec(
+                ProcessingSpec.builder()
+                    .unlimitedTierSkips()
+                    .build(),
+                LUV);
+
+        assertEquals(Long.MAX_VALUE, logic.getMaxAllowedRecipeEUt());
+    }
+
+    @Test
+    void thePowerPanelCapsTheSpecsParallels() {
+        ProcessingRun capped = new ProcessingLogic().setSpec(SPEC, LUV)
+            .setParallelLimit(5)
+            .inspect(recipe(30, 200, 0));
+
+        assertEquals(5, capped.parallel());
     }
 }

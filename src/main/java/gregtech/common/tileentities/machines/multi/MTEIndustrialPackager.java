@@ -251,7 +251,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
+    public List<Modifier> getModifiersForInspection() {
         return List.of(ITEM_PIPE.of(this));
     }
 

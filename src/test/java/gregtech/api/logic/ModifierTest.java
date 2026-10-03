@@ -19,7 +19,6 @@ class ModifierTest {
 
         Byte solenoid;
         int pipe = -1;
-        int derived;
 
         Byte getSolenoid() {
             return solenoid;
@@ -43,11 +42,12 @@ class ModifierTest {
         DIAMOND
     }
 
-    private static final ModifierKind<Integer> PRESSURE = ModifierKind.ofInt("test:pressure")
+    private static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("test:pressure")
         .ordered()
+        .range(1, 2)
         .labels(1, "Basic", "High Pressure")
         .register();
-    private static final ModifierKind<Integer> BLADE = ModifierKind.ofEnum("test:blade", Blade.values())
+    private static final ModifierKind.IntKind BLADE = ModifierKind.ofEnum("test:blade", Blade.values())
         .source(ModifierKind.Source.ITEM)
         .register();
 
@@ -75,38 +75,20 @@ class ModifierTest {
 
     @Test
     void theItemPipeRangeIsTheCasingList() {
-        Modifier<Integer> pipe = ITEM_PIPE.of(new Machine());
+        ModifierRange range = ModifierKind.ITEM_PIPE_CASING.getRange();
 
-        assertEquals(1, pipe.min);
-        assertEquals(GTStructureUtility.ITEM_PIPE_CASING_TIERS, pipe.max);
-        assertEquals(-1, pipe.get());
-        assertThrows(IllegalArgumentException.class, () -> pipe.set(0));
-    }
-
-    @Test
-    void derivingAfterSetRunsOnlyForInspection() {
-        Machine machine = new Machine();
-        Modifier.Of<Machine, Integer> deriving = ITEM_PIPE.derivingAfterSet(m -> m.derived = 2 * m.pipe);
-
-        ITEM_PIPE.of(machine)
-            .set(3);
-        assertEquals(0, machine.derived);
-        // the structure element sets only the value. The machine derives after its structure check.
-        assertSame(ITEM_PIPE.proxiedElement, deriving.proxiedElement);
-
-        deriving.of(machine)
-            .set(4);
-        assertEquals(8, machine.derived);
+        assertEquals(1, range.min());
+        assertEquals(GTStructureUtility.ITEM_PIPE_CASING_TIERS, range.max());
+        assertEquals(
+            -1,
+            ITEM_PIPE.of(new Machine())
+                .get());
     }
 
     @Test
     void theKindNamesItsValues() {
         int[] tier = { 1 };
-        Modifier<Integer> modifier = Modifier.builder(PRESSURE)
-            .between(1, 2)
-            .getter(() -> tier[0])
-            .setter(value -> tier[0] = value)
-            .build();
+        Modifier modifier = Modifier.of(PRESSURE, () -> tier[0], value -> tier[0] = value);
 
         modifier.set(2);
 
@@ -119,13 +101,16 @@ class ModifierTest {
     @Test
     void anEnumPartIsNumberedByOrdinal() {
         Blade[] blade = { null };
-        Modifier<Integer> modifier = Modifier.ofEnum(BLADE, Blade.values(), () -> blade[0], value -> blade[0] = value);
+        Modifier modifier = Modifier.ofEnum(BLADE, Blade.values(), () -> blade[0], value -> blade[0] = value);
 
         assertEquals(-1, modifier.get());
         modifier.set(1);
 
         assertEquals(Blade.DIAMOND, blade[0]);
-        assertEquals(1, modifier.max);
+        assertEquals(
+            1,
+            BLADE.getRange()
+                .max());
         assertEquals("DIAMOND", BLADE.label(1));
         assertEquals("None", BLADE.label(-1));
         assertFalse(BLADE.ordered);
@@ -134,18 +119,14 @@ class ModifierTest {
 
     @Test
     void aValueHasItsKindsType() {
-        ModifierKind<Long> stored = ModifierKind.ofLong("test:stored_fluid")
+        ModifierKind.LongKind stored = ModifierKind.ofLong("test:stored_fluid")
             .source(ModifierKind.Source.RUNTIME)
             .register();
         long[] litres = { 0 };
-        Modifier<Long> modifier = Modifier.builder(stored)
-            .between(0L, 10_000_000_000L)
-            .getter(() -> litres[0])
-            .setter(value -> litres[0] = value)
-            .build();
+        Modifier modifier = Modifier.of(stored, () -> litres[0], value -> litres[0] = value);
 
-        modifier.setToMax();
-        ProcessingSpec.Inputs inputs = ProcessingSpec.Inputs.builder()
+        modifier.set(10_000_000_000L);
+        ProcessingInputs inputs = ProcessingInputs.builder()
             .modifiers(List.of(modifier))
             .value(ModifierKind.COIL, 3)
             .build();
@@ -154,6 +135,19 @@ class ModifierTest {
 
         assertEquals(10_000_000_000L, amount);
         assertEquals(3, coil);
+    }
+
+    /** No default arm: a new kind of value stops this compiling until it is handled. */
+    @Test
+    void aPlannerHandlesEachKindOfValue() {
+        for (ModifierKind kind : List.of(ModifierKind.COIL, ModifierKind.ofLong("test:litres")
+            .register())) {
+            String control = switch (kind) {
+                case ModifierKind.IntKind tier -> "slider";
+                case ModifierKind.LongKind amount -> "number field";
+            };
+            assertEquals(kind == ModifierKind.COIL ? "slider" : "number field", control);
+        }
     }
 
     @Test

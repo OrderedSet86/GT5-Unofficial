@@ -273,8 +273,8 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
-        return List.of(pressure(() -> tierMachine, value -> tierMachine = value));
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(Modifier.of(PRESSURE, () -> tierMachine, value -> tierMachine = value));
     }
 
     @Override

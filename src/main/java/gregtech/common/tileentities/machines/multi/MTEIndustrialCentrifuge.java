@@ -75,10 +75,11 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Z = 1;
 
     private static final int MAX_MOMENTUM = 100;
-    public static final ModifierKind<Integer> MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
+    public static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
         .name("GT5U.MBTT.Tiers.Momentum")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()
+        .range(0, MAX_MOMENTUM)
         .register();
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerVoltageTierRising(4, 8, MOMENTUM, MAX_MOMENTUM)
@@ -216,13 +217,8 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
-        return List.of(
-            Modifier.builder(MOMENTUM)
-                .between(0, MAX_MOMENTUM)
-                .getter(() -> momentum)
-                .setter(value -> momentum = value)
-                .build());
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(Modifier.of(MOMENTUM, () -> momentum, value -> momentum = value));
     }
 
     private int casingAmount;

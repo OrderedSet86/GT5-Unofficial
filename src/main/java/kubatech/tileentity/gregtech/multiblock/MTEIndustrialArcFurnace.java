@@ -76,6 +76,7 @@ import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -123,16 +124,17 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
     /** Not ordered: no electrode is best at everything. */
-    public static final ModifierKind<Integer> ELECTRODE = ModifierKind
+    public static final ModifierKind.IntKind ELECTRODE = ModifierKind
         .ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
         .register();
     /** The Infinity electrode's parallel, which doubles with every run from 1. */
-    public static final ModifierKind<Integer> INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
+    public static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
         .name("GT5U.MBTT.Tiers.InfinityParallel")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()
+        .range(1, Integer.MAX_VALUE)
         .register();
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(arcFurnaceRecipes)
@@ -149,15 +151,16 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static ProcessingSpec createProcessingSpec() {
         ProcessingSpec.Builder spec = ProcessingSpec.builder()
             .modes(MODES)
-            .parallel(MTEIndustrialArcFurnace::electrodeParallel)
-            .durationMultiplier(in -> {
+            .reads(ELECTRODE)
+            .parallel(MTEIndustrialArcFurnace::electrodeParallel, ELECTRODE, INFINITY_PARALLEL)
+            .speed(in -> {
                 ArcFurnaceElectrode electrode = electrode(in);
-                return electrode == null ? 1 : 1d / electrode.speedModifier;
-            })
+                return electrode == null ? 1 : electrode.speedModifier;
+            }, ELECTRODE)
             .euModifier(in -> {
                 ArcFurnaceElectrode electrode = electrode(in);
                 return electrode == null ? 1 : electrode.euModifier;
-            })
+            }, ELECTRODE)
             .maxOverclocksPerRecipe(
                 (in, recipe) -> (int) GTUtility.log4(in.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
             .maxTierSkips(0)
@@ -366,14 +369,13 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
+    public List<Modifier> getModifiersForInspection() {
         return List.of(
             Modifier.ofEnum(ELECTRODE, ArcFurnaceElectrode.values(), () -> electrode, value -> electrode = value),
-            Modifier.builder(INFINITY_PARALLEL)
-                .between(1, Integer.MAX_VALUE)
-                .getter(() -> ArcFurnaceElectrode.getInfinityTargetParallel(effectState))
-                .setter(value -> ArcFurnaceElectrode.setInfinityTargetParallel(effectState, value))
-                .build());
+            Modifier.of(
+                INFINITY_PARALLEL,
+                () -> ArcFurnaceElectrode.getInfinityTargetParallel(effectState),
+                value -> ArcFurnaceElectrode.setInfinityTargetParallel(effectState, value)));
     }
 
     @Override
@@ -1049,19 +1051,19 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     }
 
     @Nullable
-    private static ArcFurnaceElectrode electrode(ProcessingSpec.Inputs inputs) {
+    private static ArcFurnaceElectrode electrode(ProcessingInputs inputs) {
         int index = inputs.value(ELECTRODE);
         return index < 0 ? null : ArcFurnaceElectrode.values()[index];
     }
 
-    private static int electrodeParallel(ProcessingSpec.Inputs inputs) {
+    private static int electrodeParallel(ProcessingInputs inputs) {
         ArcFurnaceElectrode electrode = electrode(inputs);
         if (electrode == null) return 1;
         return electrode == ArcFurnaceElectrode.InfinityElectrode ? inputs.value(INFINITY_PARALLEL)
             : electrode.parallelLimit;
     }
 
-    private static long ignitionEuPerTick(ProcessingSpec.Inputs inputs) {
+    private static long ignitionEuPerTick(ProcessingInputs inputs) {
         ArcFurnaceElectrode electrode = electrode(inputs);
         if (electrode == null) return 0;
         long use = (long) electrode.startupEuPerTick(inputs.averageVoltage(), electrodeParallel(inputs));

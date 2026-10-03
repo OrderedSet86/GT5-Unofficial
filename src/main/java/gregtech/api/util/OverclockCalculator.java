@@ -79,8 +79,8 @@ public class OverclockCalculator {
     private record ResultLaserOCs(int regularOverclocks, int laserOverclocks, double eutOverclock) {}
 
     // Constants
-    protected static final int HEAT_DISCOUNT_THRESHOLD = 900;
-    protected static final int HEAT_OVERCLOCK_THRESHOLD = 1800;
+    public static final int HEAT_DISCOUNT_THRESHOLD = 900;
+    public static final int HEAT_OVERCLOCK_THRESHOLD = 1800;
 
     /** Creates calculator that doesn't do OC at all. Will use recipe duration. */
     public static OverclockCalculator ofNoOverclock(@Nonnull GTRecipe recipe) {

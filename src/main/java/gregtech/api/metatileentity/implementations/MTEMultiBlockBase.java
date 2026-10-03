@@ -109,7 +109,9 @@ import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingRun;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
@@ -130,7 +132,6 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.GTWaila;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.OutputHatchWrapper;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 import gregtech.api.util.VoidProtectionHelper;
 import gregtech.api.util.shutdown.ShutDownReason;
@@ -214,7 +215,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     protected boolean usesTurbine = false;
     protected boolean canBeMuffled = true;
     protected boolean debugEnergyPresent = false;
-    private List<ProcessingSpec.EnergyHatch> energyHatchesForInspection;
+    private List<ProcessingInputs.EnergyHatch> energyHatchesForInspection;
     /** A pending IMMEDIATE recipe-check push (new inputs, drained output, user/structure change); never throttled. */
     protected boolean recipeCheckImmediately = false;
     /**
@@ -1147,9 +1148,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         setProcessingLogicPower(logic);
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
-            logic.applySpec(spec, getCurrentProcessingSpecInputs());
-            // keeps the power panel's limit and any getMaxParallelRecipes() override, below a parallel per recipe
-            if (spec.sets(ProcessingSpec.Quantity.PARALLEL)) logic.setMaxParallelSupplier(this::getTrueParallel);
+            logic.setSpec(spec, getCurrentProcessingSpecInputs())
+                .setParallelLimit(alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel);
         }
     }
 
@@ -2170,8 +2170,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     @Nonnull
-    public ProcessingSpec.Inputs getCurrentProcessingSpecInputs() {
-        return ProcessingSpec.Inputs.builder()
+    public ProcessingInputs getCurrentProcessingSpecInputs() {
+        return ProcessingInputs.builder()
             .energyHatches(energyHatchesForInspection != null ? energyHatchesForInspection : getSpecEnergyHatches())
             .mode(getMachineMode())
             .modifiers(getModifiersForInspection())
@@ -2184,66 +2184,48 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return mEnergyHatches;
     }
 
-    private List<ProcessingSpec.EnergyHatch> getSpecEnergyHatches() {
-        List<ProcessingSpec.EnergyHatch> hatches = new ArrayList<>();
+    private List<ProcessingInputs.EnergyHatch> getSpecEnergyHatches() {
+        List<ProcessingInputs.EnergyHatch> hatches = new ArrayList<>();
         for (MTEHatch hatch : getPowerHatches()) {
             boolean exotic = !(hatch instanceof MTEHatchEnergy) || hatch instanceof MTEHatchEnergyDebug;
             if (hatch.isValid()) {
                 long voltage = hatch.getBaseMetaTileEntity()
                     .getInputVoltage();
-                hatches.add(new ProcessingSpec.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
+                hatches.add(new ProcessingInputs.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
             } else {
-                // the average voltage counts it, the amperage and EU sums skip it
-                hatches.add(new ProcessingSpec.EnergyHatch(0, 0, exotic));
+                hatches.add(ProcessingInputs.EnergyHatch.disconnected(exotic));
             }
         }
         return hatches;
     }
 
-    /** For planners, on a {@link #newMetaEntity} copy: the energy hatches the copy reads in place of the built ones. */
-    public final void setEnergyHatchesForInspection(@Nonnull List<ProcessingSpec.EnergyHatch> hatches) {
+    /**
+     * For the conformance check, on a {@link #newMetaEntity} copy: the energy hatches the copy reads in place of the
+     * built ones.
+     */
+    public final void setEnergyHatchesForInspection(@Nonnull List<ProcessingInputs.EnergyHatch> hatches) {
         this.energyHatchesForInspection = hatches;
     }
 
-    /** @return null on a prototype. Use {@link #newMetaEntity} first. */
-    @Nullable
-    public ProcessingLogic getProcessingLogic() {
-        return processingLogic;
-    }
-
     /**
-     * For planners, on a {@link #newMetaEntity} copy. Machine code must not call this. The calculator comes before
-     * {@link OverclockCalculator#calculate()}, and the max parallel is then
-     * {@code getProcessingLogic().getResolvedMaxParallel()}.
+     * For the conformance check, on a {@link #newMetaEntity} copy: the recipe through the machine's own processing
+     * logic, which should match {@link ProcessingSpec#calculate}.
      *
-     * @return null if the machine has no processing logic
+     * @return null if the machine has no spec or no processing logic
      */
     @Nullable
-    public final OverclockCalculator createOverclockCalculatorForInspection(@Nonnull GTRecipe recipe) {
-        if (processingLogic == null) return null;
+    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe) {
+        if (processingLogic == null || getProcessingSpec() == null) return null;
         setupProcessingLogic(processingLogic);
-        return processingLogic.createOverclockCalculatorForInspection(recipe);
+        return processingLogic.inspect(recipe);
     }
 
     /**
-     * For planners, on a {@link #newMetaEntity} copy: the recipe run through the machine's processing logic.
-     *
-     * @return null if the machine has no processing logic
-     */
-    @Nullable
-    public final ProcessingSpec.Run calculateForInspection(@Nonnull GTRecipe recipe) {
-        if (processingLogic == null) return null;
-        setupProcessingLogic(processingLogic);
-        return processingLogic.calculateForInspection(recipe);
-    }
-
-    /**
-     * Values the recipe numbers read besides energy hatches and mode. Planners read the ranges from the prototype and
-     * set values on a {@link #newMetaEntity} copy, after its hatches, since setters may derive from them. Machine code
-     * must not call {@link Modifier#set}.
+     * Where the machine keeps the values its spec reads, for the conformance check to set on a {@link #newMetaEntity}
+     * copy. Planners read the kinds from {@link ProcessingSpec#getModifiers} instead.
      */
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
+    public List<Modifier> getModifiersForInspection() {
         return Collections.emptyList();
     }
 
@@ -3422,6 +3404,14 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Override
     public int getMachineMode() {
         return machineMode;
+    }
+
+    /**
+     * Whether this is a superseded structure, kept registered so existing worlds load but no longer buildable. External
+     * tools such as factory planners leave these out.
+     */
+    public boolean isStructureDeprecated() {
+        return false;
     }
 
     public int getMachineModeCount() {

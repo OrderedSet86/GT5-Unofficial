@@ -44,6 +44,7 @@ import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
@@ -67,7 +68,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     private static final ProcessingSpec.RecipeOverride RECIPE = ProcessingSpec.RecipeOverride.eut(4)
         .duration(128);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> 4 << (in.value(ModifierKind.COIL) + 1))
+        .parallel(in -> 4 << (in.value(ModifierKind.COIL) + 1), ModifierKind.COIL)
         .customTooltip(
             ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addStaticParallelInfo(4)
@@ -181,7 +182,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     @NotNull
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
-        ProcessingSpec.Inputs inputs = getCurrentProcessingSpecInputs();
+        ProcessingInputs inputs = getCurrentProcessingSpecInputs();
         long availableEUt = SPEC.getPower(inputs)
             .voltage();
         if (availableEUt < RECIPE.eut()) {
@@ -190,8 +191,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         if (tInput.isEmpty()) {
             return CheckRecipeResultRegistry.NO_RECIPE;
         }
-        int maxParallel = this.mLevel;
-        int originalMaxParallel = this.mLevel;
+        int maxParallel = SPEC.getMaxParallel(inputs);
+        int originalMaxParallel = maxParallel;
 
         OverclockCalculator calculator = new OverclockCalculator().setEUt(availableEUt)
             .setRecipeEUt(RECIPE.eut())
@@ -302,16 +303,12 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         if (getCoilLevel() == HeatingCoilLevel.None) {
             errors.add(StructureErrorRegistry.COIL_LEVEL_NOT_ENOUGH);
         } else {
-            updateParallel();
+            this.mLevel = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
         }
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);
         checkHasInputBus(errors);
         checkHasOutputBus(errors);
-    }
-
-    private void updateParallel() {
-        this.mLevel = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
     }
 
     @Override
@@ -321,10 +318,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     @Override
     @Nonnull
-    public List<Modifier<?>> getModifiersForInspection() {
-        return List.of(
-            COIL.derivingAfterSet(MTEMultiFurnace::updateParallel)
-                .of(this));
+    public List<Modifier> getModifiersForInspection() {
+        return List.of(COIL.of(this));
     }
 
     @Override

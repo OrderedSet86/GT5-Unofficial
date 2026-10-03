@@ -13,8 +13,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 
@@ -41,7 +39,6 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
-import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
@@ -93,9 +90,10 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     private static final int STEAM_PARALLEL = 8;
 
     /** 1 for Basic, 2 for High Pressure. */
-    public static final ModifierKind<Integer> PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
+    public static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
+        .range(1, 2)
         .labels(1, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
         .register();
 
@@ -118,9 +116,9 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
         return ProcessingSpec.builder()
             .parallel(STEAM_PARALLEL)
-            .durationMultiplier(in -> 1.6 / in.value(PRESSURE))
+            .speed(in -> in.value(PRESSURE) / 1.6, PRESSURE)
             .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
-            .euModifierNotLimitingParallel(in -> 1.25 * in.value(PRESSURE))
+            .euModifierNotLimitingParallel(in -> 1.25 * in.value(PRESSURE), PRESSURE)
             .customTooltip(
                 ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
                 tt -> tt.addStaticSteamEffInfo(0.625f))
@@ -133,15 +131,6 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
             .requires(
                 (in, recipe) -> recipe.mEUt <= V[tierRecipes],
                 (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt));
-    }
-
-    @Nonnull
-    protected static Modifier<Integer> pressure(@Nonnull Supplier<Integer> getter, @Nonnull Consumer<Integer> setter) {
-        return Modifier.builder(PRESSURE)
-            .between(1, 2)
-            .getter(getter)
-            .setter(setter)
-            .build();
     }
 
     public abstract String getMachineType();

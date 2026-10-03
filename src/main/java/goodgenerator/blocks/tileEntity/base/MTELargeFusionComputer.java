@@ -13,8 +13,6 @@ import static net.minecraft.util.StatCollector.translateToLocal;
 import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
@@ -56,6 +54,7 @@ import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingSpec;
+import gregtech.api.logic.ResolvedRecipe;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -97,13 +96,13 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     public static final String MAIN_NAME = "largeFusion";
     public static final int M = 1_000_000;
-    // One spec per subclass: parallel and overclocks follow each tier's constants.
-    private static final Map<Class<?>, ProcessingSpec> SPECS = new ConcurrentHashMap<>();
     /** The startup buffer and the reactor's power split into this many shares, one per energy hatch. */
     private static final int ENERGY_HATCH_SHARES = 32;
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
+    // Built from the tier's constants, like the describer
+    private final ProcessingSpec processingSpec;
     private static final ClassValue<IStructureDefinition<MTELargeFusionComputer>> STRUCTURE_DEFINITION = new ClassValue<>() {
 
         @Override
@@ -169,12 +168,14 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         super(name);
         useLongPower = true;
         this.overclockDescriber = createOverclockDescriber();
+        this.processingSpec = createProcessingSpec();
     }
 
     public MTELargeFusionComputer(int id, String name, String nameRegional) {
         super(id, name, nameRegional);
         useLongPower = true;
         this.overclockDescriber = createOverclockDescriber();
+        this.processingSpec = createProcessingSpec();
     }
 
     protected OverclockDescriber createOverclockDescriber() {
@@ -462,9 +463,9 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
             @NotNull
             @Override
-            protected CheckRecipeResult checkSpecRequirements(@NotNull GTRecipe recipe) {
+            protected CheckRecipeResult checkSpecRequirements(@NotNull ResolvedRecipe resolved) {
                 // The running recipe met the spec's requirements when it started
-                return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(recipe);
+                return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(resolved);
             }
 
             @NotNull
@@ -486,8 +487,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     @Override
     public ProcessingSpec getProcessingSpec() {
-        return SPECS
-            .computeIfAbsent(getClass(), c -> ((MTELargeFusionComputer) newMetaEntity(null)).createProcessingSpec());
+        return processingSpec;
     }
 
     private ProcessingSpec createProcessingSpec() {
