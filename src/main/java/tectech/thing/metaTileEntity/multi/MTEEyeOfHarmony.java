@@ -155,7 +155,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
         .register();
-    /** Litres drained from the input hatches; more than a recipe needs lowers its chance and yield. */
+    // Litres drained from the input hatches. Stock above a recipe's requirement lowers its chance and yield.
     public static final ModifierKind<Long> STORED_HYDROGEN = storedKind(
         "tectech:eoh_stored_hydrogen",
         "GT5U.MBTT.Tiers.StoredHydrogen");
@@ -165,7 +165,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     public static final ModifierKind<Long> STORED_STAR_MATTER = storedKind(
         "tectech:eoh_stored_star_matter",
         "GT5U.MBTT.Tiers.StoredStarMatter");
-    /** 1 when repeated failures guarantee a single run's success, before fluid overflow. */
+    /** 1 when a single run succeeds for certain after repeated failures, before fluid overflow. */
     public static final ModifierKind<Integer> PITY = ModifierKind.ofInt("tectech:eoh_pity")
         .name("GT5U.MBTT.Tiers.EohPity")
         .source(ModifierKind.Source.RUNTIME)
@@ -227,11 +227,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return recipe.getHeliumRequirement() * (12.4 / 1_000_000f) * parallel;
     }
 
-    /** Debug mode asks for 100 L instead. */
-    private static boolean enough(long stored, long required) {
-        return EOH_DEBUG_MODE ? stored >= 100 : stored >= required;
-    }
-
+    /** Debug mode requires 100 L instead. */
     private static boolean enough(long stored, double required) {
         return EOH_DEBUG_MODE ? stored >= 100 : stored >= required;
     }
@@ -279,7 +275,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             .divide(BigInteger.valueOf((long) (PRECISION_MULTIPLIER * POWER_DIVISION_CONSTANT)));
     }
 
-    /** Given to the wireless network; lower stabilisation fields keep less of it. */
+    /** Given to the wireless network. Lower stabilisation fields keep less of it. */
     private static BigInteger euGenerated(ProcessingSpec.Inputs in, GTRecipe recipe) {
         double penalty = (TOTAL_CASING_TIERS_WITH_POWER_PENALTY - in.value(STABILISATION_FIELD))
             * STABILITY_INCREASE_PROBABILITY_DECREASE_YIELD_PER_TIER;
@@ -1317,10 +1313,14 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             }
         }
 
-        parallelAmount = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
+        double baseChance = baseSuccessChance(recipeObject, timeAccelerationFieldMetadata, stabilisationFieldMetadata);
+        double pityChanceForRecipe = pityChance == Double.MIN_VALUE ? baseChance : pityChance;
+        // Intentional: pity compares the base recipe chance before overflow penalties are applied.
+        pityGuaranteed = baseChance == successChance && pityChanceForRecipe >= 1;
 
-        GTRecipe recipe = displayRecipe(recipeObject);
-        ProcessingSpec.Run run = SPEC.calculate(recipe, getCurrentProcessingSpecInputs());
+        ProcessingSpec.Inputs inputs = getCurrentProcessingSpecInputs();
+        parallelAmount = SPEC.getMaxParallel(inputs);
+        ProcessingSpec.Run run = SPEC.calculate(displayRecipe(recipeObject), inputs);
         if (!run.result()
             .wasSuccessful()) return run.result();
 
@@ -1336,16 +1336,13 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
 
         mMaxProgresstime = run.ticks();
 
-        double baseChance = baseSuccessChance(recipeObject, timeAccelerationFieldMetadata, stabilisationFieldMetadata);
         // If pityChance needs to be reset, it will be set to Double.MIN_Value at the end of the recipe.
         if (pityChance == Double.MIN_VALUE) {
             pityChance = baseChance;
         }
 
         previousRecipeChance = successChance;
-        // Intentional: pity compares the base recipe chance before overflow penalties are applied.
-        pityGuaranteed = baseChance == previousRecipeChance && pityChance >= 1;
-        successChance = SPEC.getSuccessChance(getCurrentProcessingSpecInputs(), recipe);
+        successChance = run.successChance();
         currentRecipeRocketTier = currentRecipe.getRocketTier();
 
         // Reduce internal storage by input fluid quantity required for recipe.

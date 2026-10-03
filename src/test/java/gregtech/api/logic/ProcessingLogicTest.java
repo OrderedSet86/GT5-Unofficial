@@ -1,7 +1,7 @@
 package gregtech.api.logic;
 
+import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +16,7 @@ class ProcessingLogicTest {
             .setEuModifier(0.75)
             .enablePerfectOverclock()
             .setUnlimitedTierSkips();
-        // GTRecipe's constructor needs the game loaded; these are the only fields the calculator reads.
-        GTRecipe recipe = mock(GTRecipe.class);
-        recipe.mDuration = 200;
-        recipe.mEUt = 30;
+        GTRecipe recipe = recipe(30, 200, 0);
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe);
 

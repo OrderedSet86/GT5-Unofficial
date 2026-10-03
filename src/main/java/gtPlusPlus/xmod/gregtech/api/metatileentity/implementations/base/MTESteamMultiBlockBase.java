@@ -90,9 +90,9 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
         + EnumChatFormatting.AQUA
         + "Steam Usage";
 
-    /** 1 for Basic, 2 for High Pressure. */
     private static final int STEAM_PARALLEL = 8;
 
+    /** 1 for Basic, 2 for High Pressure. */
     public static final ModifierKind<Integer> PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
@@ -110,9 +110,9 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     }
 
     /**
-     * 8 parallels, no overclocks; High Pressure runs twice as fast for twice the steam.
+     * High Pressure runs twice as fast for twice the steam.
      *
-     * @param tierRecipes As {@link #getTierRecipes()}: the voltage tier of the recipes it can run
+     * @param tierRecipes As {@link #getTierRecipes()}: the voltage tier of the recipes the machine can run
      */
     @Nonnull
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {

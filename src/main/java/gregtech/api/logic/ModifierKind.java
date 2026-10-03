@@ -18,13 +18,13 @@ import gregtech.api.util.tooltip.TooltipHelper;
 
 /**
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item or momentum. Shared kinds are the constants
- * here; a kind only one machine has is registered in its class.
+ * here. A kind only one machine has is registered in its class.
  *
  * @param <T> {@link Integer} for tiers and counts, {@link Long} for amounts that outgrow an int
  */
 public final class ModifierKind<T extends Number & Comparable<T>> {
 
-    /** Tells a planner how to ask for the value. */
+    /** Where a planner gets the value from. */
     public enum Source {
         ENERGY,
         STRUCTURE,
@@ -44,6 +44,7 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
     /** {@link HeatingCoilLevel#getTier()}. */
     public static final ModifierKind<Integer> COIL = ofInt("gregtech:coil").name("GT5U.MBTT.Tiers.Coil")
         .ordered()
+        .tierOffset(1)
         .labels(
             tier -> HeatingCoilLevel.getFromTier(tier.byteValue())
                 .getName())
@@ -79,17 +80,24 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
     public final String nameKey;
     @Nonnull
     public final Source source;
-    /** A higher value always makes the better machine, so a planner may start at the highest. */
+    /** A higher value makes the better machine, so a planner may start at the highest. */
     public final boolean ordered;
     @Nullable
     private final Function<T, String> labels;
+    private final int tierOffset;
 
-    private ModifierKind(Builder<T> b) {
-        this.id = b.id;
-        this.nameKey = b.nameKey;
-        this.source = b.source;
-        this.ordered = b.ordered;
-        this.labels = b.labels;
+    private ModifierKind(Builder<T> builder) {
+        this.id = builder.id;
+        this.nameKey = builder.nameKey;
+        this.source = builder.source;
+        this.ordered = builder.ordered;
+        this.labels = builder.labels;
+        this.tierOffset = builder.tierOffset;
+    }
+
+    /** The tier as per-tier terms and their tooltips count it. */
+    public int countedTier(int value) {
+        return value + tierOffset;
     }
 
     @Nonnull
@@ -103,7 +111,7 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
         return TooltipHelper.tierText(getName());
     }
 
-    /** Such as "LuV"; the number itself if the kind has no labels. */
+    /** Such as "LuV", or the number where the kind has no labels. */
     @Nonnull
     public String label(@Nonnull T value) {
         return labels == null ? String.valueOf(value) : StatCollector.translateToLocal(labels.apply(value));
@@ -114,7 +122,7 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
         return id;
     }
 
-    /** Complete only once the machine classes, which register their own kinds, are loaded. */
+    /** Complete only once the machine classes, which register the kinds only they use, are loaded. */
     @Nonnull
     public static List<ModifierKind<?>> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
@@ -150,6 +158,7 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
         private Source source = Source.STRUCTURE;
         private boolean ordered;
         private Function<T, String> labels;
+        private int tierOffset;
 
         private Builder(String id) {
             this.id = id;
@@ -170,6 +179,12 @@ public final class ModifierKind<T extends Number & Comparable<T>> {
 
         public Builder<T> ordered() {
             this.ordered = true;
+            return this;
+        }
+
+        /** Added to a value where per-tier terms count tiers: 1 for coils, whose tier 0 is Cupronickel. */
+        public Builder<T> tierOffset(int tierOffset) {
+            this.tierOffset = tierOffset;
             return this;
         }
 

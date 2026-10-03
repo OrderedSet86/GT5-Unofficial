@@ -74,7 +74,6 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
             ProcessingSpec.RecipeOverride.eut(4)
                 .duration(128))
         .noTooltip(ProcessingSpec.Quantity.RECIPE_OVERRIDE)
-        // the summed hatch voltage, rounded up to a tier, at one amp; a run draws at most the average hatch's tier
         .power(in -> GTUtility.roundUpVoltage(in.totalVoltage()), in -> 1)
         .noAmperageOverclock()
         .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])

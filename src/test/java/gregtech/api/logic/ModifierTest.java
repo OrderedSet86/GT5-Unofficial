@@ -75,7 +75,7 @@ class ModifierTest {
 
     @Test
     void theItemPipeRangeIsTheCasingList() {
-        Modifier pipe = ITEM_PIPE.of(new Machine());
+        Modifier<Integer> pipe = ITEM_PIPE.of(new Machine());
 
         assertEquals(1, pipe.min);
         assertEquals(GTStructureUtility.ITEM_PIPE_CASING_TIERS, pipe.max);
@@ -91,7 +91,7 @@ class ModifierTest {
         ITEM_PIPE.of(machine)
             .set(3);
         assertEquals(0, machine.derived);
-        // the structure element sets the value alone; the machine derives after its check
+        // the structure element sets only the value. The machine derives after its structure check.
         assertSame(ITEM_PIPE.proxiedElement, deriving.proxiedElement);
 
         deriving.of(machine)

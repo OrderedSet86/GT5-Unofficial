@@ -352,13 +352,13 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** The info lines so far, before {@link #toolTipFinisher()} adds its own. */
+    /** The info lines written so far, before {@link #toolTipFinisher()}. */
     public List<String> getInfoLines() {
         return Collections.unmodifiableList(iLines);
     }
 
-    public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder lines) {
-        for (String line : lines.iLines) iLines.add(prefix + line);
+    public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder source) {
+        for (String line : source.iLines) iLines.add(prefix + line);
         return this;
     }
 
@@ -377,9 +377,9 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** For {@link ProcessingSpec}: false if these lines were written to this tooltip already. */
-    public boolean markSpecLinesWritten(Object lines) {
-        return specLinesWritten.add(lines);
+    /** For {@link ProcessingSpec}: false if the lines under this key were written to this tooltip already. */
+    public boolean markSpecLinesWritten(Object linesKey) {
+        return specLinesWritten.add(linesKey);
     }
 
     /**

@@ -20,7 +20,7 @@ import gregtech.common.misc.GTStructureChannels;
 
 /**
  * Where one machine gets a {@link ModifierKind}'s value. An {@link Of} constant is also the structure element that
- * finds it: {@code .addElement('C', COIL)}.
+ * sets it: {@code .addElement('C', COIL)}.
  */
 public final class Modifier<T extends Number & Comparable<T>> {
 
@@ -50,7 +50,7 @@ public final class Modifier<T extends Number & Comparable<T>> {
     }
 
     /**
-     * As if the machine had found it, including values it derives.
+     * As the structure check would set it, derived values included.
      *
      * @throws IllegalArgumentException if the value is out of range
      */
@@ -72,7 +72,7 @@ public final class Modifier<T extends Number & Comparable<T>> {
         return new Builder<>(kind);
     }
 
-    /** Accepts one coil type, uses the heating coil channel and records the active coils. */
+    /** Accepts one coil type. */
     @Nonnull
     public static <T extends MTEMultiBlockBase> Of<T, HeatingCoilLevel> coil(
         @Nonnull Function<T, HeatingCoilLevel> getter, @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
@@ -88,7 +88,7 @@ public final class Modifier<T extends Number & Comparable<T>> {
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /** Accepts one solenoid tier and uses the solenoid channel. */
+    /** Accepts one solenoid tier. */
     @Nonnull
     public static <T> Of<T, Byte> solenoid(@Nonnull Function<T, Byte> getter, @Nonnull BiConsumer<T, Byte> setter) {
         return new Of<>(
@@ -102,7 +102,7 @@ public final class Modifier<T extends Number & Comparable<T>> {
             GTStructureChannels.SOLENOID.use(GTStructureUtility.ofSolenoidCoil(setter, getter)));
     }
 
-    /** -1 before the check finds one. */
+    /** -1 until the structure check sets it. */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
@@ -126,7 +126,8 @@ public final class Modifier<T extends Number & Comparable<T>> {
     }
 
     /**
-     * @param element Wrap it in {@code lazy} if it names blocks, which may not exist yet when the machine class loads
+     * @param element Wrap it in {@code lazy} if it refers to blocks, which may not exist yet when the machine class
+     *                loads
      */
     @Nonnull
     public static <T> Of<T, Integer> tiered(@Nonnull ModifierKind<Integer> kind, int min, int max,

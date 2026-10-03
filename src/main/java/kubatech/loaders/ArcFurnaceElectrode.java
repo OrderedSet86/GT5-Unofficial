@@ -52,7 +52,6 @@ public enum ArcFurnaceElectrode {
         }
     }),
     TritaniumElectrode(8, Materials.Tritanium, 3d, 48, 2d, 4d, 1200, 1.1d, 2d),
-    // The Arc Furnace's spec reads the target parallel and gives this electrode unlimited energy
     InfinityElectrode(9, Materials.Infinity, 4.2d, 0, 1d, 4d, 2000, 1d, 1d, event -> {
         if (event instanceof ArcFurnaceProcessingEvent.EventRunCompleted completed) {
             NBTTagCompound state = completed.arcFurnace.getEffectState();
@@ -207,17 +206,17 @@ public enum ArcFurnaceElectrode {
     }
 
     private long getStartupAmperage() {
-        return Math.max(
-            1L,
-            (long) Math
-                .ceil(30d / 32d * Math.max(1, this.parallelLimit) * (this.startupPenalty + 1d) * this.euModifier));
+        return Math.max(1L, (long) Math.ceil(startupEuPerTick(1, Math.max(1, this.parallelLimit))));
+    }
+
+    /** Of an ignition at this voltage, before the start-up events change it. */
+    public double startupEuPerTick(long voltage, int parallel) {
+        return voltage * 30d / 32d * parallel * (this.startupPenalty + 1d) * this.euModifier;
     }
 
     /** At least 1. */
     public static int getInfinityTargetParallel(NBTTagCompound state) {
-        int parallel = Math.max(1, state.getInteger(INFINITY_TARGET_PARALLEL_KEY));
-        state.setInteger(INFINITY_TARGET_PARALLEL_KEY, parallel);
-        return parallel;
+        return Math.max(1, state.getInteger(INFINITY_TARGET_PARALLEL_KEY));
     }
 
     public static void setInfinityTargetParallel(NBTTagCompound state, int parallel) {

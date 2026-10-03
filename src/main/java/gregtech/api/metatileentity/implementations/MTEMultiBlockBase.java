@@ -1147,8 +1147,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         setProcessingLogicPower(logic);
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
-            logic.applySpec(spec, this::getCurrentProcessingSpecInputs);
-            // Keeps the power panel's limit and any getMaxParallelRecipes() override
+            logic.applySpec(spec, getCurrentProcessingSpecInputs());
+            // keeps the power panel's limit and any getMaxParallelRecipes() override, below a parallel per recipe
             if (spec.sets(ProcessingSpec.Quantity.PARALLEL)) logic.setMaxParallelSupplier(this::getTrueParallel);
         }
     }
@@ -2131,7 +2131,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                 .recipeMap();
     }
 
-    /** In mode button order; the recipe map, mode count, names and icons follow from it. Return a static constant. */
+    /**
+     * In mode button order. The recipe map, mode count, names and icons follow from it. Return a static constant.
+     */
     @Nonnull
     public List<MachineMode> getMachineModes() {
         return Collections.emptyList();
@@ -2158,10 +2160,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Applied in {@link #setupProcessingLogic} and read by {@link #getMaxParallelRecipes()}. Return a static constant,
-     * so planners can read it from the prototype.
+     * Return a static constant, so planners can read it from the prototype.
      *
-     * @return null if the machine's numbers are its own code
+     * @return null if the machine computes its numbers in code
      */
     @Nullable
     public ProcessingSpec getProcessingSpec() {
@@ -2187,28 +2188,33 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         List<ProcessingSpec.EnergyHatch> hatches = new ArrayList<>();
         for (MTEHatch hatch : getPowerHatches()) {
             boolean exotic = !(hatch instanceof MTEHatchEnergy) || hatch instanceof MTEHatchEnergyDebug;
-            long voltage = hatch.isValid() ? hatch.getBaseMetaTileEntity()
-                .getInputVoltage() : 0;
-            hatches.add(new ProcessingSpec.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
+            if (hatch.isValid()) {
+                long voltage = hatch.getBaseMetaTileEntity()
+                    .getInputVoltage();
+                hatches.add(new ProcessingSpec.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
+            } else {
+                // the average voltage counts it, the amperage and EU sums skip it
+                hatches.add(new ProcessingSpec.EnergyHatch(0, 0, exotic));
+            }
         }
         return hatches;
     }
 
-    /** For planners, on a {@link #newMetaEntity} copy: the energy hatches the copy reads instead of its own. */
+    /** For planners, on a {@link #newMetaEntity} copy: the energy hatches the copy reads in place of the built ones. */
     public final void setEnergyHatchesForInspection(@Nonnull List<ProcessingSpec.EnergyHatch> hatches) {
         this.energyHatchesForInspection = hatches;
     }
 
-    /** @return null on a prototype; use {@link #newMetaEntity} first */
+    /** @return null on a prototype. Use {@link #newMetaEntity} first. */
     @Nullable
     public ProcessingLogic getProcessingLogic() {
         return processingLogic;
     }
 
     /**
-     * For planners, on a {@link #newMetaEntity} copy; machine code must not call this. The calculator comes before
-     * {@link OverclockCalculator#calculate()}; the max parallel is then {@code
-     * getProcessingLogic().getResolvedMaxParallel()}.
+     * For planners, on a {@link #newMetaEntity} copy. Machine code must not call this. The calculator comes before
+     * {@link OverclockCalculator#calculate()}, and the max parallel is then
+     * {@code getProcessingLogic().getResolvedMaxParallel()}.
      *
      * @return null if the machine has no processing logic
      */
@@ -2220,7 +2226,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For planners, on a {@link #newMetaEntity} copy: the recipe run through the machine's own processing logic.
+     * For planners, on a {@link #newMetaEntity} copy: the recipe run through the machine's processing logic.
      *
      * @return null if the machine has no processing logic
      */

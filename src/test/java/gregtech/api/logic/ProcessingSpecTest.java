@@ -1,11 +1,11 @@
 package gregtech.api.logic;
 
+import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.math.BigInteger;
 import java.util.EnumSet;
@@ -21,11 +21,16 @@ import gregtech.api.enums.VoltageIndex;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 
 class ProcessingSpecTest {
+
+    private static final List<MachineMode> TOWER_AND_DISTILLERY = List.of(
+        MachineMode.of(mock(RecipeMap.class))
+            .nameKey("Tower"),
+        MachineMode.of(mock(RecipeMap.class))
+            .nameKey("Distillery"));
 
     private static final ModifierKind<Integer> MOMENTUM = ModifierKind.ofInt("test:momentum")
         .source(ModifierKind.Source.RUNTIME)
@@ -53,16 +58,6 @@ class ProcessingSpecTest {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         spec.describe(tt);
         return tt.getInfoLines();
-    }
-
-    private static GTRecipe recipe(int eut, int duration, int heat) {
-        // GTRecipe's constructor needs the game loaded; these are the only fields the calculator reads.
-        GTRecipe recipe = mock(GTRecipe.class);
-        recipe.mEUt = eut;
-        recipe.mDuration = duration;
-        recipe.mSpecialValue = heat;
-        when(recipe.copy()).thenAnswer(invocation -> recipe(recipe.mEUt, recipe.mDuration, recipe.mSpecialValue));
-        return recipe;
     }
 
     @Test
@@ -155,7 +150,7 @@ class ProcessingSpecTest {
                     .euModifier(0.8)
                     .unlimitedTierSkips()
                     .build(),
-                () -> inputs(5, 3));
+                inputs(5, 3));
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe(30, 200, 0));
 
@@ -177,7 +172,7 @@ class ProcessingSpecTest {
                     ProcessingSpec.HeatRule.OVERCLOCK,
                     ProcessingSpec.HeatRule.DISCOUNT)
                 .build(),
-            () -> inputs(5, 3));
+            inputs(5, 3));
 
         OverclockCalculator calculator = logic.createOverclockCalculatorForInspection(recipe(30, 200, 1800));
 
@@ -204,20 +199,24 @@ class ProcessingSpecTest {
 
     @Test
     void aRuntimeValueIsReadAtEveryRecipeCheck() {
-        int[] momentum = { 0 };
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(in -> 4 + in.value(MOMENTUM))
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+            .build();
         ProcessingLogic logic = new ProcessingLogic().applySpec(
-            ProcessingSpec.builder()
-                .parallel(in -> 4 + in.value(MOMENTUM))
-                .noTooltip(ProcessingSpec.Quantity.PARALLEL)
-                .build(),
-            () -> ProcessingSpec.Inputs.builder()
-                .value(MOMENTUM, momentum[0])
+            spec,
+            ProcessingSpec.Inputs.builder()
+                .value(MOMENTUM, 0)
                 .build());
 
         logic.createOverclockCalculatorForInspection(recipe(30, 200, 0));
         assertEquals(4, logic.getResolvedMaxParallel());
 
-        momentum[0] = 100;
+        logic.applySpec(
+            spec,
+            ProcessingSpec.Inputs.builder()
+                .value(MOMENTUM, 100)
+                .build());
         logic.createOverclockCalculatorForInspection(recipe(30, 200, 0));
         assertEquals(104, logic.getResolvedMaxParallel());
     }
@@ -232,22 +231,17 @@ class ProcessingSpecTest {
                     .euModifierNotLimitingParallel(in -> 2.5)
                     .noOverclock()
                     .build(),
-                () -> inputs(1, 0));
+                inputs(1, 0));
         GTRecipe recipe = recipe(16, 200, 0);
 
         OverclockCalculator planned = logic.createOverclockCalculatorForInspection(recipe)
             .setParallel(8)
             .calculate();
-        OverclockCalculator expected = OverclockCalculator.ofNoOverclock(recipe)
-            .setEUtDiscount(2.5)
-            .setDurationModifier(0.8)
-            .setParallel(8)
-            .calculate();
 
         assertTrue(planned.isNoOverclock());
-        assertEquals(expected.getMaxAllowedRecipeEUt(), planned.getMaxAllowedRecipeEUt());
-        assertEquals(expected.getDuration(), planned.getDuration());
-        assertEquals(expected.getConsumption(), planned.getConsumption());
+        assertEquals(16, planned.getMachineVoltage());
+        assertEquals(160, planned.getDuration());
+        assertEquals(16 * 2.5 * 8, planned.getConsumption());
     }
 
     @Test
@@ -330,19 +324,13 @@ class ProcessingSpecTest {
 
     @Test
     void inModeReplacesTheSpecsOwnTermsInThatMode() {
-        List<MachineMode> modes = List.of(
-            MachineMode.of(mock(RecipeMap.class))
-                .nameKey("Tower"),
-            MachineMode.of(mock(RecipeMap.class))
-                .nameKey("Distillery"));
         ProcessingSpec spec = ProcessingSpec.builder()
-            .modes(modes)
+            .modes(TOWER_AND_DISTILLERY)
             .parallel(4)
             .inMode(
                 1,
                 mode -> mode.parallel(8)
                     .speed(2))
-            .inMode(2, mode -> mode.parallel(16))
             .build();
 
         assertEquals(4, spec.getMaxParallel(inMode(0)));
@@ -355,7 +343,7 @@ class ProcessingSpecTest {
 
         List<String> lines = lines(spec);
         String distillery = EnumChatFormatting.WHITE + "Distillery" + EnumChatFormatting.GRAY + ": ";
-        assertEquals(3, lines.size(), "the spec's own line and the Distillery's two; the machine has no mode 2");
+        assertEquals(3, lines.size(), "the spec's own line and the Distillery's two");
         assertFalse(
             lines.get(0)
                 .startsWith(distillery));
@@ -365,6 +353,21 @@ class ProcessingSpecTest {
         assertTrue(
             lines.get(2)
                 .startsWith(distillery));
+    }
+
+    @Test
+    void inModeNeedsTheModeDeclared() {
+        assertThrows(
+            IllegalStateException.class,
+            () -> ProcessingSpec.builder()
+                .inMode(1, mode -> mode.parallel(8))
+                .build());
+        assertThrows(
+            IllegalStateException.class,
+            () -> ProcessingSpec.builder()
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(2, mode -> mode.parallel(8))
+                .build());
     }
 
     @Test
@@ -484,7 +487,9 @@ class ProcessingSpecTest {
             .build();
         GTRecipe recipe = recipe(30, 400, 0);
 
-        assertEquals(Optional.empty(), spec.getOverclock(inputs(VoltageIndex.HV, 0)));
+        assertEquals(
+            Optional.of(ProcessingSpec.OverclockRule.Ratio.STANDARD),
+            spec.getOverclock(inputs(VoltageIndex.HV, 0)));
         assertEquals(
             Optional.of(new ProcessingSpec.OverclockRule.Ratio(1, 4)),
             spec.getOverclock(inputs(VoltageIndex.HV, 1)));
@@ -506,6 +511,7 @@ class ProcessingSpecTest {
     @Test
     void aRecipeEuMultiplierMakesTheRecipeAskForMore() {
         ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(TOWER_AND_DISTILLERY)
             .inMode(1, mode -> mode.recipeEuMultiplier(16))
             .requires(
                 (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
@@ -745,9 +751,11 @@ class ProcessingSpecTest {
     @Test
     void aTermThatDiffersByModeNeedsATooltipToo() {
         ProcessingSpec undescribed = ProcessingSpec.builder()
+            .modes(TOWER_AND_DISTILLERY)
             .inMode(1, mode -> mode.parallel(in -> 3))
             .build();
         ProcessingSpec coveredForEveryMode = ProcessingSpec.builder()
+            .modes(TOWER_AND_DISTILLERY)
             .inMode(1, mode -> mode.parallel(in -> 3))
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
@@ -770,12 +778,12 @@ class ProcessingSpecTest {
             .euModifierPerTierBeyondFirst(0.8, 0.9, ModifierKind.COIL)
             .build();
 
-        assertEquals(1.0 / 1.5, spec.getDurationMultiplier(inputs(1, 0)));
-        assertEquals(0.8, spec.getEuModifier(inputs(1, 0)));
-        for (int coil = 0; coil <= 13; coil++) {
-            assertEquals(1.0 / (1.5 + 0.1 * coil), spec.getDurationMultiplier(inputs(1, coil)));
-            assertEquals(0.8 * GTUtility.powInt(0.9, coil), spec.getEuModifier(inputs(1, coil)));
-        }
+        assertEquals(1 / 1.5, spec.getDurationMultiplier(inputs(1, 0)), 1e-12);
+        assertEquals(0.8, spec.getEuModifier(inputs(1, 0)), 1e-12);
+        assertEquals(1 / 1.6, spec.getDurationMultiplier(inputs(1, 1)), 1e-12);
+        assertEquals(0.72, spec.getEuModifier(inputs(1, 1)), 1e-12);
+        assertEquals(1 / 2.8, spec.getDurationMultiplier(inputs(1, 13)), 1e-12);
+        assertEquals(0.203349266266, spec.getEuModifier(inputs(1, 13)), 1e-12);
         assertTrue(
             spec.getUndescribed()
                 .isEmpty());

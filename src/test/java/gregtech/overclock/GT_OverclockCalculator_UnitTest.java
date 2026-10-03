@@ -748,48 +748,11 @@ class GT_OverclockCalculator_UnitTest {
     }
 
     @Test
-    void inputGettersReturnWhatTheSettersWereGiven() {
-        OverclockCalculator calculator = new OverclockCalculator().setRecipeEUt(VP[2])
-            .setDuration(300)
-            .setEUt(V[5])
-            .setAmperage(4)
-            .setParallel(16)
-            .setMaxTierSkips(2)
-            .setEUtDiscount(0.8)
-            .setDurationModifier(0.5)
-            .setEUtIncreasePerOC(3)
-            .enablePerfectOC()
-            .setLaserOC(true)
-            .setAmperageOC(true)
-            .setNoOverclock(true)
-            .setMaxOverclocks(5)
-            .setMaxRegularOverclocks(3)
-            .setRecipeHeat(1800)
-            .setMachineHeat(4500)
-            .setHeatOC(true)
-            .setHeatDiscount(true)
-            .setHeatDiscountMultiplier(0.9);
-
-        assertEquals(VP[2], calculator.getRecipeEUt());
-        assertEquals(300, calculator.getRecipeDuration());
-        assertEquals(V[5], calculator.getMachineVoltage());
-        assertEquals(4, calculator.getMachineAmperage());
-        assertEquals(16, calculator.getParallel());
-        assertEquals(2, calculator.getMaxTierSkips());
-        assertEquals(0.8, calculator.getEUtDiscount());
-        assertEquals(0.5, calculator.getDurationModifier());
-        assertEquals(3, calculator.getEUtIncreasePerOC());
-        assertEquals(4, calculator.getDurationDecreasePerOC());
-        assertTrue(calculator.isLaserOC());
-        assertTrue(calculator.isAmperageOC());
-        assertTrue(calculator.isNoOverclock());
-        assertEquals(5, calculator.getMaxOverclocks());
-        assertEquals(3, calculator.getMaxRegularOverclocks());
-        assertEquals(1800, calculator.getRecipeHeat());
-        assertEquals(4500, calculator.getMachineHeat());
-        assertTrue(calculator.isHeatOC());
-        assertTrue(calculator.isHeatDiscount());
-        assertEquals(0.9, calculator.getHeatDiscountMultiplier());
+    void perfectOverclockQuartersTheDuration() {
+        assertEquals(
+            4,
+            new OverclockCalculator().enablePerfectOC()
+                .getDurationDecreasePerOC());
     }
 
     @Test

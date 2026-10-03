@@ -1054,15 +1054,10 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             : electrode.parallelLimit;
     }
 
-    /** Before electrode effects change it. */
     private static long ignitionEuPerTick(ProcessingSpec.Inputs inputs) {
         ArcFurnaceElectrode electrode = electrode(inputs);
         if (electrode == null) return 0;
-        long use = (long) (inputs.averageVoltage() * 30d
-            / 32d
-            * electrodeParallel(inputs)
-            * (electrode.startupPenalty + 1d)
-            * electrode.euModifier);
+        long use = (long) electrode.startupEuPerTick(inputs.averageVoltage(), electrodeParallel(inputs));
         return Math.min(use, Integer.MAX_VALUE);
     }
 

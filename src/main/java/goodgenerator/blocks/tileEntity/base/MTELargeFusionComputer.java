@@ -96,6 +96,8 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     public static final int M = 1_000_000;
     // One spec per subclass: parallel and overclocks follow each tier's constants.
     private static final Map<Class<?>, ProcessingSpec> SPECS = new ConcurrentHashMap<>();
+    /** The startup buffer and the reactor's power split into this many shares, one per energy hatch. */
+    private static final int ENERGY_HATCH_SHARES = 32;
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
@@ -186,7 +188,11 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     @Override
     public long maxEUStore() {
-        return capableStartupCanonical() * (Math.min(32, this.mEnergyHatches.size() + this.eEnergyMulti.size())) / 32L;
+        return maxEuStore(capableStartupCanonical(), this.mEnergyHatches.size() + this.eEnergyMulti.size());
+    }
+
+    private static long maxEuStore(long capableStartup, int energyHatches) {
+        return capableStartup * Math.min(ENERGY_HATCH_SHARES, energyHatches) / ENERGY_HATCH_SHARES;
     }
 
     /**
@@ -379,7 +385,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
      * @return The power one hatch can deliver to the reactor
      */
     protected long getSingleHatchPower() {
-        return GTValues.V[tier()] * getMaxPara() * extraPara(100) / 32;
+        return GTValues.V[tier()] * getMaxPara() * extraPara(100) / ENERGY_HATCH_SHARES;
     }
 
     public boolean turnCasingActive(boolean status) {
@@ -454,7 +460,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
             @NotNull
             @Override
             protected CheckRecipeResult checkSpecRequirements(@NotNull GTRecipe recipe) {
-                // The running recipe met them when it started
+                // The running recipe met the spec's requirements when it started
                 return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(recipe);
             }
 
@@ -485,7 +491,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
         int maxParallel = getMaxPara();
         long voltage = GTValues.V[tier()];
-        long amperage = getSingleHatchPower() * 32 / voltage;
+        long amperage = getSingleHatchPower() * ENERGY_HATCH_SHARES / voltage;
         long capableStartup = capableStartupCanonical();
         return ProcessingSpec.builder()
             .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
@@ -496,19 +502,15 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
             .unlimitedTierSkips()
             .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
             .requires(
-                (in, recipe) -> describer.canHandle(recipe),
-                (in, recipe) -> GTUtility.getTier(recipe.mEUt) > tier()
-                    ? CheckRecipeResultRegistry.insufficientPower(recipe.mEUt)
-                    : CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
-            // the buffer holds a 32nd of the capacity per energy hatch
-            .requires(
-                (in, recipe) -> startupEU(recipe) <= capableStartup * Math.min(
-                    32,
+                (in, recipe) -> startupEU(recipe) <= maxEuStore(
+                    capableStartup,
                     in.energyHatches()
-                        .size())
-                    / 32L,
+                        .size()),
                 (in, recipe) -> CheckRecipeResultRegistry
                     .insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+            .requires(
+                (in, recipe) -> recipe.mEUt <= voltage,
+                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
             .power(in -> voltage, in -> amperage)
             .startupEuPerRecipe((in, recipe) -> startupEU(recipe))
             .noTooltip(ProcessingSpec.Quantity.POWER)

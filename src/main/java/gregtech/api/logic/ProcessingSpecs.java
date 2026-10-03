@@ -24,7 +24,7 @@ import gregtech.api.util.OverclockCalculator;
 public final class ProcessingSpecs {
 
     private static final int SAMPLE_RECIPES = 8;
-    private static final List<List<ProcessingSpec.EnergyHatch>> ENERGY_SAMPLES = energySamples();
+    private static final List<List<ProcessingSpec.EnergyHatch>> ENERGY_SAMPLES = createEnergySamples();
 
     /** @param machine The prototype: use {@link MTEMultiBlockBase#newMetaEntity} before changing anything */
     public record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec,
@@ -52,10 +52,10 @@ public final class ProcessingSpecs {
     }
 
     /**
-     * Tooltips missing a number their spec sets, and machines whose own calculator, max parallel or whole run differs
-     * from their spec's without {@link ProcessingSpec.Builder#alsoCustom}. They are compared on a copy with every
-     * modifier at its maximum, in every mode the spec supports, over sampled recipes; runs also over sampled energy
-     * hatches.
+     * Tooltips missing a number their spec sets, machines that cannot be inspected without a world, and machines whose
+     * calculator, max parallel or whole run differs from their spec's without
+     * {@link ProcessingSpec.Builder#alsoCustom}.
+     * Runs are compared over sampled energy hatches too.
      */
     @Nonnull
     public static List<String> problems() {
@@ -79,57 +79,44 @@ public final class ProcessingSpecs {
                     + " but its tooltip does not show them; add a term that describes itself,"
                     + " customTooltip or noTooltip");
         }
-        Set<ProcessingSpec.Quantity> custom = undeclaredCustom(entry);
-        if (!custom.isEmpty()) {
-            problems.add(
-                name + " sets its own "
-                    + custom
-                    + " outside its spec; declare them in its spec or mark it alsoCustom("
-                    + custom
-                    + ")");
-        } else if (entry.spec()
-            .isComplete()) {
-                String run = runDifference(entry);
-                if (run != null) problems.add(name + " runs a recipe differently from its spec: " + run);
-            }
+        try {
+            Set<ProcessingSpec.Quantity> custom = findUndeclaredCustom(entry);
+            if (!custom.isEmpty()) {
+                problems.add(
+                    name + " sets its own "
+                        + custom
+                        + " outside its spec; declare them in its spec or mark it alsoCustom("
+                        + custom
+                        + ")");
+            } else if (entry.spec()
+                .isComplete()) {
+                    String run = findRunDifference(entry);
+                    if (run != null) problems.add(name + " runs a recipe differently from its spec: " + run);
+                }
+        } catch (RuntimeException e) {
+            problems.add(name + " cannot be inspected without a world: " + e);
+        }
         return problems;
     }
 
-    /** Null if every run matches, or for a machine that cannot be inspected without a world. */
     @Nullable
-    private static String runDifference(Entry entry) {
-        try {
-            MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
-                .newMetaEntity(null);
-            for (Modifier<?> modifier : machine.getModifiersForInspection()) {
-                modifier.setToMax();
-            }
-            int modes = machine.getMachineModes()
-                .size();
-            for (int mode = 0; mode < Math.max(1, modes); mode++) {
-                if (!entry.spec()
-                    .supportsMode(mode)) continue;
-                if (modes > 1) machine.setMachineMode(mode);
-                for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
-                    for (List<ProcessingSpec.EnergyHatch> hatches : ENERGY_SAMPLES) {
-                        machine.setEnergyHatchesForInspection(hatches);
-                        ProcessingSpec.Run own = machine.calculateForInspection(recipe);
-                        if (own == null) return null;
-                        ProcessingSpec.Run fromSpec = entry.spec()
-                            .calculate(recipe, machine.getCurrentProcessingSpecInputs());
-                        if (!sameRun(own, fromSpec)) {
-                            return "mode " + mode + ", " + hatches + ": own " + own + ", spec " + fromSpec;
-                        }
-                    }
+    private static String findRunDifference(Entry entry) {
+        return inspectSamples(entry, (machine, mode, recipe) -> {
+            for (List<ProcessingSpec.EnergyHatch> hatches : ENERGY_SAMPLES) {
+                machine.setEnergyHatchesForInspection(hatches);
+                ProcessingSpec.Run own = machine.calculateForInspection(recipe);
+                if (own == null) return null;
+                ProcessingSpec.Run fromSpec = entry.spec()
+                    .calculate(recipe, machine.getCurrentProcessingSpecInputs());
+                if (!isSameRun(own, fromSpec)) {
+                    return "mode " + mode + ", " + hatches + ": own " + own + ", spec " + fromSpec;
                 }
             }
-        } catch (RuntimeException e) {
             return null;
-        }
-        return null;
+        });
     }
 
-    private static boolean sameRun(ProcessingSpec.Run a, ProcessingSpec.Run b) {
+    private static boolean isSameRun(ProcessingSpec.Run a, ProcessingSpec.Run b) {
         return a.result()
             .wasSuccessful()
             == b.result()
@@ -146,37 +133,21 @@ public final class ProcessingSpecs {
             && a.startupEu() == b.startupEu();
     }
 
-    /** Empty for a machine that cannot be inspected without a world. */
-    private static Set<ProcessingSpec.Quantity> undeclaredCustom(Entry entry) {
+    private static Set<ProcessingSpec.Quantity> findUndeclaredCustom(Entry entry) {
         EnumSet<ProcessingSpec.Quantity> differ = EnumSet.noneOf(ProcessingSpec.Quantity.class);
-        try {
-            MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
-                .newMetaEntity(null);
-            for (Modifier<?> modifier : machine.getModifiersForInspection()) {
-                modifier.setToMax();
+        inspectSamples(entry, (machine, mode, recipe) -> {
+            OverclockCalculator own = machine.createOverclockCalculatorForInspection(recipe);
+            if (own == null) return null;
+            ProcessingLogic specLogic = new ProcessingLogic()
+                .applySpec(entry.spec(), machine.getCurrentProcessingSpecInputs());
+            OverclockCalculator fromSpec = specLogic.createOverclockCalculatorForInspection(recipe);
+            differ.addAll(findDifferences(own, fromSpec));
+            if (machine.getProcessingLogic()
+                .getResolvedMaxParallel() != specLogic.getResolvedMaxParallel()) {
+                differ.add(ProcessingSpec.Quantity.PARALLEL);
             }
-            int modes = machine.getMachineModes()
-                .size();
-            for (int mode = 0; mode < Math.max(1, modes); mode++) {
-                if (!entry.spec()
-                    .supportsMode(mode)) continue;
-                if (modes > 1) machine.setMachineMode(mode);
-                for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
-                    OverclockCalculator own = machine.createOverclockCalculatorForInspection(recipe);
-                    if (own == null) return Collections.emptySet();
-                    ProcessingLogic specLogic = new ProcessingLogic().setAmperageOC(true)
-                        .applySpec(entry.spec(), machine::getCurrentProcessingSpecInputs);
-                    OverclockCalculator fromSpec = specLogic.createOverclockCalculatorForInspection(recipe);
-                    differ.addAll(differences(own, fromSpec));
-                    if (machine.getProcessingLogic()
-                        .getResolvedMaxParallel() != specLogic.getResolvedMaxParallel()) {
-                        differ.add(ProcessingSpec.Quantity.PARALLEL);
-                    }
-                }
-            }
-        } catch (RuntimeException e) {
-            return Collections.emptySet();
-        }
+            return null;
+        });
         Set<ProcessingSpec.Quantity> declared = entry.spec()
             .getAlsoCustom();
         differ.removeAll(declared);
@@ -186,8 +157,41 @@ public final class ProcessingSpecs {
         return differ;
     }
 
+    private interface SampleInspection<T> {
+
+        @Nullable
+        T inspect(MTEMultiBlockBase machine, int mode, GTRecipe recipe);
+    }
+
+    /**
+     * Inspects a copy of the machine with every modifier at its maximum, in every mode the spec supports, over sampled
+     * recipes.
+     *
+     * @return The first non-null result, else null
+     */
+    @Nullable
+    private static <T> T inspectSamples(Entry entry, SampleInspection<T> inspection) {
+        MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
+            .newMetaEntity(null);
+        for (Modifier<?> modifier : machine.getModifiersForInspection()) {
+            modifier.setToMax();
+        }
+        int modes = machine.getMachineModes()
+            .size();
+        for (int mode = 0; mode < Math.max(1, modes); mode++) {
+            if (!entry.spec()
+                .supportsMode(mode)) continue;
+            if (modes > 1) machine.setMachineMode(mode);
+            for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
+                T result = inspection.inspect(machine, mode, recipe);
+                if (result != null) return result;
+            }
+        }
+        return null;
+    }
+
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */
-    private static List<List<ProcessingSpec.EnergyHatch>> energySamples() {
+    private static List<List<ProcessingSpec.EnergyHatch>> createEnergySamples() {
         List<List<ProcessingSpec.EnergyHatch>> samples = new ArrayList<>();
         for (int tier : new int[] { VoltageIndex.HV, VoltageIndex.LuV, VoltageIndex.UHV }) {
             ProcessingSpec.EnergyHatch regular = ProcessingSpec.EnergyHatch.regular(tier);
@@ -214,7 +218,7 @@ public final class ProcessingSpecs {
     }
 
     /** Leaves out hatch voltage and amperage, and heat unless either calculator uses it. */
-    private static Set<ProcessingSpec.Quantity> differences(OverclockCalculator a, OverclockCalculator b) {
+    private static Set<ProcessingSpec.Quantity> findDifferences(OverclockCalculator a, OverclockCalculator b) {
         EnumSet<ProcessingSpec.Quantity> differ = EnumSet.noneOf(ProcessingSpec.Quantity.class);
         if (a.getParallel() != b.getParallel()) differ.add(ProcessingSpec.Quantity.PARALLEL);
         if (a.getDurationModifier() != b.getDurationModifier()) differ.add(ProcessingSpec.Quantity.DURATION);

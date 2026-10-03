@@ -258,8 +258,8 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
             Modifier.builder(UPGRADE_CHIP)
                 .between(TIER_BASE, TIER_UPGRADED)
                 .getter(() -> controllerTier)
-                .setter(t -> {
-                    controllerTier = t;
+                .setter(tier -> {
+                    controllerTier = tier;
                     updateStructureTier();
                 })
                 .build());
