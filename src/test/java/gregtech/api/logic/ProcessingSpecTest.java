@@ -788,4 +788,127 @@ class ProcessingSpecTest {
             spec.getUndescribed()
                 .isEmpty());
     }
+
+    /** As the steam multiblocks: nothing to say about no overclocks and no tier skips. */
+    @Test
+    void defaultsNeedNoTooltip() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .noOverclock()
+            .maxTierSkips(0)
+            .build();
+
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+        assertTrue(lines(spec).isEmpty());
+    }
+
+    /** As fusion MK1 to MK3. */
+    @Test
+    void aNonStandardOverclockRatioWritesALine() {
+        ProcessingSpec ratio = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .build();
+        ProcessingSpec uncappedTooltip = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .build();
+        ProcessingSpec capped = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .maxOverclocksPerRecipe((in, recipe) -> 1, tt -> tt.addInfo("cap"))
+            .build();
+
+        assertTrue(
+            ratio.getUndescribed()
+                .isEmpty());
+        assertEquals(1, lines(ratio).size());
+        assertEquals(EnumSet.of(ProcessingSpec.Quantity.OVERCLOCK), uncappedTooltip.getUndescribed());
+        assertEquals(2, lines(capped).size());
+    }
+
+    /** As the EBF. */
+    @Test
+    void coilHeatWritesItsVoltageBonusAndItsRules() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .coilHeatPerVoltageTier(
+                100,
+                VoltageIndex.MV,
+                ProcessingSpec.HeatRule.OVERCLOCK,
+                ProcessingSpec.HeatRule.DISCOUNT,
+                ProcessingSpec.HeatRule.REQUIRED)
+            .build();
+        ProcessingSpec.Heat heat = spec.getHeat()
+            .get();
+
+        assertEquals(
+            200,
+            heat.getMachineHeat(inputs(VoltageIndex.EV, 3)) - heat.getMachineHeat(inputs(VoltageIndex.MV, 3)));
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+        assertEquals(3, lines(spec).size(), "the voltage bonus, the discount and the overclock");
+        assertEquals(
+            EnumSet.of(ProcessingSpec.Quantity.HEAT),
+            ProcessingSpec.builder()
+                .heat(in -> 1800, ProcessingSpec.HeatRule.OVERCLOCK)
+                .build()
+                .getUndescribed());
+    }
+
+    /** As the Multi Smelter and the Arc Furnace's blast mode. */
+    @Test
+    void recipeCostTermsWriteALine() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .recipeOverride(
+                ProcessingSpec.RecipeOverride.eut(4)
+                    .duration(128))
+            .recipeEuMultiplier(16)
+            .build();
+
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+        assertEquals(2, lines(spec).size());
+    }
+
+    /** As the Arc Furnace and the Eye of Harmony, whose markdown states several numbers. */
+    @Test
+    void oneCustomTooltipCanCoverSeveralQuantities() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(in -> 4)
+            .durationMultiplier(in -> 0.5)
+            .customTooltip(
+                EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION),
+                tt -> tt.addInfo("block"))
+            .build();
+
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+        assertEquals(List.of("block"), lines(spec));
+    }
+
+    /** As the Centrifuge's momentum. */
+    @Test
+    void risingTermsSpanTheirRange() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallelPerVoltageTierRising(4, 8, MOMENTUM, 100)
+            .speedRising(2, 3, MOMENTUM, 100)
+            .build();
+
+        assertEquals(16, spec.getMaxParallel(atMomentum(0)));
+        assertEquals(32, spec.getMaxParallel(atMomentum(100)));
+        assertEquals(0.5, spec.getDurationMultiplier(atMomentum(0)));
+        assertEquals(1 / 3.0, spec.getDurationMultiplier(atMomentum(100)), 1e-12);
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+    }
+
+    private static ProcessingSpec.Inputs atMomentum(int momentum) {
+        return ProcessingSpec.Inputs.builder()
+            .energyHatches(VoltageIndex.EV, 1)
+            .value(MOMENTUM, momentum)
+            .build();
+    }
 }

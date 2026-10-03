@@ -8,6 +8,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -446,9 +447,13 @@ public final class ProcessingSpec {
     @Nullable
     private final Heat heat;
     @Nullable
+    private final Consumer<MultiblockTooltipBuilder> heatTooltip;
+    @Nullable
     private final ToIntBiFunction<Inputs, GTRecipe> recipeDuration;
     @Nullable
     private final ToIntBiFunction<Inputs, GTRecipe> maxOverclocks;
+    @Nullable
+    private final Consumer<MultiblockTooltipBuilder> maxOverclocksTooltip;
     private final List<Requirement> requirements;
     private final List<Requirement> startRequirements;
     @Nullable
@@ -495,6 +500,7 @@ public final class ProcessingSpec {
                 Collections.unmodifiableSet(EnumSet.copyOf(builder.heatRules)),
                 builder.recipeHeat);
         this.heat = heat;
+        this.heatTooltip = builder.heatTooltip;
         this.recipeOverride = builder.recipeOverride;
         this.customTooltips = new EnumMap<>(builder.customTooltips);
         this.noTooltip = builder.noTooltip.clone();
@@ -504,6 +510,7 @@ public final class ProcessingSpec {
         this.unsupportedModes = Collections.unmodifiableSet(new HashSet<>(builder.unsupportedModes));
         this.recipeDuration = builder.recipeDuration;
         this.maxOverclocks = builder.maxOverclocks;
+        this.maxOverclocksTooltip = builder.maxOverclocksTooltip;
         this.requirements = new ArrayList<>();
         if (heat != null && heat.isRequired()) {
             requirements.add(
@@ -829,6 +836,7 @@ public final class ProcessingSpec {
 
     private EnumSet<Quantity> writeLines(MultiblockTooltipBuilder tt, Set<Quantity> skip) {
         EnumSet<Quantity> described = EnumSet.noneOf(Quantity.class);
+        Set<Consumer<MultiblockTooltipBuilder>> customWritten = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Quantity quantity : Quantity.values()) {
             if (skip.contains(quantity)) continue;
             if (noTooltip.contains(quantity)) {
@@ -837,7 +845,8 @@ public final class ProcessingSpec {
             }
             Consumer<MultiblockTooltipBuilder> custom = customTooltips.get(quantity);
             if (custom != null) {
-                custom.accept(tt);
+                // one customTooltip can cover several quantities
+                if (customWritten.add(custom)) custom.accept(tt);
                 described.add(quantity);
                 continue;
             }
@@ -868,19 +877,38 @@ public final class ProcessingSpec {
             case EU_MODIFIER -> writeLine(euModifier, tt);
             case EU_MODIFIER_NOT_LIMITING_PARALLEL -> writeLine(euModifierNotLimitingParallel, tt);
             case OVERCLOCK -> {
-                if (!isPerfectOverclock()) yield false;
-                tt.addPerfectOCInfo();
+                if (overclock instanceof OverclockRule.Ratio ratio && !ratio.equals(OverclockRule.Ratio.STANDARD)) {
+                    tt.addOverclockRatioInfo(ratio.durationDivisor(), ratio.euMultiplier());
+                }
+                if (maxOverclocks == null) yield true;
+                if (maxOverclocksTooltip == null) yield false;
+                maxOverclocksTooltip.accept(tt);
                 yield true;
             }
             case TIER_SKIPS -> {
-                if (maxTierSkips.isEmpty()) yield false;
-                int skips = maxTierSkips.getAsInt();
+                int skips = maxTierSkips.orElse(1);
                 if (skips == Integer.MAX_VALUE) tt.addUnlimitedTierSkips();
                 else if (skips > 1) tt.addMaxTierSkips(skips);
-                else yield false;
                 yield true;
             }
-            case RECIPE_EU_MULTIPLIER, HEAT, RECIPE_OVERRIDE, POWER, OUTPUT -> false;
+            case RECIPE_EU_MULTIPLIER -> writeLine(recipeEuMultiplier, tt);
+            case HEAT -> {
+                if (heat == null || heatTooltip == null
+                    || heat.fixedRecipeHeat()
+                        .isPresent()) {
+                    yield false;
+                }
+                heatTooltip.accept(tt);
+                if (heat.isDiscounting()) tt.addHeatDiscountInfo();
+                if (heat.isOverclocking()) tt.addHeatOverclockInfo();
+                yield true;
+            }
+            case RECIPE_OVERRIDE -> {
+                if (recipeOverride == null) yield false;
+                tt.addRecipeOverrideInfo(recipeOverride.eut(), recipeOverride.duration());
+                yield true;
+            }
+            case POWER, OUTPUT -> false;
         };
     }
 
@@ -900,6 +928,7 @@ public final class ProcessingSpec {
         private OverclockRule overclock;
         private OptionalInt maxTierSkips = OptionalInt.empty();
         private ToIntFunction<Inputs> heatFunction;
+        private Consumer<MultiblockTooltipBuilder> heatTooltip;
         private final EnumSet<HeatRule> heatRules = EnumSet.noneOf(HeatRule.class);
         private OptionalInt recipeHeat = OptionalInt.empty();
         private RecipeOverride recipeOverride;
@@ -912,6 +941,7 @@ public final class ProcessingSpec {
         private final Set<Integer> unsupportedModes = new HashSet<>();
         private ToIntBiFunction<Inputs, GTRecipe> recipeDuration;
         private ToIntBiFunction<Inputs, GTRecipe> maxOverclocks;
+        private Consumer<MultiblockTooltipBuilder> maxOverclocksTooltip;
         private final List<Requirement> requirements = new ArrayList<>();
         private final List<Requirement> startRequirements = new ArrayList<>();
         private ToLongFunction<Inputs> voltage;
@@ -957,6 +987,14 @@ public final class ProcessingSpec {
             }, tooltip);
         }
 
+        /** From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. */
+        public Builder parallelPerVoltageTierRising(int min, int max, @Nonnull ModifierKind<Integer> kind,
+            int kindMax) {
+            return parallelTerm(
+                in -> (int) ((min + (max - min) * in.value(kind) / (float) kindMax) * in.voltageTier()),
+                tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
+        }
+
         /** Counts ULV as LV. */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(
@@ -986,6 +1024,12 @@ public final class ProcessingSpec {
             return this;
         }
 
+        public Builder maxOverclocksPerRecipe(@Nonnull ToIntBiFunction<Inputs, GTRecipe> maxOverclocks,
+            @Nonnull Consumer<MultiblockTooltipBuilder> tooltip) {
+            this.maxOverclocksTooltip = tooltip;
+            return maxOverclocksPerRecipe(maxOverclocks);
+        }
+
         /** The check returns the first unmet requirement's {@code failure}, in declaration order. */
         public Builder requires(@Nonnull BiPredicate<Inputs, GTRecipe> met,
             @Nonnull BiFunction<Inputs, GTRecipe, CheckRecipeResult> failure) {
@@ -1013,6 +1057,13 @@ public final class ProcessingSpec {
             return speedTerm(
                 in -> base + perTier * kind.countedTier(in.value(kind)),
                 tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
+        }
+
+        /** From {@code min} to {@code max} speed as {@code kind} rises from 0 to {@code kindMax}. */
+        public Builder speedRising(double min, double max, @Nonnull ModifierKind<Integer> kind, int kindMax) {
+            return speedTerm(
+                in -> min + (max - min) * in.value(kind) / kindMax,
+                tt -> tt.addRisingSpeedInfo((float) min, (float) max, kind));
         }
 
         /** {@code first} at the first tier, plus {@code perTier} per further tier. */
@@ -1076,7 +1127,7 @@ public final class ProcessingSpec {
 
         /** Multiplies the recipe's EU/t, up to {@link Integer#MAX_VALUE}, as if the recipe were costlier. */
         public Builder recipeEuMultiplier(double multiplier) {
-            this.recipeEuMultiplier = new Term(in -> multiplier, null);
+            this.recipeEuMultiplier = new Term(in -> multiplier, tt -> tt.addRecipeEuMultiplierInfo(multiplier));
             return this;
         }
 
@@ -1114,6 +1165,13 @@ public final class ProcessingSpec {
         public Builder heat(@Nonnull ToIntFunction<Inputs> machineHeat, @Nonnull HeatRule... rules) {
             this.heatFunction = machineHeat;
             Collections.addAll(this.heatRules, rules);
+            return this;
+        }
+
+        /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
+        public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
+            heat(in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier), rules);
+            this.heatTooltip = tt -> tt.addHeatPerVoltageTierInfo(heatPerTier, baseVoltageTier);
             return this;
         }
 
@@ -1208,6 +1266,13 @@ public final class ProcessingSpec {
 
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);
+            return this;
+        }
+
+        /** One block of lines for several quantities, written once where the first of them would be. */
+        public Builder customTooltip(@Nonnull Set<Quantity> quantities,
+            @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
+            for (Quantity quantity : quantities) this.customTooltips.put(quantity, lines);
             return this;
         }
 

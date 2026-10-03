@@ -25,7 +25,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -42,6 +41,7 @@ import gregtech.api.GregTechAPI;
 import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
+import gregtech.api.enums.VoltageIndex;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
@@ -56,7 +56,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.misc.GTStructureChannels;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -65,12 +64,12 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .heat(
-            in -> ProcessingSpec.COIL_HEAT.applyAsInt(in) + 100 * (in.voltageTier() - 2),
+        .coilHeatPerVoltageTier(
+            100,
+            VoltageIndex.MV,
             ProcessingSpec.HeatRule.OVERCLOCK,
             ProcessingSpec.HeatRule.DISCOUNT,
             ProcessingSpec.HeatRule.REQUIRED)
-        .noTooltip(ProcessingSpec.Quantity.HEAT)
         .build();
     private static final Modifier.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = Modifier
         .coil(MTEElectricBlastFurnace::getCoilLevel, MTEElectricBlastFurnace::setCoilLevel);
@@ -121,33 +120,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Blast Furnace, EBF")
             .addInfo("You can use some fluids to reduce recipe time. Place the circuit in the Input Bus")
-            .addInfo(
-                "Increases Heat by " + EnumChatFormatting.RED
-                    + "100K"
-                    + EnumChatFormatting.GRAY
-                    + " for every "
-                    + TooltipHelper.tierText("Voltage")
-                    + " tier past "
-                    + EnumChatFormatting.AQUA
-                    + "MV")
-            .addInfo(
-                "Reduces " + TooltipHelper.effText("EU Usage")
-                    + " by "
-                    + EnumChatFormatting.WHITE
-                    + "5%"
-                    + EnumChatFormatting.GRAY
-                    + " every "
-                    + EnumChatFormatting.RED
-                    + "900K"
-                    + EnumChatFormatting.GRAY
-                    + " above the recipe requirement")
-            .addInfo(
-                "Every " + EnumChatFormatting.RED
-                    + "1800K"
-                    + EnumChatFormatting.GRAY
-                    + " over the recipe requirement grants 1 "
-                    + EnumChatFormatting.LIGHT_PURPLE
-                    + "Perfect Overclock")
+            .addProcessingSpecInfo(SPEC)
             .addInfo("That means the EBF will reduce recipe time by a factor 4 instead of 2 (giving 100% efficiency)")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 4, 3, true)

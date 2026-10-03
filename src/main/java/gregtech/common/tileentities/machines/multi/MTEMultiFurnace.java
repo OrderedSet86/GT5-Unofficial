@@ -64,23 +64,20 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private int mLevel = 0;
 
+    private static final ProcessingSpec.RecipeOverride RECIPE = ProcessingSpec.RecipeOverride.eut(4)
+        .duration(128);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(in -> 4 << (in.value(ModifierKind.COIL) + 1))
         .customTooltip(
             ProcessingSpec.Quantity.PARALLEL,
             tt -> tt.addStaticParallelInfo(4)
                 .addDynamicMultiplicativeParallelInfo(2, ModifierKind.COIL))
-        .recipeOverride(
-            ProcessingSpec.RecipeOverride.eut(4)
-                .duration(128))
-        .noTooltip(ProcessingSpec.Quantity.RECIPE_OVERRIDE)
+        .recipeOverride(RECIPE)
         .power(in -> GTUtility.roundUpVoltage(in.totalVoltage()), in -> 1)
         .noAmperageOverclock()
         .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])
         .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
-    private static final ProcessingSpec.RecipeOverride RECIPE = SPEC.getRecipeOverride()
-        .get();
     private static final Modifier.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
         .coil(MTEMultiFurnace::getCoilLevel, MTEMultiFurnace::setCoilLevel);
     private static final int CASING_INDEX = 11;

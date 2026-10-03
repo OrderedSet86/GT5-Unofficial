@@ -1,15 +1,11 @@
 package goodgenerator.blocks.tileEntity;
 
-import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
 import static gregtech.api.enums.Textures.BlockIcons.MACHINE_CASING_FUSION_GLASS;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
-
-import com.google.common.collect.ImmutableMap;
 
 import bartworks.common.loaders.ItemRegistry;
 import goodgenerator.blocks.tileEntity.base.MTELargeFusionComputerPP;
@@ -26,7 +22,6 @@ import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.render.TextureFactory;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.tileentities.machines.IDualInputHatch;
 import gtPlusPlus.core.block.ModBlocks;
@@ -49,12 +44,7 @@ public class MTELargeFusionComputer4 extends MTELargeFusionComputerPP {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.fusion_reactor"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "large-fusion-computer-mk4"),
-                ImmutableMap.of(
-                    "power", formatNumber(getSingleHatchPower()),
-                    "capacity", formatNumber(capableStartupCanonical() / 32 / M),
-                    "tier", GTUtility.getColoredTierNameFromTier((byte) tier())))
+            .addProcessingSpecInfo(getProcessingSpec())
             .addSupportAny()
             .beginStructureBlock(47, 7, 47, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.middle_center_4th_layer"))

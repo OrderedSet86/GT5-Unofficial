@@ -23,6 +23,7 @@ import static net.minecraft.util.EnumChatFormatting.YELLOW;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -174,7 +175,6 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     // No ProcessingLogic: processRecipe runs the recipe through the spec
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallel(in -> (int) parallel(in))
-        .noTooltip(ProcessingSpec.Quantity.PARALLEL)
         .durationPerRecipe(
             (in, recipe) -> recipeTicks(
                 recipe.mDuration,
@@ -182,9 +182,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
                 in.value(SPACETIME_COMPRESSION_FIELD),
                 in.value(TIME_DILATION_FIELD),
                 in.value(CIRCUIT)))
-        .noTooltip(ProcessingSpec.Quantity.DURATION)
         .noOverclock()
-        .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
         // parallel runs take star matter, a single run hydrogen and helium
         .requires(
             (in, recipe) -> parallel(in) == 1
@@ -203,7 +201,13 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .euGeneratedPerRecipe(MTEEyeOfHarmony::euGenerated)
         .successChancePerRecipe(MTEEyeOfHarmony::successChance)
         .outputYieldPerRecipe(MTEEyeOfHarmony::outputYield)
-        .noTooltip(ProcessingSpec.Quantity.POWER, ProcessingSpec.Quantity.OUTPUT)
+        .customTooltip(
+            EnumSet.of(
+                ProcessingSpec.Quantity.PARALLEL,
+                ProcessingSpec.Quantity.DURATION,
+                ProcessingSpec.Quantity.POWER,
+                ProcessingSpec.Quantity.OUTPUT),
+            tt -> tt.addMarkdown(new ResourceLocation("gregtech", "eye-of-harmony")))
         .build();
 
     private static EyeOfHarmonyRecipe eoh(GTRecipe recipe) {
@@ -1160,7 +1164,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.spacetime_manipulator"))
-            .addMarkdown(new ResourceLocation("gregtech", "eye-of-harmony"))
+            .addProcessingSpecInfo(SPEC)
             .beginStructureBlock(33, 33, 33, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_center_17th_layer"))
             .addCasing("896", new ItemStack(TTCasingsContainer.sBlockCasingsBA0, 1, 11).getDisplayName(), false)

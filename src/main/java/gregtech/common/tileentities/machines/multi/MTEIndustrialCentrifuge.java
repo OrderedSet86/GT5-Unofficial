@@ -57,7 +57,6 @@ import gregtech.api.render.RenderOverlay;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtilityClient;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.material.MaterialsAlloy;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -75,10 +74,6 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 1;
 
-    private static final int BASE_PARALLEL_PER_TIER = 4;
-    private static final double SPEED = 2;
-    private static final double EXTRA_SPEED = 1;
-    private static final double MAX_SPEED = SPEED + EXTRA_SPEED;
     private static final int MAX_MOMENTUM = 100;
     public static final ModifierKind<Integer> MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
         .name("GT5U.MBTT.Tiers.Momentum")
@@ -86,12 +81,9 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
         .ordered()
         .register();
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(
-            in -> (int) ((BASE_PARALLEL_PER_TIER + BASE_PARALLEL_PER_TIER * in.value(MOMENTUM) / (float) MAX_MOMENTUM)
-                * in.voltageTier()))
-        .durationMultiplier(in -> 1.0 / (SPEED + EXTRA_SPEED * in.value(MOMENTUM) / MAX_MOMENTUM))
+        .parallelPerVoltageTierRising(4, 8, MOMENTUM, MAX_MOMENTUM)
+        .speedRising(2, 3, MOMENTUM, MAX_MOMENTUM)
         .euModifier(0.9)
-        .noTooltip(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION)
         // heavy mode recipes are for the heavy centrifuge
         .requires(
             (in, recipe) -> !recipe.getMetadataOrDefault(CentrifugeRecipeKey.INSTANCE, Boolean.FALSE),
@@ -193,20 +185,8 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType("Centrifuge")
-            .addInfo(
-                TooltipHelper.parallelText(BASE_PARALLEL_PER_TIER) + " - "
-                    + TooltipHelper.parallelText(BASE_PARALLEL_PER_TIER * 2)
-                    + " Parallels per "
-                    + TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR)
-                    + " Tier")
-            .addInfo(
-                TooltipHelper.speedText((float) SPEED) + " - " + TooltipHelper.speedText((float) MAX_SPEED) + " Speed")
-            .addInfo(
-                TooltipHelper.coloredText("Parallels", TooltipHelper.PARALLEL_COLOR) + " and "
-                    + TooltipHelper.coloredText("Speed", TooltipHelper.SPEED_COLOR)
-                    + " increase as the machine gains momentum")
-            .addInfo("Momentum is lost at four times the rate it is gained")
             .addProcessingSpecInfo(SPEC)
+            .addInfo("Momentum is lost at four times the rate it is gained")
             .addInfo("Disable animations with a screwdriver")
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(5, 5, 5, true)

@@ -11,6 +11,7 @@ import static gregtech.api.util.GTUtility.validMTEList;
 import static net.minecraft.util.StatCollector.translateToLocal;
 
 import java.math.BigInteger;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,12 +23,14 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
@@ -495,10 +498,10 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         long capableStartup = capableStartupCanonical();
         return ProcessingSpec.builder()
             .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
-            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .overclock(describer.durationDivisorPerOverclock(), describer.euMultiplierPerOverclock())
-            .maxOverclocksPerRecipe((in, recipe) -> describer.maxOverclocks(recipe))
-            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .maxOverclocksPerRecipe(
+                (in, recipe) -> describer.maxOverclocks(recipe),
+                tt -> tt.addInfo(translateToLocal("gt.mbtt.fusion.max_overclocks")))
             .unlimitedTierSkips()
             .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
             .requires(
@@ -513,7 +516,17 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
                 (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
             .power(in -> voltage, in -> amperage)
             .startupEuPerRecipe((in, recipe) -> startupEU(recipe))
-            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .customTooltip(
+                EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.POWER),
+                tt -> tt.addMarkdown(
+                    new ResourceLocation("gregtech", "large-fusion-computer-mk" + (tier() - 5)),
+                    ImmutableMap.of(
+                        "power",
+                        formatNumber(getSingleHatchPower()),
+                        "capacity",
+                        formatNumber(capableStartupCanonical() / ENERGY_HATCH_SHARES / M),
+                        "tier",
+                        GTUtility.getColoredTierNameFromTier((byte) tier()))))
             .build();
     }
 

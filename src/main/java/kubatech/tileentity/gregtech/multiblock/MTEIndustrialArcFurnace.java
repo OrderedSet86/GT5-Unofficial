@@ -30,6 +30,7 @@ import static net.minecraft.util.StatCollector.translateToLocalFormatted;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -177,14 +178,27 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                 (in, recipe) -> CheckRecipeResultRegistry
                     .insufficientStartupPower((int) ignitionEuPerTick(in), GTUtility.getTier(in.averageVoltage())))
             // the markdown tooltip and the electrodes' own tooltips state these
-            .noTooltip(
-                ProcessingSpec.Quantity.PARALLEL,
-                ProcessingSpec.Quantity.DURATION,
-                ProcessingSpec.Quantity.EU_MODIFIER,
-                ProcessingSpec.Quantity.RECIPE_EU_MULTIPLIER,
-                ProcessingSpec.Quantity.OVERCLOCK,
-                ProcessingSpec.Quantity.TIER_SKIPS,
-                ProcessingSpec.Quantity.POWER);
+            .customTooltip(
+                EnumSet.of(
+                    ProcessingSpec.Quantity.PARALLEL,
+                    ProcessingSpec.Quantity.DURATION,
+                    ProcessingSpec.Quantity.EU_MODIFIER,
+                    ProcessingSpec.Quantity.RECIPE_EU_MULTIPLIER,
+                    ProcessingSpec.Quantity.OVERCLOCK,
+                    ProcessingSpec.Quantity.POWER),
+                tt -> tt.addMarkdown(
+                    new ResourceLocation("gregtech", "industrial-arc-furnace"),
+                    ImmutableMap.of(
+                        "surge_threshold",
+                        ARC_SURGE_DURABILITY_THRESHOLD_PERCENT,
+                        "surge_chance",
+                        ARC_SURGE_CHANCE_PERCENT,
+                        "blast_power_multiplier",
+                        BLAST_MODE_POWER_MULTIPLIER,
+                        "ore_startup_seconds",
+                        ORE_MODE_STARTUP_TICKS / 20,
+                        "ore_idle_ticks",
+                        ORE_MODE_IDLE_FINISH_TICKS)));
         for (ArcFurnaceElectrode electrode : ArcFurnaceElectrode.values()) {
             spec.whenTier(
                 ELECTRODE,
@@ -448,14 +462,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(translateToLocal("gt.mbtt.machine_type.arc_furnace_iaf"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "industrial-arc-furnace"),
-                ImmutableMap.of(
-                    "surge_threshold", ARC_SURGE_DURABILITY_THRESHOLD_PERCENT,
-                    "surge_chance", ARC_SURGE_CHANCE_PERCENT,
-                    "blast_power_multiplier", BLAST_MODE_POWER_MULTIPLIER,
-                    "ore_startup_seconds", ORE_MODE_STARTUP_TICKS / 20,
-                    "ore_idle_ticks", ORE_MODE_IDLE_FINISH_TICKS))
+            .addProcessingSpecInfo(SPEC)
             .addSupportMultiAmp()
             .beginStructureBlock(17, 11, 19, true)
             .addController(translateToLocal("gt.mbtt.structure.front_center_4th_layer"))
