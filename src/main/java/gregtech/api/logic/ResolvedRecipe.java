@@ -1,7 +1,7 @@
 package gregtech.api.logic;
 
-import java.math.BigInteger;
 import java.util.OptionalInt;
+import java.util.function.DoubleSupplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,12 +26,14 @@ import gregtech.api.util.ParallelHelper;
  * @param checkToStart The first requirement to start from idle it fails, else success. Machines check these where they
  *                     start; {@link #calculate} checks them, since a planner starts from idle.
  */
-public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, long voltage, long amperage,
-    boolean amperageOverclock, boolean unlimitedEnergy, int maxParallel, double durationMultiplier, double euModifier,
-    double euModifierNotLimitingParallel, @Nonnull ProcessingSpec.OverclockRule overclock,
-    @Nonnull OptionalInt maxOverclocks, int maxTierSkips, @Nullable Heat heat, long maxEuPerTick,
-    @Nonnull CheckRecipeResult check, @Nonnull CheckRecipeResult checkToStart, @Nonnull BigInteger startupEu,
-    @Nonnull BigInteger euPerRun, @Nonnull BigInteger euGeneratedPerRun, double successChance, double outputYield) {
+public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
+    int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,
+    @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check, @Nonnull CheckRecipeResult checkToStart,
+    @Nonnull ProcessingRun.RunEu eu, @Nonnull ProcessingRun.Output output) {
+
+    /** @param heat Null where heat does not change the overclocks */
+    public record Overclock(@Nonnull ProcessingSpec.OverclockRule rule, @Nonnull OptionalInt maxOverclocks,
+        int maxTierSkips, @Nullable Heat heat) {}
 
     public record Heat(int machineHeat, int recipeHeat, boolean overclocking, boolean discounting) {}
 
@@ -40,31 +42,22 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, long voltag
         return new ResolvedRecipe(
             recipe,
             duration,
-            voltage,
-            amperage,
-            amperageOverclock,
-            unlimitedEnergy,
+            power,
             maxParallel,
             durationMultiplier,
             euModifier,
             euModifierNotLimitingParallel,
             overclock,
-            maxOverclocks,
-            maxTierSkips,
-            heat,
-            maxEuPerTick,
             check,
             checkToStart,
-            startupEu,
-            euPerRun,
-            euGeneratedPerRun,
-            successChance,
-            outputYield);
+            eu,
+            output);
     }
 
-    /** The EU/t that parallels may use up to. */
-    public long availableEuPerTick() {
-        return unlimitedEnergy ? Long.MAX_VALUE : voltage * amperage;
+    /** At most {@code limit} parallels, and at least 1, as the power panel or a planner's cap allows. */
+    @Nonnull
+    public ResolvedRecipe capParallel(int limit) {
+        return limit >= maxParallel ? this : withMaxParallel(Math.max(1, limit));
     }
 
     /** A fresh calculator for this recipe, before {@link OverclockCalculator#calculate()}. */
@@ -77,36 +70,42 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, long voltag
     @Nonnull
     public OverclockCalculator toCalculator(long recipeEuPerTick, int recipeDuration) {
         double euDiscount = euModifier * euModifierNotLimitingParallel;
-        if (!(overclock instanceof ProcessingSpec.OverclockRule.Ratio ratio)) {
+        if (!(overclock.rule() instanceof ProcessingSpec.OverclockRule.Ratio ratio)) {
             return OverclockCalculator.ofNoOverclock(recipeEuPerTick, recipeDuration)
                 .setDurationModifier(durationMultiplier)
                 .setEUtDiscount(euDiscount);
         }
         OverclockCalculator calculator = new OverclockCalculator().setRecipeEUt(recipeEuPerTick)
-            .setAmperage(amperage)
-            .setEUt(voltage)
-            .setMaxTierSkips(maxTierSkips)
+            .setAmperage(power.amperage())
+            .setEUt(power.voltage())
+            .setMaxTierSkips(overclock.maxTierSkips())
             .setDuration(recipeDuration)
             .setDurationModifier(durationMultiplier)
             .setEUtDiscount(euDiscount)
-            .setAmperageOC(amperageOverclock)
+            .setAmperageOC(power.amperageOverclock())
             .setDurationDecreasePerOC(ratio.durationDivisor())
             .setEUtIncreasePerOC(ratio.euMultiplier());
-        maxOverclocks.ifPresent(calculator::setMaxOverclocks);
+        overclock.maxOverclocks()
+            .ifPresent(calculator::setMaxOverclocks);
+        Heat heat = overclock.heat();
         if (heat != null) {
             calculator.setMachineHeat(heat.machineHeat())
                 .setRecipeHeat(heat.recipeHeat())
                 .setHeatOC(heat.overclocking())
                 .setHeatDiscount(heat.discounting());
         }
-        if (unlimitedEnergy) calculator.setAmperage(1)
+        if (power.unlimited()) calculator.setAmperage(1)
             .setEUt(Long.MAX_VALUE);
         return calculator;
     }
 
-    /** The EU/t a run draws, given its calculated overclocks. */
-    public long euPerTick(@Nonnull OverclockCalculator calculator) {
-        return Math.min(maxEuPerTick, calculator.getConsumption());
+    /** A helper with the energy, parallel and EU/t numbers set. The machine adds its inputs and void protection. */
+    @Nonnull
+    public ParallelHelper parallelHelper(@Nonnull GTRecipe recipe) {
+        return new ParallelHelper().setRecipe(recipe)
+            .setAvailableEUt(power.availableEuPerTick())
+            .setMaxParallel(maxParallel)
+            .setEUtModifier(euModifier);
     }
 
     /** With unlimited inputs and output space, as a planner runs it. */
@@ -120,34 +119,56 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, long voltag
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
         if (!checkToStart.wasSuccessful()) return ProcessingRun.failed(checkToStart);
-        ParallelHelper helper = new ParallelHelper().setRecipe(recipe)
-            .setAvailableEUt(availableEuPerTick())
-            .setMaxParallel(maxParallel)
-            .setEUtModifier(euModifier)
-            .setCalculator(calculator)
-            .setConsumption(false)
-            .setMaxParallelCalculator((r, max, fluids, items) -> max)
-            .setInputConsumer((r, amount, fluids, items) -> {})
+        ParallelHelper helper = forPlanning(parallelHelper(recipe)).setCalculator(calculator)
             .build();
+        return toRun(helper, calculator, () -> ticks(helper, calculator));
+    }
+
+    /**
+     * Unlimited inputs and output space: no void protection, recipe lock, batch or input consumption. Apply it after
+     * the machine has set up the helper.
+     */
+    @Nonnull
+    public static ParallelHelper forPlanning(@Nonnull ParallelHelper helper) {
+        return helper.setMachine(null, false, false)
+            .setRecipeLocked(null, false)
+            .enableBatchMode(1)
+            .setConsumption(false)
+            .setOutputCalculation(false)
+            .setMaxParallelCalculator((recipe, max, fluids, items) -> max)
+            .setInputConsumer((recipe, amount, fluids, items) -> {});
+    }
+
+    /** The recipe's time after its overclocks and batch. */
+    public static double ticks(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator) {
+        return calculator.getDuration() * helper.getDurationMultiplierDouble();
+    }
+
+    /**
+     * The run, given the built helper and its calculated overclocks: the helper's failure or an overflow if any.
+     *
+     * @param ticks Read only once nothing has overflowed
+     */
+    @Nonnull
+    public ProcessingRun toRun(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator,
+        @Nonnull DoubleSupplier ticks) {
         if (!helper.getResult()
             .wasSuccessful()) return ProcessingRun.failed(helper.getResult());
         if (calculator.getConsumption() == Long.MAX_VALUE) {
             return ProcessingRun.failed(CheckRecipeResultRegistry.POWER_OVERFLOW);
         }
-        double ticks = calculator.getDuration() * helper.getDurationMultiplierDouble();
-        if (calculator.getDuration() == Integer.MAX_VALUE || ticks >= Integer.MAX_VALUE) {
+        if (calculator.getDuration() == Integer.MAX_VALUE) {
             return ProcessingRun.failed(CheckRecipeResultRegistry.DURATION_OVERFLOW);
         }
+        double runTicks = ticks.getAsDouble();
+        if (runTicks >= Integer.MAX_VALUE) return ProcessingRun.failed(CheckRecipeResultRegistry.DURATION_OVERFLOW);
         return new ProcessingRun(
             helper.getResult(),
             helper.getCurrentParallel(),
             calculator.getPerformedOverclocks(),
-            (int) ticks,
-            euPerTick(calculator),
-            startupEu,
-            euPerRun,
-            euGeneratedPerRun,
-            successChance,
-            outputYield);
+            (int) runTicks,
+            Math.min(power.maxEuPerTick(), calculator.getConsumption()),
+            eu,
+            output);
     }
 }

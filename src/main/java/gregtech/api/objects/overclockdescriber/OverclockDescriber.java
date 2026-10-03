@@ -55,6 +55,18 @@ public abstract class OverclockDescriber {
     public abstract OverclockCalculator createCalculator(OverclockCalculator template, GTRecipe recipe);
 
     /**
+     * The recipe on this machine, as the machine runs it and NEI shows it, before
+     * {@link OverclockCalculator#calculate()}:
+     * a planner can change single settings first.
+     */
+    public final OverclockCalculator createCalculator(GTRecipe recipe) {
+        return createCalculator(
+            new OverclockCalculator().setRecipeEUt(recipe.mEUt)
+                .setDuration(recipe.mDuration),
+            recipe);
+    }
+
+    /**
      * Draws info about the energy this object can handle on NEI recipe GUI.
      */
     public abstract void drawEnergyInfo(RecipeDisplayInfo recipeInfo);

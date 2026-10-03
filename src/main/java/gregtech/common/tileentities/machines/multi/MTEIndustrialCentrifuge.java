@@ -217,7 +217,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(Modifier.of(MOMENTUM, () -> momentum, value -> momentum = value));
     }
 

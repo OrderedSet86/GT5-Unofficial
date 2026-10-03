@@ -2,11 +2,13 @@ package gregtech.api.logic;
 
 import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTRecipe;
+import gregtech.api.util.OverclockCalculator;
 
 class ProcessingLogicTest {
 
@@ -49,5 +51,44 @@ class ProcessingLogicTest {
             .inspect(recipe(30, 200, 0));
 
         assertEquals(5, capped.parallel());
+    }
+
+    /** A machine without a spec runs on its setters, through the same calculator a spec gives. */
+    @Test
+    void theSettersReachTheCalculator() {
+        OverclockCalculator calculator = new ProcessingLogic().setAvailableVoltage(512)
+            .setAvailableAmperage(4)
+            .setSpeedBonus(0.5)
+            .setEuModifier(0.75)
+            .setOverclock(1.5, 3)
+            .setAmperageOC(false)
+            .setUnlimitedTierSkips()
+            .createOverclockCalculator(recipe(30, 200, 0));
+
+        assertEquals(512, calculator.getMachineVoltage());
+        assertEquals(4, calculator.getMachineAmperage());
+        assertEquals(0.5, calculator.getDurationModifier());
+        assertEquals(0.75, calculator.getEUtDiscount());
+        assertEquals(1.5, calculator.getDurationDecreasePerOC());
+        assertEquals(3, calculator.getEUtIncreasePerOC());
+        assertFalse(calculator.isAmperageOC());
+        assertEquals(Integer.MAX_VALUE, calculator.getMaxTierSkips());
+        assertEquals(30, calculator.getRecipeEUt());
+        assertEquals(200, calculator.getRecipeDuration());
+    }
+
+    /** Hooks such as validateRecipe may change the setters during a check, and the later hooks see it. */
+    @Test
+    void theHooksReadTheSettersAsTheyAreNow() {
+        ProcessingLogic logic = new ProcessingLogic().setEuModifier(0.5);
+        GTRecipe recipe = recipe(30, 200, 0);
+        logic.createOverclockCalculator(recipe);
+
+        logic.setEuModifier(0.25);
+
+        assertEquals(
+            0.25,
+            logic.createOverclockCalculator(recipe)
+                .getEUtDiscount());
     }
 }

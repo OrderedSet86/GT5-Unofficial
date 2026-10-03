@@ -369,7 +369,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(
             Modifier.ofEnum(ELECTRODE, ArcFurnaceElectrode.values(), () -> electrode, value -> electrode = value),
             Modifier.of(
@@ -1048,6 +1048,12 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     public ProcessingSpec getProcessingSpec() {
         return SPEC;
+    }
+
+    @Override
+    protected void prepareForInspection() {
+        // the spec models ignition as a start-up requirement and start-up EU
+        phase = ArcFurnacePhase.Processing;
     }
 
     @Nullable

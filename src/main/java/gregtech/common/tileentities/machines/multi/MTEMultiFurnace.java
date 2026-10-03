@@ -44,8 +44,8 @@ import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ModifierKind;
-import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingSpec;
+import gregtech.api.logic.ResolvedRecipe;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
@@ -54,6 +54,7 @@ import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTModHandler;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -65,15 +66,11 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private int mLevel = 0;
 
-    private static final ProcessingSpec.RecipeOverride RECIPE = ProcessingSpec.RecipeOverride.eut(4)
-        .duration(128);
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallel(in -> 4 << (in.value(ModifierKind.COIL) + 1), ModifierKind.COIL)
-        .customTooltip(
-            ProcessingSpec.Quantity.PARALLEL,
-            tt -> tt.addStaticParallelInfo(4)
-                .addDynamicMultiplicativeParallelInfo(2, ModifierKind.COIL))
-        .recipeOverride(RECIPE)
+        .parallelCompoundPerTier(4, 2, ModifierKind.COIL)
+        .recipeOverride(
+            ProcessingSpec.RecipeOverride.eut(4)
+                .duration(128))
         .power(in -> GTUtility.roundUpVoltage(in.totalVoltage()), in -> 1)
         .noAmperageOverclock()
         .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])
@@ -182,21 +179,19 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     @NotNull
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
-        ProcessingInputs inputs = getCurrentProcessingSpecInputs();
-        long availableEUt = SPEC.getPower(inputs)
-            .voltage();
-        if (availableEUt < RECIPE.eut()) {
-            return CheckRecipeResultRegistry.insufficientPower(RECIPE.eut());
+        ResolvedRecipe smelting = SPEC.resolve(Smelting.RECIPE, getCurrentProcessingSpecInputs());
+        long recipeEUt = smelting.recipe().mEUt;
+        if (smelting.power()
+            .voltage() < recipeEUt) {
+            return CheckRecipeResultRegistry.insufficientPower(recipeEUt);
         }
         if (tInput.isEmpty()) {
             return CheckRecipeResultRegistry.NO_RECIPE;
         }
-        int maxParallel = SPEC.getMaxParallel(inputs);
+        int maxParallel = smelting.maxParallel();
         int originalMaxParallel = maxParallel;
 
-        OverclockCalculator calculator = new OverclockCalculator().setEUt(availableEUt)
-            .setRecipeEUt(RECIPE.eut())
-            .setDuration(RECIPE.duration())
+        OverclockCalculator calculator = smelting.toCalculator()
             .setParallel(originalMaxParallel);
 
         maxParallel = GTUtility.longToInt((long) (maxParallel * calculator.calculateMultiplierUnderOneTick()));
@@ -206,7 +201,11 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
             maxParallel = GTUtility.longToInt((long) maxParallel * getMaxBatchSize());
         }
 
-        maxParallel = Math.min(maxParallel, GTUtility.longToInt(availableEUt / RECIPE.eut()));
+        maxParallel = Math.min(
+            maxParallel,
+            GTUtility.longToInt(
+                smelting.power()
+                    .availableEuPerTick() / recipeEUt));
 
         int currentParallel = 0;
         for (ItemStack item : tInput) {
@@ -274,7 +273,10 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         this.mEfficiency = 10000 - (getIdealStatus() - getRepairStatus()) * 1000;
         this.mEfficiencyIncrease = 10000;
         this.mMaxProgresstime = (int) (calculator.getDuration() * batchMultiplierMax);
-        this.lEUt = Math.min(SPEC.getMaxEuPerTick(inputs), calculator.getConsumption());
+        this.lEUt = Math.min(
+            smelting.power()
+                .maxEuPerTick(),
+            calculator.getConsumption());
         if (this.lEUt > 0) {
             this.lEUt = -this.lEUt;
         }
@@ -316,9 +318,28 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         return SPEC;
     }
 
+    /** Any item's smelting: the spec runs it at its fixed cost. Built on first use, once the game has loaded. */
+    private static final class Smelting {
+
+        static final GTRecipe RECIPE = new GTRecipe(
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            0,
+            0);
+    }
+
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(COIL.of(this));
     }
 

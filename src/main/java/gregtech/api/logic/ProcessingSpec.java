@@ -54,8 +54,28 @@ import gregtech.api.util.OverclockCalculator;
  */
 public final class ProcessingSpec {
 
-    /** The voltage and amperage a machine's recipes see. */
-    public record Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited) {}
+    /**
+     * The energy a machine's recipes see.
+     *
+     * @param unlimited    Energy limits neither parallels nor overclocks
+     * @param maxEuPerTick The most EU/t a run draws, whatever its overclocks cost
+     */
+    public record Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited, long maxEuPerTick) {
+
+        public Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited) {
+            this(voltage, amperage, amperageOverclock, unlimited, Long.MAX_VALUE);
+        }
+
+        /** The EU/t that parallels may use up to. */
+        public long availableEuPerTick() {
+            return unlimited ? Long.MAX_VALUE : voltage * amperage;
+        }
+
+        /** The highest recipe EU/t the machine accepts, as the scanner shows it. */
+        public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
+            return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
+        }
+    }
 
     /** Replaces every recipe's cost, as the Multi Smelter does. */
     public record RecipeOverride(long eut, int duration) {
@@ -110,21 +130,34 @@ public final class ProcessingSpec {
 
     /** In tooltip order. */
     public enum Quantity {
-        PARALLEL,
-        DURATION,
-        EU_MODIFIER,
+
+        PARALLEL(true),
+        /** Set as a speed: its formula gives 2.5 for 250% speed, a duration multiplier of 0.4. */
+        DURATION(true),
+        EU_MODIFIER(true),
         /** Unlike {@link #EU_MODIFIER}, does not lower the parallels energy allows. */
-        EU_MODIFIER_NOT_LIMITING_PARALLEL,
+        EU_MODIFIER_NOT_LIMITING_PARALLEL(true),
         /** Multiplies the recipe's EU/t, before overclocks and before its voltage is checked. */
-        RECIPE_EU_MULTIPLIER,
-        OVERCLOCK,
-        TIER_SKIPS,
-        HEAT,
-        RECIPE_OVERRIDE,
+        RECIPE_EU_MULTIPLIER(true),
+        OVERCLOCK(true),
+        TIER_SKIPS(false),
+        HEAT(false),
+        RECIPE_OVERRIDE(false),
         /** Voltage, amperage, and EU taken or given once per start or run. */
-        POWER,
+        POWER(false),
         /** Success chance and yield. */
-        OUTPUT
+        OUTPUT(false);
+
+        private final boolean settableInVariant;
+
+        Quantity(boolean settableInVariant) {
+            this.settableInVariant = settableInVariant;
+        }
+
+        /** Whether {@link Builder#inMode} and {@link Builder#whenTier} may set it. */
+        boolean isSettableInVariant() {
+            return settableInVariant;
+        }
     }
 
     public static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
@@ -138,9 +171,11 @@ public final class ProcessingSpec {
     /** For a machine that runs a plain {@link ProcessingLogic}. */
     public static final ProcessingSpec STANDARD = builder().build();
 
-    /** Exactly one of {@code formula} and {@code perRecipe}. */
-    private record ParallelTerm(@Nullable Formula formula,
-        @Nullable ToIntBiFunction<ProcessingInputs, GTRecipe> perRecipe) {}
+    /** A formula and the tooltip lines that state it. The lines are null where the formula is plain code. */
+    private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
+
+    /** Exactly one of {@code term} and {@code perRecipe}. */
+    private record ParallelTerm(@Nullable Term term, @Nullable ToIntBiFunction<ProcessingInputs, GTRecipe> perRecipe) {}
 
     private record Requirement(BiPredicate<ProcessingInputs, GTRecipe> met,
         BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {}
@@ -152,24 +187,9 @@ public final class ProcessingSpec {
     /** What the tooltip knows of one quantity the spec sets: its lines, and whether they cover all of it. */
     private record Described(boolean readsRecipe, List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
-    private static final Set<Quantity> SETTABLE_IN_VARIANT = Collections.unmodifiableSet(
-        EnumSet.of(
-            Quantity.PARALLEL,
-            Quantity.DURATION,
-            Quantity.EU_MODIFIER,
-            Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
-            Quantity.RECIPE_EU_MULTIPLIER,
-            Quantity.OVERCLOCK));
-
     private final List<ParallelTerm> parallel;
-    @Nullable
-    private final Formula speed;
-    @Nullable
-    private final Formula euModifier;
-    @Nullable
-    private final Formula euModifierNotLimitingParallel;
-    @Nullable
-    private final Formula recipeEuMultiplier;
+    /** The quantities a single formula sets: the speed, the EU factors and the recipe EU/t multiplier. */
+    private final EnumMap<Quantity, Term> scalars;
     @Nullable
     private final OverclockRule overclock;
     private final OptionalInt maxTierSkips;
@@ -213,10 +233,7 @@ public final class ProcessingSpec {
 
     private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierRange> modifiers) {
         this.parallel = List.copyOf(builder.parallel);
-        this.speed = builder.speed;
-        this.euModifier = builder.euModifier;
-        this.euModifierNotLimitingParallel = builder.euModifierNotLimitingParallel;
-        this.recipeEuMultiplier = builder.recipeEuMultiplier;
+        this.scalars = new EnumMap<>(builder.scalars);
         this.overclock = builder.overclock;
         this.maxTierSkips = builder.maxTierSkips;
         Heat heat = builder.heatFunction == null ? null
@@ -328,37 +345,36 @@ public final class ProcessingSpec {
             if (!inputs.has(kind)) throw new IllegalArgumentException("no " + kind + " value given");
         }
         GTRecipe run = recipeAsRun(recipe, inputs);
-        Power power = getPower(inputs);
         return new ResolvedRecipe(
             run,
             recipeDuration == null ? run.mDuration : recipeDuration.applyAsInt(inputs, run),
-            power.voltage(),
-            power.amperage(),
-            power.amperageOverclock(),
-            power.unlimited(),
+            getPower(inputs),
             getMaxParallel(inputs, run),
             getDurationMultiplier(inputs),
             getEuModifier(inputs),
             getEuModifierNotLimitingParallel(inputs),
-            getOverclock(inputs),
-            maxOverclocks == null ? OptionalInt.empty() : OptionalInt.of(maxOverclocks.applyAsInt(inputs, run)),
-            maxTierSkips.orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS),
-            heat == null ? null
-                : new ResolvedRecipe.Heat(
-                    heat.getMachineHeat(inputs),
-                    heat.getRecipeHeat(run),
-                    heat.rules()
-                        .contains(HeatRule.OVERCLOCK),
-                    heat.rules()
-                        .contains(HeatRule.DISCOUNT)),
-            maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs),
+            new ResolvedRecipe.Overclock(
+                getOverclock(inputs),
+                maxOverclocks == null ? OptionalInt.empty() : OptionalInt.of(maxOverclocks.applyAsInt(inputs, run)),
+                getMaxTierSkipsOrDefault(),
+                heat == null ? null
+                    : new ResolvedRecipe.Heat(
+                        heat.getMachineHeat(inputs),
+                        heat.getRecipeHeat(run),
+                        heat.rules()
+                            .contains(HeatRule.OVERCLOCK),
+                        heat.rules()
+                            .contains(HeatRule.DISCOUNT))),
             check(run, inputs),
             firstFailing(startRequirements, run, inputs),
-            BigInteger.valueOf(startupEu == null ? 0 : startupEu.applyAsLong(inputs, run)),
-            euPerRun == null ? BigInteger.ZERO : euPerRun.apply(inputs, run),
-            euGeneratedPerRun == null ? BigInteger.ZERO : euGeneratedPerRun.apply(inputs, run),
-            successChance == null ? 1 : successChance.applyAsDouble(inputs, run),
-            outputYield == null ? 1 : outputYield.applyAsDouble(inputs, run));
+            new ProcessingRun.RunEu(
+                BigInteger.valueOf(startupEu == null ? 0 : startupEu.applyAsLong(inputs, run)),
+                euPerRun == null ? BigInteger.ZERO : euPerRun.apply(inputs, run),
+                euGeneratedPerRun == null ? BigInteger.ZERO : euGeneratedPerRun.apply(inputs, run)),
+            successChance == null && outputYield == null ? ProcessingRun.Output.CERTAIN
+                : new ProcessingRun.Output(
+                    successChance == null ? 1 : successChance.applyAsDouble(inputs, run),
+                    outputYield == null ? 1 : outputYield.applyAsDouble(inputs, run)));
     }
 
     /**
@@ -391,7 +407,7 @@ public final class ProcessingSpec {
     private int maxParallel(ProcessingInputs inputs, @Nullable GTRecipe recipe) {
         int sum = 0;
         for (ParallelTerm term : resolve(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
-            if (term.formula != null) sum += (int) term.formula.apply(inputs);
+            if (term.term != null) sum += (int) term.term.formula.apply(inputs);
             else if (recipe != null) sum += term.perRecipe.applyAsInt(inputs, recipe);
         }
         return Math.max(1, sum);
@@ -399,20 +415,19 @@ public final class ProcessingSpec {
 
     /** 0.5 halves recipe time. */
     public double getDurationMultiplier(@Nonnull ProcessingInputs inputs) {
-        Formula speed = resolve(inputs, spec -> spec.speed, Objects::nonNull);
-        return speed == null ? 1 : 1 / speed.apply(inputs);
+        return 1 / factor(inputs, Quantity.DURATION);
     }
 
     public double getEuModifier(@Nonnull ProcessingInputs inputs) {
-        return factor(inputs, spec -> spec.euModifier);
+        return factor(inputs, Quantity.EU_MODIFIER);
     }
 
     public double getEuModifierNotLimitingParallel(@Nonnull ProcessingInputs inputs) {
-        return factor(inputs, spec -> spec.euModifierNotLimitingParallel);
+        return factor(inputs, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL);
     }
 
     public double getRecipeEuMultiplier(@Nonnull ProcessingInputs inputs) {
-        return factor(inputs, spec -> spec.recipeEuMultiplier);
+        return factor(inputs, Quantity.RECIPE_EU_MULTIPLIER);
     }
 
     /** {@link OverclockRule.Ratio#STANDARD} where neither the spec nor a matching variant sets one. */
@@ -428,21 +443,13 @@ public final class ProcessingSpec {
      */
     @Nonnull
     public List<Formula> getFormulas(@Nonnull Quantity quantity, @Nonnull ProcessingInputs inputs) {
-        Function<ProcessingSpec, Formula> single = switch (quantity) {
-            case PARALLEL -> null;
-            case DURATION -> spec -> spec.speed;
-            case EU_MODIFIER -> spec -> spec.euModifier;
-            case EU_MODIFIER_NOT_LIMITING_PARALLEL -> spec -> spec.euModifierNotLimitingParallel;
-            case RECIPE_EU_MULTIPLIER -> spec -> spec.recipeEuMultiplier;
-            case OVERCLOCK, TIER_SKIPS, HEAT, RECIPE_OVERRIDE, POWER, OUTPUT -> spec -> null;
-        };
-        if (single != null) {
-            Formula formula = resolve(inputs, single, Objects::nonNull);
-            return formula == null ? List.of() : List.of(formula);
+        if (quantity != Quantity.PARALLEL) {
+            Term term = scalar(inputs, quantity);
+            return term == null ? List.of() : List.of(term.formula);
         }
         List<Formula> formulas = new ArrayList<>();
         for (ParallelTerm term : resolve(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
-            if (term.formula != null) formulas.add(term.formula);
+            if (term.term != null) formulas.add(term.term.formula);
         }
         return formulas;
     }
@@ -453,9 +460,20 @@ public final class ProcessingSpec {
         return maxTierSkips;
     }
 
+    /** As {@link #getMaxTierSkips()}, else the calculator's default. */
+    public int getMaxTierSkipsOrDefault() {
+        return maxTierSkips.orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS);
+    }
+
     @Nonnull
     public Optional<Heat> getHeat() {
         return Optional.ofNullable(heat);
+    }
+
+    /** @throws IllegalStateException if the spec sets no heat */
+    public int getMachineHeat(@Nonnull ProcessingInputs inputs) {
+        if (heat == null) throw new IllegalStateException("the spec sets no heat");
+        return heat.getMachineHeat(inputs);
     }
 
     @Nonnull
@@ -469,12 +487,8 @@ public final class ProcessingSpec {
             (voltage == null ? STANDARD_VOLTAGE : voltage).applyAsLong(inputs),
             (amperage == null ? STANDARD_AMPERAGE : amperage).applyAsLong(inputs),
             !noAmperageOverclock,
-            unlimitedEnergy != null && unlimitedEnergy.test(inputs));
-    }
-
-    /** {@link Long#MAX_VALUE} unless the spec caps it. */
-    public long getMaxEuPerTick(@Nonnull ProcessingInputs inputs) {
-        return maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs);
+            unlimitedEnergy != null && unlimitedEnergy.test(inputs),
+            maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs));
     }
 
     /**
@@ -510,9 +524,14 @@ public final class ProcessingSpec {
     }
 
     /** 1 where the spec sets no term. */
-    private double factor(ProcessingInputs inputs, Function<ProcessingSpec, Formula> term) {
-        Formula resolved = resolve(inputs, term, Objects::nonNull);
-        return resolved == null ? 1 : resolved.apply(inputs);
+    private double factor(ProcessingInputs inputs, Quantity quantity) {
+        Term term = scalar(inputs, quantity);
+        return term == null ? 1 : term.formula.apply(inputs);
+    }
+
+    @Nullable
+    private Term scalar(ProcessingInputs inputs, Quantity quantity) {
+        return resolve(inputs, spec -> spec.scalars.get(quantity), Objects::nonNull);
     }
 
     /** The first matching variant's setting, else the spec's. */
@@ -623,27 +642,24 @@ public final class ProcessingSpec {
             boolean complete = true;
             boolean perRecipe = false;
             for (ParallelTerm term : builder.parallel) {
-                Consumer<MultiblockTooltipBuilder> line = term.formula == null ? null
-                    : FormulaTooltips.lines(Quantity.PARALLEL, term.formula);
                 perRecipe |= term.perRecipe != null;
-                if (line == null) complete = false;
-                else lines.add(line);
+                if (term.term == null || term.term.lines == null) complete = false;
+                else lines.add(term.term.lines);
             }
             described.put(Quantity.PARALLEL, new Described(perRecipe, lines, complete));
         }
-        if (builder.speed != null || builder.recipeDuration != null) {
-            Consumer<MultiblockTooltipBuilder> line = builder.speed == null ? null
-                : FormulaTooltips.lines(Quantity.DURATION, builder.speed);
+        builder.scalars.forEach((quantity, term) -> {
+            boolean perRecipe = quantity == Quantity.DURATION && builder.recipeDuration != null;
             described.put(
-                Quantity.DURATION,
+                quantity,
                 new Described(
-                    builder.recipeDuration != null,
-                    line == null ? List.of() : List.of(line),
-                    line != null && builder.recipeDuration == null));
+                    perRecipe,
+                    term.lines == null ? List.of() : List.of(term.lines),
+                    term.lines != null && !perRecipe));
+        });
+        if (builder.recipeDuration != null && !builder.scalars.containsKey(Quantity.DURATION)) {
+            described.put(Quantity.DURATION, new Described(true, List.of(), false));
         }
-        describeFormula(described, Quantity.EU_MODIFIER, builder.euModifier);
-        describeFormula(described, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL, builder.euModifierNotLimitingParallel);
-        describeFormula(described, Quantity.RECIPE_EU_MULTIPLIER, builder.recipeEuMultiplier);
         if (builder.overclock != null || builder.maxOverclocks != null) {
             List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
             if (builder.overclock instanceof OverclockRule.Ratio ratio && !ratio.equals(OverclockRule.Ratio.STANDARD)) {
@@ -701,22 +717,12 @@ public final class ProcessingSpec {
         return described;
     }
 
-    private static void describeFormula(EnumMap<Quantity, Described> described, Quantity quantity,
-        @Nullable Formula formula) {
-        if (formula == null) return;
-        Consumer<MultiblockTooltipBuilder> line = FormulaTooltips.lines(quantity, formula);
-        described.put(quantity, new Described(false, line == null ? List.of() : List.of(line), line != null));
-    }
-
     // endregion
 
     public static final class Builder {
 
         private final List<ParallelTerm> parallel = new ArrayList<>();
-        private Formula speed;
-        private Formula euModifier;
-        private Formula euModifierNotLimitingParallel;
-        private Formula recipeEuMultiplier;
+        private final EnumMap<Quantity, Term> scalars = new EnumMap<>(Quantity.class);
         private OverclockRule overclock;
         private OptionalInt maxTierSkips = OptionalInt.empty();
         private ToIntFunction<ProcessingInputs> heatFunction;
@@ -779,33 +785,49 @@ public final class ProcessingSpec {
 
         /** Parallel terms add up. */
         public Builder parallel(int parallel) {
-            return parallelTerm(new Formula.Constant(parallel));
+            return parallelTerm(new Formula.Constant(parallel), tt -> tt.addStaticParallelInfo(parallel));
         }
 
         /** Read on every use, such as a config value. */
         public Builder parallel(@Nonnull IntSupplier parallel) {
-            return parallelTerm(new Formula.Supplied(parallel::getAsInt));
+            return parallelTerm(
+                new Formula.Supplied(parallel::getAsInt),
+                tt -> tt.addStaticParallelInfo(parallel.getAsInt()));
         }
 
         /** {@code parallel} times the product of the kinds' tiers. */
         public Builder parallelPerTier(int parallel, @Nonnull ModifierKind.IntKind... kinds) {
             if (kinds.length == 0) throw new IllegalArgumentException("parallelPerTier needs a tier");
-            return parallelTerm(new Formula.TierProduct(parallel, List.of(kinds)));
+            List<ModifierKind.IntKind> tiers = List.of(kinds);
+            return parallelTerm(
+                new Formula.TierProduct(parallel, tiers),
+                tiers.size() == 1 ? tt -> tt.addDynamicParallelInfo(parallel, tiers.get(0))
+                    : tt -> tt.addTierProductParallelInfo(parallel, tiers));
+        }
+
+        /** {@code parallel} times {@code factor} per tier of {@code kind}: 4 and 2 is 8 at the first tier. */
+        public Builder parallelCompoundPerTier(int parallel, int factor, @Nonnull ModifierKind.IntKind kind) {
+            return parallelTerm(
+                new Formula.CompoundPerTier(parallel * factor, factor, kind),
+                tt -> tt.addStaticParallelInfo(parallel)
+                    .addDynamicMultiplicativeParallelInfo(factor, kind));
         }
 
         /** From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. */
         public Builder parallelPerVoltageTierRising(int min, int max, @Nonnull ModifierKind.IntKind kind, int kindMax) {
-            return parallelTerm(new Formula.RisingPerVoltageTier(min, max, kind, kindMax));
+            return parallelTerm(
+                new Formula.RisingPerVoltageTier(min, max, kind, kindMax),
+                tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
         }
 
         /** Counts ULV as LV. */
         public Builder parallelPerVoltageTier(int parallel) {
-            return parallelTerm(new Formula.PerVoltageTier(parallel));
+            return parallelTerm(new Formula.PerVoltageTier(parallel), tt -> tt.addVoltageParallelInfo(parallel));
         }
 
         /** @param reads The kinds the function reads */
         public Builder parallel(@Nonnull ToIntFunction<ProcessingInputs> parallel, @Nonnull ModifierKind... reads) {
-            return parallelTerm(new Formula.Custom(parallel::applyAsInt, Set.of(reads)));
+            return parallelTerm(new Formula.Custom(parallel::applyAsInt, Set.of(reads)), null);
         }
 
         /** Adds a parallel that depends on the recipe. */
@@ -814,8 +836,8 @@ public final class ProcessingSpec {
             return this;
         }
 
-        private Builder parallelTerm(Formula formula) {
-            this.parallel.add(new ParallelTerm(reading(formula), null));
+        private Builder parallelTerm(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {
+            this.parallel.add(new ParallelTerm(new Term(reading(formula), lines), null));
             return this;
         }
 
@@ -825,77 +847,102 @@ public final class ProcessingSpec {
 
         /** 2.5 is 250% speed: recipes take 1 / 2.5 of the time. */
         public Builder speed(double speed) {
-            return speed(new Formula.Constant(speed));
+            return scalar(Quantity.DURATION, new Formula.Constant(speed), tt -> tt.addStaticSpeedInfo((float) speed));
         }
 
         /** @param reads The kinds the function reads */
         public Builder speed(@Nonnull ToDoubleFunction<ProcessingInputs> speed, @Nonnull ModifierKind... reads) {
-            return speed(new Formula.Custom(speed, Set.of(reads)));
+            return scalar(Quantity.DURATION, new Formula.Custom(speed, Set.of(reads)), null);
         }
 
         /** {@code base} plus {@code perTier} per tier of {@code kind}: 1 and 1 is 200% at the first tier. */
         public Builder speedPerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind) {
-            return speed(new Formula.PerTier(base, perTier, kind, 0));
+            return scalar(
+                Quantity.DURATION,
+                new Formula.PerTier(base, perTier, kind, 0),
+                tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
         }
 
         /** From {@code min} to {@code max} speed as {@code kind} rises from 0 to {@code kindMax}. */
         public Builder speedRising(double min, double max, @Nonnull ModifierKind.IntKind kind, int kindMax) {
-            return speed(new Formula.Rising(min, max, kind, kindMax));
+            return scalar(
+                Quantity.DURATION,
+                new Formula.Rising(min, max, kind, kindMax),
+                tt -> tt.addRisingSpeedInfo((float) min, (float) max, kind));
         }
 
         /** {@code first} at the first tier, plus {@code perTier} per further tier. */
         public Builder speedPerTierBeyondFirst(double first, double perTier, @Nonnull ModifierKind.IntKind kind) {
-            return speed(new Formula.PerTier(first, perTier, kind, 1));
-        }
-
-        private Builder speed(Formula speed) {
-            this.speed = reading(speed);
-            return this;
+            return scalar(
+                Quantity.DURATION,
+                new Formula.PerTier(first, perTier, kind, 1),
+                tt -> tt.addSpeedPerTierBeyondFirstInfo((float) first, (float) perTier, kind));
         }
 
         public Builder euModifier(double euModifier) {
-            this.euModifier = new Formula.Constant(euModifier);
-            return this;
+            return scalar(
+                Quantity.EU_MODIFIER,
+                new Formula.Constant(euModifier),
+                tt -> tt.addStaticEuEffInfo((float) euModifier));
         }
 
         /** @param reads The kinds the function reads */
         public Builder euModifier(@Nonnull ToDoubleFunction<ProcessingInputs> euModifier,
             @Nonnull ModifierKind... reads) {
-            this.euModifier = reading(new Formula.Custom(euModifier, Set.of(reads)));
-            return this;
+            return scalar(Quantity.EU_MODIFIER, new Formula.Custom(euModifier, Set.of(reads)), null);
         }
 
         /** Follow with {@link #maxEuDiscount} for a cap. */
         public Builder euDiscountPerTier(double discount, @Nonnull ModifierKind.IntKind kind) {
-            this.euModifier = reading(new Formula.PerTier(1, -discount, kind, 0));
-            return this;
+            return scalar(
+                Quantity.EU_MODIFIER,
+                new Formula.PerTier(1, -discount, kind, 0),
+                tt -> tt.addDynamicEuEffInfo((float) discount, kind));
         }
 
         /** {@code euModifier} at the first tier, times {@code factor} per further tier. */
         public Builder euModifierPerTierBeyondFirst(double euModifier, double factor,
             @Nonnull ModifierKind.IntKind kind) {
-            this.euModifier = reading(new Formula.CompoundPerTier(euModifier, factor, kind));
-            return this;
+            return scalar(
+                Quantity.EU_MODIFIER,
+                new Formula.CompoundPerTier(euModifier, factor, kind),
+                tt -> tt.addStaticEuEffInfo((float) euModifier)
+                    .addEuMultiplierBeyondFirstInfo((float) factor, kind));
         }
 
         public Builder maxEuDiscount(double maxDiscount) {
-            if (this.euModifier == null || this.euModifier instanceof Formula.Custom) {
+            Term euModifier = scalars.get(Quantity.EU_MODIFIER);
+            if (euModifier == null || euModifier.lines == null) {
                 throw new IllegalStateException("maxEuDiscount follows an euModifier with a tooltip");
             }
-            this.euModifier = new Formula.AtLeast(this.euModifier, 1 - maxDiscount);
+            double floor = 1 - maxDiscount;
+            scalars.put(
+                Quantity.EU_MODIFIER,
+                new Term(
+                    new Formula.AtLeast(euModifier.formula, floor),
+                    euModifier.lines.andThen(tt -> tt.addMaxEuDiscountInfo((float) (1 - floor)))));
             return this;
         }
 
         /** Multiplies the recipe's EU/t, up to {@link Integer#MAX_VALUE}, as if the recipe were costlier. */
         public Builder recipeEuMultiplier(double multiplier) {
-            this.recipeEuMultiplier = new Formula.Constant(multiplier);
-            return this;
+            return scalar(
+                Quantity.RECIPE_EU_MULTIPLIER,
+                new Formula.Constant(multiplier),
+                tt -> tt.addRecipeEuMultiplierInfo(multiplier));
         }
 
         /** @param reads The kinds the function reads */
         public Builder euModifierNotLimitingParallel(@Nonnull ToDoubleFunction<ProcessingInputs> euModifier,
             @Nonnull ModifierKind... reads) {
-            this.euModifierNotLimitingParallel = reading(new Formula.Custom(euModifier, Set.of(reads)));
+            return scalar(
+                Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
+                new Formula.Custom(euModifier, Set.of(reads)),
+                null);
+        }
+
+        private Builder scalar(Quantity quantity, Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {
+            scalars.put(quantity, new Term(reading(formula), lines));
             return this;
         }
 
@@ -1141,7 +1188,7 @@ public final class ProcessingSpec {
             // the parent spec gives the ranges of the kinds its variants read
             ProcessingSpec spec = variant.build(false);
             for (Quantity quantity : Quantity.values()) {
-                if (spec.sets(quantity) && !SETTABLE_IN_VARIANT.contains(quantity)) {
+                if (spec.sets(quantity) && !quantity.isSettableInVariant()) {
                     throw new IllegalArgumentException(quantity + " cannot differ by mode or tier");
                 }
             }

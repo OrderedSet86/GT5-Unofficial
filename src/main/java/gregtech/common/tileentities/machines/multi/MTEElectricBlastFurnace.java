@@ -195,9 +195,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
 
-        this.mHeatingCapacity = SPEC.getHeat()
-            .get()
-            .getMachineHeat(getCurrentProcessingSpecInputs());
+        this.mHeatingCapacity = SPEC.getMachineHeat(getCurrentProcessingSpecInputs());
     }
 
     @Override
@@ -207,7 +205,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(COIL.of(this));
     }
 

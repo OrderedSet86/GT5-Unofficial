@@ -2,6 +2,7 @@ package gregtech.api.logic;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
@@ -61,9 +62,9 @@ public class ProcessingLogic {
     protected ProcessingInputs specInputs;
     /** The power panel's cap on the spec's parallels. */
     protected int parallelLimit = Integer.MAX_VALUE;
-    /** The spec's numbers for the recipe being checked, which the overclock and parallel hooks read. */
+    /** The spec's numbers for the recipe being checked. Null without a spec, or between checks. */
     @Nullable
-    protected ResolvedRecipe resolved;
+    private ResolvedRecipe specResolved;
 
     // Calculated results
     protected ItemStack[] outputItems;
@@ -301,7 +302,7 @@ public class ProcessingLogic {
 
     /**
      * Runs every recipe through the spec at these inputs, in place of the power, parallel, speed, EU and overclock
-     * setters. Call it at every recipe check.
+     * setters. Call it at every recipe check. The setters, and fields the hooks change, are then ignored.
      */
     public ProcessingLogic setSpec(@Nonnull ProcessingSpec spec, @Nonnull ProcessingInputs inputs) {
         this.spec = spec;
@@ -374,7 +375,7 @@ public class ProcessingLogic {
         this.duration = 0;
         this.calculatedParallels = 0;
         this.activeDualInv = null;
-        this.resolved = null;
+        this.specResolved = null;
         return this;
     }
 
@@ -484,10 +485,10 @@ public class ProcessingLogic {
     private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe found) {
         GTRecipe recipe = found;
         if (spec != null) {
-            resolved = resolve(found);
-            CheckRecipeResult specResult = checkSpecRequirements(resolved);
+            specResolved = resolveSpec(found);
+            CheckRecipeResult specResult = checkSpecRequirements(specResolved);
             if (!specResult.wasSuccessful()) return CalculationResult.ofFailure(specResult);
-            recipe = resolved.recipe();
+            recipe = specResolved.recipe();
         }
         CheckRecipeResult result = validateRecipe(recipe);
         if (!result.wasSuccessful()) {
@@ -521,20 +522,14 @@ public class ProcessingLogic {
         }
         calculatedParallels = helper.getCurrentParallel();
 
-        if (calculator.getConsumption() == Long.MAX_VALUE) {
-            return CheckRecipeResultRegistry.POWER_OVERFLOW;
+        ProcessingRun run = resolved(recipe)
+            .toRun(helper, calculator, () -> calculateDuration(recipe, helper, calculator));
+        if (!run.result()
+            .wasSuccessful()) {
+            return run.result();
         }
-        if (calculator.getDuration() == Integer.MAX_VALUE) {
-            return CheckRecipeResultRegistry.DURATION_OVERFLOW;
-        }
-
-        calculatedEut = resolved == null ? calculator.getConsumption() : resolved.euPerTick(calculator);
-
-        double finalDuration = calculateDuration(recipe, helper, calculator);
-        if (finalDuration >= Integer.MAX_VALUE) {
-            return CheckRecipeResultRegistry.DURATION_OVERFLOW;
-        }
-        duration = (int) finalDuration;
+        calculatedEut = run.euPerTick();
+        duration = run.ticks();
 
         CheckRecipeResult hookResult = onRecipeStart(recipe);
         if (!hookResult.wasSuccessful()) {
@@ -552,7 +547,7 @@ public class ProcessingLogic {
      */
     protected double calculateDuration(@Nonnull GTRecipe recipe, @Nonnull ParallelHelper helper,
         @Nonnull OverclockCalculator calculator) {
-        return calculator.getDuration() * helper.getDurationMultiplierDouble();
+        return ResolvedRecipe.ticks(helper, calculator);
     }
 
     /**
@@ -590,9 +585,35 @@ public class ProcessingLogic {
         return resolved.check();
     }
 
-    private ResolvedRecipe resolve(GTRecipe recipe) {
-        ResolvedRecipe resolved = spec.resolve(recipe, specInputs);
-        return resolved.maxParallel() > parallelLimit ? resolved.withMaxParallel(Math.max(1, parallelLimit)) : resolved;
+    private ResolvedRecipe resolveSpec(GTRecipe recipe) {
+        return spec.resolve(recipe, specInputs)
+            .capParallel(parallelLimit);
+    }
+
+    /**
+     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' as they are now,
+     * which hooks such as {@link #validateRecipe} may have just changed.
+     */
+    @Nonnull
+    protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {
+        if (specResolved != null) return specResolved;
+        return new ResolvedRecipe(
+            recipe,
+            recipe.mDuration,
+            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC, false),
+            maxParallel,
+            speedBoost,
+            euModifier,
+            1,
+            new ResolvedRecipe.Overclock(
+                new ProcessingSpec.OverclockRule.Ratio(overClockTimeReduction, overClockPowerIncrease),
+                OptionalInt.empty(),
+                maxTierSkips,
+                null),
+            CheckRecipeResultRegistry.SUCCESSFUL,
+            CheckRecipeResultRegistry.SUCCESSFUL,
+            ProcessingRun.RunEu.NONE,
+            ProcessingRun.Output.CERTAIN);
     }
 
     /**
@@ -600,14 +621,11 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected ParallelHelper createParallelHelper(@Nonnull GTRecipe recipe) {
-        return new ParallelHelper().setRecipe(recipe)
+        return resolved(recipe).parallelHelper(recipe)
             .setItemInputs(inputItems)
             .setFluidInputs(inputFluids)
-            .setAvailableEUt(resolved == null ? availableVoltage * availableAmperage : resolved.availableEuPerTick())
             .setMachine(machine, protectItems, protectFluids)
             .setRecipeLocked(recipeLockableMachine, isRecipeLocked)
-            .setMaxParallel(resolved == null ? maxParallel : resolved.maxParallel())
-            .setEUtModifier(resolved == null ? euModifier : resolved.euModifier())
             .enableBatchMode(batchSize)
             .setConsumption(true)
             .setOutputCalculation(true);
@@ -618,33 +636,32 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-        if (resolved != null) {
-            return recipe == resolved.recipe() ? resolved.toCalculator()
-                : resolved.toCalculator(recipe.mEUt, recipe.mDuration);
-        }
-        return new OverclockCalculator().setRecipeEUt(recipe.mEUt)
-            .setAmperage(availableAmperage)
-            .setEUt(availableVoltage)
-            .setMaxTierSkips(maxTierSkips)
-            .setDuration(recipe.mDuration)
-            .setDurationModifier(speedBoost)
-            .setEUtDiscount(euModifier)
-            .setAmperageOC(amperageOC)
-            .setDurationDecreasePerOC(overClockTimeReduction)
-            .setEUtIncreasePerOC(overClockPowerIncrease);
+        ResolvedRecipe resolved = resolved(recipe);
+        return recipe == resolved.recipe() ? resolved.toCalculator()
+            : resolved.toCalculator(recipe.mEUt, recipe.mDuration);
     }
 
     /**
-     * The recipe through the spec and this logic's overclock hook, with unlimited inputs and output space. For checking
-     * that a machine runs as its spec says.
+     * The recipe through the spec and this logic's requirement, parallel, overclock and duration hooks, with unlimited
+     * inputs and output space. For checking that a machine runs as its spec says. {@link #validateRecipe} and
+     * {@link #applyRecipe} are not called, since they may act on the world; with a spec they can only reject a recipe.
      *
      * @throws IllegalStateException without {@link #setSpec}
      */
     @Nonnull
     public final ProcessingRun inspect(@Nonnull GTRecipe recipe) {
         if (spec == null) throw new IllegalStateException("inspect needs a spec");
-        resolved = resolve(recipe);
-        return resolved.calculate(createOverclockCalculator(resolved.recipe()));
+        specResolved = resolveSpec(recipe);
+        CheckRecipeResult check = checkSpecRequirements(specResolved);
+        if (!check.wasSuccessful()) return ProcessingRun.failed(check);
+        if (!specResolved.checkToStart()
+            .wasSuccessful()) return ProcessingRun.failed(specResolved.checkToStart());
+        GTRecipe run = specResolved.recipe();
+        ParallelHelper helper = ResolvedRecipe.forPlanning(createParallelHelper(run));
+        OverclockCalculator calculator = createOverclockCalculator(run);
+        helper.setCalculator(calculator)
+            .build();
+        return specResolved.toRun(helper, calculator, () -> calculateDuration(run, helper, calculator));
     }
 
     /**
@@ -692,11 +709,8 @@ public class ProcessingLogic {
 
     public long getMaxAllowedRecipeEUt() {
         if (spec != null) {
-            return OverclockCalculator.getMaxAllowedRecipeEUt(
-                spec.getPower(specInputs)
-                    .voltage(),
-                spec.getMaxTierSkips()
-                    .orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS));
+            return spec.getPower(specInputs)
+                .maxAllowedRecipeEuPerTick(spec.getMaxTierSkipsOrDefault());
         }
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
     }

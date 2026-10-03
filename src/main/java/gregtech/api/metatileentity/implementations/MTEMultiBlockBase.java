@@ -2174,7 +2174,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return ProcessingInputs.builder()
             .energyHatches(energyHatchesForInspection != null ? energyHatchesForInspection : getSpecEnergyHatches())
             .mode(getMachineMode())
-            .modifiers(getModifiersForInspection())
+            .modifiers(getSpecModifiers())
             .build();
     }
 
@@ -2216,16 +2216,25 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Nullable
     public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe) {
         if (processingLogic == null || getProcessingSpec() == null) return null;
+        prepareForInspection();
         setupProcessingLogic(processingLogic);
         return processingLogic.inspect(recipe);
     }
 
     /**
-     * Where the machine keeps the values its spec reads, for the conformance check to set on a {@link #newMetaEntity}
-     * copy. Planners read the kinds from {@link ProcessingSpec#getModifiers} instead.
+     * For the conformance check, on a {@link #newMetaEntity} copy: put the machine in the state it runs recipes in,
+     * such
+     * as past a start-up phase its spec models as a requirement.
+     */
+    protected void prepareForInspection() {}
+
+    /**
+     * Where the machine keeps the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the
+     * conformance check sets them on a {@link #newMetaEntity} copy. Planners read the kinds from
+     * {@link ProcessingSpec#getModifiers} instead.
      */
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return Collections.emptyList();
     }
 

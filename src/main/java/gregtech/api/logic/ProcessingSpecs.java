@@ -81,7 +81,7 @@ public final class ProcessingSpecs {
             .getModifiers()) declared.add(range.kind());
         Set<ModifierKind> kept = new HashSet<>();
         for (Modifier modifier : entry.machine()
-            .getModifiersForInspection()) kept.add(modifier.kind);
+            .getSpecModifiers()) kept.add(modifier.kind);
         if (!declared.equals(kept)) {
             problems.add(name + " keeps modifiers " + kept + " but its spec reads " + declared);
         }
@@ -103,7 +103,7 @@ public final class ProcessingSpecs {
         ProcessingSpec spec = entry.spec();
         MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
             .newMetaEntity(null);
-        for (Modifier modifier : machine.getModifiersForInspection()) {
+        for (Modifier modifier : machine.getSpecModifiers()) {
             modifier.set(
                 spec.getRange(modifier.kind)
                     .max());
@@ -149,8 +149,10 @@ public final class ProcessingSpecs {
             && a.overclocks() == b.overclocks()
             && a.ticks() == b.ticks()
             && a.euPerTick() == b.euPerTick()
-            && a.startupEu()
-                .equals(b.startupEu());
+            && a.eu()
+                .equals(b.eu())
+            && a.output()
+                .equals(b.output());
     }
 
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */

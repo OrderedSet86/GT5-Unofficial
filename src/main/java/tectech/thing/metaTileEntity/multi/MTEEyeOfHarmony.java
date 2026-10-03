@@ -1024,7 +1024,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(
             Modifier.of(
                 SPACETIME_COMPRESSION_FIELD,
@@ -1340,8 +1340,10 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             .wasSuccessful()) return run.result();
 
         startEU = recipeObject.getEUStartCost();
-        outputEU_BigInt = run.euGeneratedPerRun();
-        usedEU = run.euPerRun()
+        outputEU_BigInt = run.eu()
+            .generated();
+        usedEU = run.eu()
+            .perRun()
             .negate();
 
         // Remove EU from the users network.
@@ -1357,7 +1359,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         }
 
         previousRecipeChance = successChance;
-        successChance = run.successChance();
+        successChance = run.output()
+            .successChance();
         currentRecipeRocketTier = currentRecipe.getRocketTier();
 
         // Reduce internal storage by input fluid quantity required for recipe.
@@ -1368,7 +1371,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             validFluidMap.put(Materials.Helium.mGas, 0L);
         }
 
-        yield = run.outputYield();
+        yield = run.output()
+            .yield();
 
         // Return copies of the output objects.
         outputFluids = recipeObject.getOutputFluids();

@@ -180,7 +180,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(ITEM_PIPE.of(this));
     }
 

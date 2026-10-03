@@ -250,7 +250,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     @Override
     @Nonnull
-    public List<Modifier> getModifiersForInspection() {
+    public List<Modifier> getSpecModifiers() {
         return List.of(Modifier.of(UPGRADE_CHIP, () -> controllerTier, tier -> controllerTier = tier));
     }
 

@@ -3,7 +3,6 @@ package gregtech.api.logic;
 import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -157,9 +156,13 @@ class ProcessingSpecTest {
         assertEquals(1, resolved.maxParallel());
         assertEquals(1, resolved.durationMultiplier());
         assertEquals(0.8, resolved.euModifier());
-        assertEquals(ProcessingSpec.OverclockRule.Ratio.STANDARD, resolved.overclock());
-        assertEquals(Integer.MAX_VALUE, resolved.maxTierSkips());
-        assertNull(resolved.heat());
+        assertEquals(
+            new ResolvedRecipe.Overclock(
+                ProcessingSpec.OverclockRule.Ratio.STANDARD,
+                OptionalInt.empty(),
+                Integer.MAX_VALUE,
+                null),
+            resolved.overclock());
         OverclockCalculator calculator = resolved.toCalculator();
         assertEquals(0.8, calculator.getEUtDiscount());
         assertEquals(2, calculator.getDurationDecreasePerOC());
@@ -709,14 +712,12 @@ class ProcessingSpecTest {
         ProcessingRun defaults = plain.calculate(recipe(30, 100, 0), hv);
         ProcessingRun run = spec.calculate(recipe(30, 100_000, 0), hv);
 
-        assertEquals(BigInteger.ZERO, defaults.euPerRun());
-        assertEquals(BigInteger.ZERO, defaults.euGeneratedPerRun());
-        assertEquals(1, defaults.successChance());
-        assertEquals(1, defaults.outputYield());
-        assertEquals(new BigInteger("1000000000000000"), run.euPerRun());
-        assertEquals(BigInteger.TEN, run.euGeneratedPerRun());
-        assertEquals(0.25, run.successChance());
-        assertEquals(0.5, run.outputYield());
+        assertEquals(ProcessingRun.RunEu.NONE, defaults.eu());
+        assertEquals(ProcessingRun.Output.CERTAIN, defaults.output());
+        assertEquals(
+            new ProcessingRun.RunEu(BigInteger.ZERO, new BigInteger("1000000000000000"), BigInteger.TEN),
+            run.eu());
+        assertEquals(new ProcessingRun.Output(0.25, 0.5), run.output());
         assertTrue(
             spec.getUndescribed()
                 .isEmpty());
@@ -763,11 +764,13 @@ class ProcessingSpecTest {
         assertEquals(
             BigInteger.valueOf(30_000),
             spec.calculate(recipe(30, 100, 0), iv)
-                .startupEu());
+                .eu()
+                .startup());
         assertEquals(
             BigInteger.ZERO,
             spec.calculate(recipe(120, 100, 0), iv)
-                .startupEu(),
+                .eu()
+                .startup(),
             "a recipe that cannot run starts nothing");
     }
 
