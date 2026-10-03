@@ -29,6 +29,8 @@ import com.gtnewhorizon.structurelib.StructureLibAPI;
 import gregtech.GTMod;
 import gregtech.api.enums.GTAuthors;
 import gregtech.api.enums.GTValues;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.structure.IStructureChannels;
 import gregtech.api.util.tooltip.MarkdownTooltipLoader;
 import gregtech.api.util.tooltip.TooltipHelper;
@@ -71,6 +73,23 @@ public class MultiblockTooltipBuilder {
     private static final String TT_DynamicSpeedBonus = StatCollector.translateToLocal("GT5U.MBTT.Speed.Additional");
     private static final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private static final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
+    private static final String TT_SpeedBasePerTier = StatCollector.translateToLocal("GT5U.MBTT.Speed.BasePerTier");
+    private static final String TT_SpeedBasePerTierBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.Speed.BasePerTierBeyondFirst");
+    private static final String TT_EuMultiplierBeyondFirst = StatCollector
+        .translateToLocal("GT5U.MBTT.EuDiscount.MultiplicativeBeyondFirst");
+    private static final String TT_HeatPerVoltageTier = StatCollector.translateToLocal("GT5U.MBTT.Heat.PerVoltageTier");
+    private static final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount");
+    private static final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock");
+    private static final String TT_OverclockRatio = StatCollector.translateToLocal("GT5U.MBTT.Overclock.Ratio");
+    private static final String TT_RecipeEuMultiplier = StatCollector.translateToLocal("GT5U.MBTT.RecipeEuMultiplier");
+    private static final String TT_RecipeOverride = StatCollector.translateToLocal("GT5U.MBTT.RecipeOverride");
+    private static final String TT_RisingParallelPerVoltageTier = StatCollector
+        .translateToLocal("GT5U.MBTT.Parallel.RisingPerVoltageTier");
+    private static final String TT_RisingSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Rising");
+    private static final String TT_ParallelFormula = StatCollector.translateToLocal("GT5U.MBTT.Parallel.Formula");
+    private static final String TT_TierOf = StatCollector.translateToLocal("GT5U.MBTT.TierOf");
+    private static final String TT_MaxEuDiscount = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Max");
     private static final String TT_Steam_StaticSteamEff = StatCollector
         .translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
@@ -109,6 +128,7 @@ public class MultiblockTooltipBuilder {
     private static final String TT_StructureAuthor = StatCollector.translateToLocal("GT5U.MBTT.StructureBy");
 
     private List<String> iLines;
+    private boolean structureDeprecated;
     private List<String> sLines;
     private List<String> hLines;
     private List<String> authors;
@@ -174,7 +194,13 @@ public class MultiblockTooltipBuilder {
     public MultiblockTooltipBuilder addStructureDeprecatedLine() {
         this.addDeprecatedLine(translateToLocal("GT5U.MBTT.Deprecated.Removal"));
         iLines.add(translateToLocal("GT5U.MBTT.Deprecated.NEI"));
+        structureDeprecated = true;
         return this;
+    }
+
+    /** Whether {@link #addStructureDeprecatedLine()} was called. */
+    public boolean isStructureDeprecated() {
+        return structureDeprecated;
     }
 
     /**
@@ -197,11 +223,19 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicParallelInfo(Integer parallels, TooltipTier tier) {
+        return addDynamicParallelInfo(parallels, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
+        return addDynamicParallelInfo(parallels, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tier) {
         iLines.add(
             String.format(
                 parallels == 1 ? TT_SingularParallel : TT_DynamicParallels,
                 TooltipHelper.parallelText(parallels),
-                tier.getValue()));
+                tier));
         return this;
     }
 
@@ -225,8 +259,15 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(Integer factor, TooltipTier tier) {
-        iLines.add(
-            String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor.toString() + "x"), tier.getValue()));
+        return addDynamicMultiplicativeParallelInfo(factor, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, ModifierKind kind) {
+        return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tier) {
+        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tier));
         return this;
     }
 
@@ -264,6 +305,28 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
+    /** "Speed: 100% + 100% per Item Pipe Casing Tier" */
+    public MultiblockTooltipBuilder addSpeedPerTierInfo(float base, float perTier, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_SpeedBasePerTier,
+                TooltipHelper.speedText(percentageFormat.format(base)),
+                TooltipHelper.speedText(percentageFormat.format(perTier)),
+                kind.getTierText()));
+        return this;
+    }
+
+    /** "Speed: 250% + 5% per Heating Coil Tier beyond the first" */
+    public MultiblockTooltipBuilder addSpeedPerTierBeyondFirstInfo(float first, float perTier, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_SpeedBasePerTierBeyondFirst,
+                TooltipHelper.speedText(percentageFormat.format(first)),
+                TooltipHelper.speedText(percentageFormat.format(perTier)),
+                kind.getTierText()));
+        return this;
+    }
+
     /**
      * Add a line of information about EU Discount bonus relative to SB machines.
      *
@@ -283,9 +346,156 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, TooltipTier tier) {
+        return addDynamicEuEffInfo(euEff, tier.getValue());
+    }
+
+    public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, ModifierKind kind) {
+        return addDynamicEuEffInfo(euEff, kind.getTierText());
+    }
+
+    private MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, String tier) {
+        iLines.add(String.format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier));
+        return this;
+    }
+
+    /** "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative" */
+    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind kind) {
         iLines.add(
-            String
-                .format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier.getValue()));
+            String.format(
+                TT_EuMultiplierBeyondFirst,
+                TooltipHelper.effText("-" + percentageFormat.format(1 - factor)),
+                kind.getTierText()));
+        return this;
+    }
+
+    /** "Increases Heat by 100K for every Voltage tier past MV" */
+    public MultiblockTooltipBuilder addHeatPerVoltageTierInfo(int heatPerTier, int baseVoltageTier) {
+        iLines.add(
+            String.format(
+                TT_HeatPerVoltageTier,
+                EnumChatFormatting.RED + String.valueOf(heatPerTier) + "K" + EnumChatFormatting.GRAY,
+                TooltipHelper.tierText("Voltage"),
+                EnumChatFormatting.AQUA + GTValues.VN[baseVoltageTier]));
+        return this;
+    }
+
+    /** "Reduces EU Usage by 5% every 900K above the recipe requirement" */
+    public MultiblockTooltipBuilder addHeatDiscountInfo() {
+        iLines.add(
+            String.format(
+                TT_HeatDiscount,
+                TooltipHelper.effText("EU Usage"),
+                EnumChatFormatting.WHITE
+                    + percentageFormat.format(1 - OverclockCalculator.DEFAULT_HEAT_DISCOUNT_MULTIPLIER)
+                    + EnumChatFormatting.GRAY,
+                EnumChatFormatting.RED + String.valueOf(OverclockCalculator.HEAT_DISCOUNT_THRESHOLD)
+                    + "K"
+                    + EnumChatFormatting.GRAY));
+        return this;
+    }
+
+    /** "Every 1800K over the recipe requirement grants 1 Perfect Overclock" */
+    public MultiblockTooltipBuilder addHeatOverclockInfo() {
+        iLines.add(
+            String.format(
+                TT_HeatOverclock,
+                EnumChatFormatting.RED + String.valueOf(OverclockCalculator.HEAT_OVERCLOCK_THRESHOLD)
+                    + "K"
+                    + EnumChatFormatting.GRAY,
+                EnumChatFormatting.LIGHT_PURPLE + "Perfect Overclock"));
+        return this;
+    }
+
+    /** "Performs 2/2 overclock": speed, then EU/t, per overclock */
+    public MultiblockTooltipBuilder addOverclockRatioInfo(double durationDivisor, double euMultiplier) {
+        iLines.add(String.format(TT_OverclockRatio, formatNumber(durationDivisor), formatNumber(euMultiplier)));
+        return this;
+    }
+
+    /** "16x Recipe EU/t" */
+    public MultiblockTooltipBuilder addRecipeEuMultiplierInfo(double multiplier) {
+        iLines.add(String.format(TT_RecipeEuMultiplier, TooltipHelper.effText(formatNumber(multiplier) + "x")));
+        return this;
+    }
+
+    /** "Recipes run at 4 EU/t over 6.4s" */
+    public MultiblockTooltipBuilder addRecipeOverrideInfo(long eut, int ticks) {
+        iLines.add(
+            String.format(
+                TT_RecipeOverride,
+                TooltipHelper.euRateText(eut),
+                EnumChatFormatting.WHITE + formatNumber(ticks / 20.0) + "s" + EnumChatFormatting.GRAY));
+        return this;
+    }
+
+    /** "4 - 8 Parallels per Voltage Tier, rising with Momentum" */
+    public MultiblockTooltipBuilder addRisingParallelPerVoltageTierInfo(int min, int max, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_RisingParallelPerVoltageTier,
+                TooltipHelper.parallelText(min),
+                TooltipHelper.parallelText(max),
+                TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR),
+                kind.getTierText()));
+        return this;
+    }
+
+    /** "200% - 300% Speed, rising with Momentum" */
+    public MultiblockTooltipBuilder addRisingSpeedInfo(float min, float max, ModifierKind kind) {
+        iLines.add(
+            String.format(
+                TT_RisingSpeed,
+                TooltipHelper.speedText(min),
+                TooltipHelper.speedText(max),
+                kind.getTierText()));
+        return this;
+    }
+
+    /** The info lines written so far, before {@link #toolTipFinisher()}. */
+    public List<String> getInfoLines() {
+        return Collections.unmodifiableList(iLines);
+    }
+
+    public MultiblockTooltipBuilder addLinesFrom(String prefix, MultiblockTooltipBuilder source) {
+        for (String line : source.iLines) iLines.add(prefix + line);
+        return this;
+    }
+
+    /** Adds the lines of {@link ProcessingSpec#describe}: all but the per-mode ones. */
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
+        spec.describe(this);
+        return this;
+    }
+
+    /** Adds the spec's lines for one machine mode, for that mode's section of the tooltip. */
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec, int mode) {
+        spec.describeMode(this, mode);
+        return this;
+    }
+
+    /** Adds the spec's lines for every machine mode, each under the mode's name. */
+    public MultiblockTooltipBuilder addProcessingSpecModesInfo(ProcessingSpec spec) {
+        spec.describeModes(this);
+        return this;
+    }
+
+    /** "Voltage Tier * Solenoid Tier * 6 Parallels" */
+    public MultiblockTooltipBuilder addTierProductParallelInfo(int factor, List<ModifierKind.IntKind> kinds) {
+        StringBuilder product = new StringBuilder();
+        for (ModifierKind kind : kinds) product.append(String.format(TT_TierOf, kind.getName()))
+            .append(" * ");
+        return addParallelFormulaInfo(product.toString() + factor);
+    }
+
+    /** "256 * (1 + Tower Height/2) Parallels" */
+    public MultiblockTooltipBuilder addParallelFormulaInfo(String formula) {
+        iLines.add(String.format(TT_ParallelFormula, TooltipHelper.parallelText(formula)));
+        return this;
+    }
+
+    /** "Maximum of 50% EU discount" */
+    public MultiblockTooltipBuilder addMaxEuDiscountInfo(float maxDiscount) {
+        iLines.add(String.format(TT_MaxEuDiscount, TooltipHelper.effText(maxDiscount)));
         return this;
     }
 
