@@ -45,12 +45,12 @@ import gregtech.api.util.OverclockCalculator;
 /**
  * What a multiblock does to its recipes, as a function of its energy hatches, mode and {@link ModifierKind} values.
  * {@link MTEMultiBlockBase} runs its recipes through it and writes its tooltip from it. Planners evaluate it without a
- * world: {@link #getModifiers} says what it reads, {@link #resolve} gives every number for one recipe, and
+ * world: {@link #getModifiers} returns the kinds it reads, {@link #resolve} returns every number for one recipe, and
  * {@link #calculate} runs it.
  * <p>
- * Keep one per machine class in a static field. Numbers a spec sets must reach the tooltip: terms built from a
- * {@link Formula} write a line, and a plain function requires {@link Builder#customTooltip} or
- * {@link Builder#noTooltip}.
+ * Keep one per machine class in a static field, or one per instance where the tier sets the constants. Numbers a spec
+ * sets must reach the tooltip: terms built from a {@link Formula} write a line, and a plain function requires
+ * {@link Builder#customTooltip} or {@link Builder#noTooltip}.
  */
 public final class ProcessingSpec {
 
@@ -71,7 +71,7 @@ public final class ProcessingSpec {
             return unlimited ? Long.MAX_VALUE : voltage * amperage;
         }
 
-        /** The highest recipe EU/t the machine accepts, as the scanner shows it. */
+        /** The highest recipe EU/t the machine accepts, as the scanner prints it. */
         public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
             return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
@@ -171,7 +171,7 @@ public final class ProcessingSpec {
     /** For a machine that runs a plain {@link ProcessingLogic}. */
     public static final ProcessingSpec STANDARD = builder().build();
 
-    /** A formula and the tooltip lines that state it. The lines are null where the formula is plain code. */
+    /** A formula and its tooltip lines. The lines are null where the formula is plain code. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
 
     /** Exactly one of {@code term} and {@code perRecipe}. */
@@ -184,7 +184,7 @@ public final class ProcessingSpec {
     private record Variant(Predicate<ProcessingInputs> appliesTo, Function<List<MachineMode>, String> name,
         @Nullable Integer mode, ProcessingSpec terms) {}
 
-    /** What the tooltip knows of one quantity the spec sets: its lines, and whether they cover all of it. */
+    /** The tooltip lines for one quantity the spec sets, and whether they cover all of it. */
     private record Described(boolean readsRecipe, List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
     private final List<ParallelTerm> parallel;
@@ -309,7 +309,7 @@ public final class ProcessingSpec {
         return inputs;
     }
 
-    /** Whether some terms differ by mode, so a planner needs to ask for the mode. */
+    /** Whether some terms differ by mode, so the mode is an input a planner sets. */
     public boolean variesByMode() {
         for (Variant variant : variants) if (variant.mode != null) return true;
         return false;
@@ -559,7 +559,7 @@ public final class ProcessingSpec {
         return quantityDescribed != null && quantityDescribed.readsRecipe;
     }
 
-    /** The quantities the spec sets but its tooltip would not show. */
+    /** The quantities the spec sets with no tooltip line. */
     @Nonnull
     public Set<Quantity> getUndescribed() {
         Set<Quantity> overridden = overridden();
@@ -634,7 +634,7 @@ public final class ProcessingSpec {
         }
     }
 
-    /** The one place that knows which builder settings make up each quantity. */
+    /** The builder settings that make up each quantity, and their tooltip lines. */
     private static EnumMap<Quantity, Described> describeQuantities(Builder builder, @Nullable Heat heat) {
         EnumMap<Quantity, Described> described = new EnumMap<>(Quantity.class);
         if (!builder.parallel.isEmpty()) {
@@ -751,14 +751,14 @@ public final class ProcessingSpec {
         private BiFunction<ProcessingInputs, GTRecipe, BigInteger> euGeneratedPerRun;
         private ToDoubleBiFunction<ProcessingInputs, GTRecipe> successChance;
         private ToDoubleBiFunction<ProcessingInputs, GTRecipe> outputYield;
-        /** Null where the kind's own range applies. */
+        /** Null where the kind's range applies. */
         private final Map<ModifierKind, ModifierRange> reads = new LinkedHashMap<>();
 
         private Builder() {}
 
         // region Modifiers
 
-        /** For kinds that plain functions read. Terms built from a {@link Formula} declare their own. */
+        /** For kinds that plain functions read. A term built from a {@link Formula} adds the kinds it reads. */
         public Builder reads(@Nonnull ModifierKind... kinds) {
             for (ModifierKind kind : kinds) {
                 if (kind != ModifierKind.VOLTAGE) this.reads.putIfAbsent(kind, null);
@@ -766,7 +766,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Reads the kind, at this machine's range rather than the kind's own. */
+        /** Reads the kind, at a range for this machine. */
         public Builder range(@Nonnull ModifierKind kind, long min, long max) {
             this.reads.put(kind, new ModifierRange(kind, min, max));
             return this;

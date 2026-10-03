@@ -153,7 +153,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .ordered()
         .range(0, ASTRAL_ARRAY_LIMIT)
         .register();
-    /** The programmed circuit, 0 to 24: each step halves the time and quadruples the start-up EU. */
+    /** The programmed circuit, 0 to 24: each step is half the time at 4x the start-up EU. */
     public static final ModifierKind.IntKind CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
@@ -255,7 +255,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return EOH_DEBUG_MODE ? stored >= 100 : stored >= required;
     }
 
-    /** 0 at exactly the required amount, rising towards 1 as the stored fluid exceeds it. */
+    /** 0 at the required amount, rising towards 1 as the stored fluid exceeds it. */
     private static double overflowPenalty(long stored, double required) {
         if (EOH_DEBUG_MODE) return 0;
         double excess = stored / required - 1;
@@ -1047,7 +1047,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             Modifier.of(PITY, () -> pityGuaranteed ? 1 : 0, value -> pityGuaranteed = value == 1));
     }
 
-    /** Against the recipe being started; with none, the excess is everything stored. */
+    /** Against the recipe being started. With none, the excess is everything stored. */
     private Modifier excess(ModifierKind.LongKind kind, Fluid fluid, ToDoubleFunction<EyeOfHarmonyRecipe> required) {
         return Modifier.of(
             kind,

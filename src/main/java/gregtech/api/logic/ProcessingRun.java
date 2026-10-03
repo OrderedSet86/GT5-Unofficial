@@ -9,8 +9,8 @@ import gregtech.api.recipe.check.CheckRecipeResult;
 /**
  * One run of a recipe, as {@link ResolvedRecipe#calculate} works it out.
  *
- * @param result    Unsuccessful means every number is 0. {@code getDisplayString()} then says why, as the machine's GUI
- *                  would, such as the coil heat a recipe needs
+ * @param result    Unsuccessful means every number is 0. {@code getDisplayString()} then returns the reason printed
+ *                  in the machine GUI, such as the coil heat the recipe requires
  * @param parallel  After the energy limit
  * @param euPerTick For all parallels together
  */

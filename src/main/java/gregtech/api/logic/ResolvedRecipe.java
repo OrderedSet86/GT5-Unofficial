@@ -16,7 +16,7 @@ import gregtech.api.util.ParallelHelper;
  * Every number a {@link ProcessingSpec} gives one recipe at one set of inputs, before overclocks. Machines and planners
  * both calculate from it, so they cannot drift apart.
  * <p>
- * A planner overriding a single overclock setting passes its own calculator:
+ * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
  *
  * @param recipe       As the machine runs it: a copy at the spec's fixed cost or with its EU/t multiplied, else the
@@ -24,7 +24,7 @@ import gregtech.api.util.ParallelHelper;
  * @param duration     In ticks before overclocks
  * @param check        The first requirement the recipe fails, else success
  * @param checkToStart The first requirement to start from idle it fails, else success. Machines check these where they
- *                     start; {@link #calculate} checks them, since a planner starts from idle.
+ *                     start. {@link #calculate} checks them, since a planner starts from idle.
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,

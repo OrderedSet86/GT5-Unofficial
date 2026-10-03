@@ -3416,8 +3416,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Whether this is a superseded structure, kept registered so existing worlds load but no longer buildable. External
-     * tools such as factory planners leave these out.
+     * Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. Factory
+     * planners should leave these out.
      */
     public boolean isStructureDeprecated() {
         return false;

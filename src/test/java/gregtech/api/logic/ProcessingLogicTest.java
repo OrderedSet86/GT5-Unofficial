@@ -31,7 +31,7 @@ class ProcessingLogicTest {
         assertEquals(SPEC.calculate(recipe, LUV), machine);
     }
 
-    /** As the scanner shows it. */
+    /** As the scanner prints it. */
     @Test
     void theHighestRecipeVoltageFollowsTheSpec() {
         ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)
@@ -77,7 +77,7 @@ class ProcessingLogicTest {
         assertEquals(200, calculator.getRecipeDuration());
     }
 
-    /** Hooks such as validateRecipe may change the setters during a check, and the later hooks see it. */
+    /** Hooks such as validateRecipe may change the setters during a check, and the later hooks read the change. */
     @Test
     void theHooksReadTheSettersAsTheyAreNow() {
         ProcessingLogic logic = new ProcessingLogic().setEuModifier(0.5);

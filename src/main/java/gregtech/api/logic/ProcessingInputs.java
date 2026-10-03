@@ -159,7 +159,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        /** For values taken from a {@link ModifierRange}, which holds both kinds of value as longs. */
+        /** For values taken from a {@link ModifierRange}, whose bounds are longs for both kinds. */
         Builder put(ModifierKind kind, long value) {
             this.values.put(kind, value);
             return this;

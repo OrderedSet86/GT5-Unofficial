@@ -22,9 +22,10 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * Where one machine keeps a {@link ModifierKind}'s value. The conformance check sets it on a copy of the machine;
- * planners read the kinds and ranges from {@link ProcessingSpec#getModifiers()} instead. An {@link Of} constant is
- * also the structure element that sets it: {@code .addElement('C', COIL)}.
+ * The getter and setter of one machine's value for a {@link ModifierKind}. The machine's spec inputs read it, and the
+ * conformance check sets it on a copy of the machine. Planners read the kinds and ranges from
+ * {@link ProcessingSpec#getModifiers()}. An {@link Of} constant is also the structure element that sets the value:
+ * {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 

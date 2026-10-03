@@ -23,8 +23,8 @@ import gregtech.api.util.tooltip.TooltipHelper;
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
  * constants here. A kind only one machine has is registered in its class.
  * <p>
- * Sealed rather than generic over the value type, so a consumer that switches over the kinds without a default arm
- * stops compiling when a new value type is added, instead of failing at run time.
+ * Sealed over the value type, so a consumer's switch over the kinds with no default arm stops compiling when a new
+ * value type is added.
  */
 public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierKind.LongKind {
 
@@ -96,7 +96,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
                 .get(1)
                 .getDisplayName())
         .register();
-    /** The count of repeated slices or layers. Each machine gives its own range. */
+    /** The count of repeated slices or layers. Each machine sets the range. */
     public static final IntKind LENGTH = ofInt("gregtech:length").name("GT5U.MBTT.Tiers.Length")
         .ordered()
         .register();
@@ -130,7 +130,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         this.tierOffset = builder.tierOffset;
     }
 
-    /** The values machines of this kind take, unless a spec gives its own. Empty for kinds each machine ranges. */
+    /** The values machines of this kind take, unless a spec sets a range. Null for kinds each machine ranges. */
     @Nullable
     public ModifierRange getRange() {
         return range;

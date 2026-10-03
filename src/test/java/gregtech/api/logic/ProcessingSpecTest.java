@@ -512,7 +512,7 @@ class ProcessingSpecTest {
             .build();
         ProcessingRun run = timing.calculate(recipe(30, 400, 0), iv);
 
-        // 50 ticks instead of the recipe's 400, then one overclock where IV would allow four
+        // 50 ticks, not the recipe's 400, then one overclock where IV would allow four
         assertEquals(1, run.overclocks());
         assertEquals(25, run.ticks());
         assertEquals(120, run.euPerTick());

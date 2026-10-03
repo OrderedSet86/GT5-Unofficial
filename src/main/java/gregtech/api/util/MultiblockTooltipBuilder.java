@@ -461,7 +461,7 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the lines {@link ProcessingSpec#describe} writes: all but the per-mode ones. */
+    /** Adds the lines of {@link ProcessingSpec#describe}: all but the per-mode ones. */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
         spec.describe(this);
         return this;

@@ -643,8 +643,8 @@ public class ProcessingLogic {
 
     /**
      * The recipe through the spec and this logic's requirement, parallel, overclock and duration hooks, with unlimited
-     * inputs and output space. For checking that a machine runs as its spec says. {@link #validateRecipe} and
-     * {@link #applyRecipe} are not called, since they may act on the world; with a spec they can only reject a recipe.
+     * inputs and output space. For checking that a machine's runs match its spec. {@link #validateRecipe} and
+     * {@link #applyRecipe} are not called, since they may act on the world. With a spec they can only reject a recipe.
      *
      * @throws IllegalStateException without {@link #setSpec}
      */

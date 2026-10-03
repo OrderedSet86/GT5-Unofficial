@@ -19,7 +19,7 @@ import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
-/** The registered multiblocks with a {@link ProcessingSpec}, and the check that each runs as its spec says. */
+/** The registered multiblocks with a {@link ProcessingSpec}, and the check that each machine's runs match its spec. */
 public final class ProcessingSpecs {
 
     private static final int SAMPLE_RECIPES = 8;

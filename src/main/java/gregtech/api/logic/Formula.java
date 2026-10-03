@@ -17,7 +17,7 @@ public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 
-    /** The kinds the formula reads. {@link Custom} declares its own. */
+    /** The kinds the formula reads. A {@link Custom} formula is given them by its caller. */
     @Nonnull
     Set<ModifierKind> reads();
 
@@ -128,8 +128,8 @@ public sealed interface Formula {
     }
 
     /**
-     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. In float, as
-     * the machines always computed it, so truncation to whole parallels stays the same.
+     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. In float, so
+     * truncation to whole parallels matches the machines' code.
      */
     record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind, int kindMax) implements Formula {
 
@@ -160,7 +160,10 @@ public sealed interface Formula {
         }
     }
 
-    /** Code the spec cannot see into. The tooltip needs {@link ProcessingSpec.Builder#customTooltip}. */
+    /**
+     * Plain code, with no shape a planner or tooltip can read. Describe it with
+     * {@link ProcessingSpec.Builder#customTooltip}.
+     */
     record Custom(@Nonnull ToDoubleFunction<ProcessingInputs> function, @Nonnull Set<ModifierKind> reads)
         implements Formula {
 

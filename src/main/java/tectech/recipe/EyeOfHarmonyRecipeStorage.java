@@ -105,7 +105,7 @@ public class EyeOfHarmonyRecipeStorage {
         }
     };
 
-    /** The recipe map's entry for the recipe, which carries it as its special item. */
+    /** The recipe map's entry for the recipe, whose special item is the recipe. */
     public GTRecipe recipeMapEntry(final EyeOfHarmonyRecipe recipe) {
         return recipeMapEntries.get(recipe);
     }
