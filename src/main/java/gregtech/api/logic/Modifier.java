@@ -46,6 +46,12 @@ public final class Modifier {
         return new Modifier(kind, getter::getAsInt, value -> setter.accept(Math.toIntExact(value)));
     }
 
+    @Nonnull
+    public static Modifier of(@Nonnull ModifierKind.LongKind kind, @Nonnull LongSupplier getter,
+        @Nonnull LongConsumer setter) {
+        return new Modifier(kind, getter, setter);
+    }
+
     /** -1 while there is none. */
     @Nonnull
     public static <E extends Enum<E>> Modifier ofEnum(@Nonnull ModifierKind.IntKind kind, @Nonnull E[] values,

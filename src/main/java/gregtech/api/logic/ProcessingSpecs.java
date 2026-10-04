@@ -150,7 +150,9 @@ public final class ProcessingSpecs {
             && a.ticks() == b.ticks()
             && a.euPerTick() == b.euPerTick()
             && a.eu()
-                .equals(b.eu());
+                .equals(b.eu())
+            && a.output()
+                .equals(b.output());
     }
 
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */

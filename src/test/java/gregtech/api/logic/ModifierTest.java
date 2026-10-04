@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
@@ -111,14 +113,37 @@ class ModifierTest {
         assertEquals(ModifierKind.Source.ITEM, BLADE.source);
     }
 
+    @Test
+    void aValueHasItsKindsType() {
+        ModifierKind.LongKind stored = ModifierKind.ofLong("test:stored_fluid")
+            .source(ModifierKind.Source.RUNTIME)
+            .register();
+        long[] litres = { 0 };
+        Modifier modifier = Modifier.of(stored, () -> litres[0], value -> litres[0] = value);
+
+        modifier.set(10_000_000_000L);
+        ProcessingInputs inputs = ProcessingInputs.builder()
+            .modifiers(List.of(modifier))
+            .value(ModifierKind.COIL, 3)
+            .build();
+        long amount = inputs.value(stored);
+        int coil = inputs.value(ModifierKind.COIL);
+
+        assertEquals(10_000_000_000L, amount);
+        assertEquals(3, coil);
+    }
+
     /** No default arm: a new kind of value stops this compiling until it is handled. */
     @Test
     void aPlannerHandlesEachKindOfValue() {
-        ModifierKind kind = ModifierKind.COIL;
-        String control = switch (kind) {
-            case ModifierKind.IntKind tier -> "slider";
-        };
-        assertEquals("slider", control);
+        for (ModifierKind kind : List.of(ModifierKind.COIL, ModifierKind.ofLong("test:litres")
+            .register())) {
+            String control = switch (kind) {
+                case ModifierKind.IntKind tier -> "slider";
+                case ModifierKind.LongKind amount -> "number field";
+            };
+            assertEquals(kind == ModifierKind.COIL ? "slider" : "number field", control);
+        }
     }
 
     @Test
