@@ -776,6 +776,14 @@ class GT_OverclockCalculator_UnitTest {
     }
 
     @Test
+    void perfectOverclockQuartersTheDuration() {
+        assertEquals(
+            4,
+            new OverclockCalculator().enablePerfectOC()
+                .getDurationDecreasePerOC());
+    }
+
+    @Test
     void laserOverclockUnderOneTickMatchesAdvAssemblyLineUsage() {
         final int slices = 8;
         final int recipeDuration = 200;
