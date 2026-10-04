@@ -29,7 +29,7 @@ import gregtech.api.util.ParallelHelper;
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,
     @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check, @Nonnull CheckRecipeResult checkToStart,
-    @Nonnull ProcessingRun.RunEu eu) {
+    @Nonnull ProcessingRun.RunEu eu, @Nonnull ProcessingRun.Output output) {
 
     /** @param heat Null where heat does not change the overclocks */
     public record Overclock(@Nonnull ProcessingSpec.OverclockRule rule, @Nonnull OptionalInt maxOverclocks,
@@ -49,7 +49,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             overclock,
             check,
             checkToStart,
-            eu);
+            eu,
+            output);
     }
 
     /** At most {@code limit} parallels, and at least 1, as the power panel or a planner's cap allows. */
@@ -166,6 +167,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             calculator.getPerformedOverclocks(),
             (int) runTicks,
             Math.min(power.maxEuPerTick(), calculator.getConsumption()),
-            eu);
+            eu,
+            output);
     }
 }

@@ -25,7 +25,7 @@ import gregtech.api.util.tooltip.TooltipHelper;
  * Sealed over the value type, so a consumer's switch over the kinds with no default arm stops compiling when a new
  * value type is added.
  */
-public abstract sealed class ModifierKind permits ModifierKind.IntKind {
+public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierKind.LongKind {
 
     /** Where a planner gets the value from. */
     public enum Source {
@@ -47,6 +47,14 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         /** The tier as per-tier terms and their tooltips count it. */
         public int countedTier(int value) {
             return value + tierOffset;
+        }
+    }
+
+    /** Amounts that outgrow an int, such as stored fluid. */
+    public static final class LongKind extends ModifierKind {
+
+        private LongKind(Builder<LongKind> builder) {
+            super(builder);
         }
     }
 
@@ -153,6 +161,12 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     @Nonnull
     public static Builder<IntKind> ofInt(@Nonnull String id) {
         return new Builder<>(id, IntKind::new);
+    }
+
+    /** @param id Namespaced by mod, such as {@code "gregtech:coil"} */
+    @Nonnull
+    public static Builder<LongKind> ofLong(@Nonnull String id) {
+        return new Builder<>(id, LongKind::new);
     }
 
     /** Numbered by ordinal, labelled by constant name, ranging over the constants. -1 means none. */
