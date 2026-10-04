@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalInt;
@@ -158,7 +159,11 @@ class ProcessingSpecTest {
         assertEquals(1, resolved.durationMultiplier());
         assertEquals(0.8, resolved.euModifier());
         assertEquals(
-            new ResolvedRecipe.Overclock(ProcessingSpec.OverclockRule.Ratio.STANDARD, Integer.MAX_VALUE, null),
+            new ResolvedRecipe.Overclock(
+                ProcessingSpec.OverclockRule.Ratio.STANDARD,
+                OptionalInt.empty(),
+                Integer.MAX_VALUE,
+                null),
             resolved.overclock());
         OverclockCalculator calculator = resolved.toCalculator();
         assertEquals(0.8, calculator.getEUtDiscount());
@@ -314,6 +319,7 @@ class ProcessingSpecTest {
         ProcessingSpec described = ProcessingSpec.builder()
             .parallelPerTier(4, ModifierKind.VOLTAGE)
             .speed(2)
+            .overclock(4, 4)
             .build();
         ProcessingSpec undescribed = ProcessingSpec.builder()
             .parallel(in -> 4)
@@ -454,7 +460,35 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void termsThatReadTheRecipeApplyOnceItIsKnown() {
+        ProcessingSpec parallel = ProcessingSpec.builder()
+            .parallel(2)
+            .parallelPerRecipe((in, recipe) -> recipe.mDuration / 100)
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
+            .build();
+        ProcessingInputs iv = inputs(VoltageIndex.IV, 0);
+
+        assertEquals(2, parallel.getMaxParallel(iv), "a display without a recipe leaves them out");
+        assertEquals(6, parallel.getMaxParallel(iv, recipe(30, 400, 0)));
+
+        ProcessingSpec timing = ProcessingSpec.builder()
+            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .build();
+        ProcessingRun run = timing.calculate(recipe(30, 400, 0), iv);
+
+        // one overclock where IV would allow four
+        assertEquals(1, run.overclocks());
+        assertEquals(200, run.ticks());
+        assertEquals(120, run.euPerTick());
+    }
+
+    @Test
     void termsThatReadTheRecipeApplyInEveryMode() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .inMode(0, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
@@ -503,6 +537,31 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void theOverclockCanDifferByTier() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .whenTier(ModifierKind.COIL, 1, tier -> tier.overclock(1, 4))
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
+            .build();
+        GTRecipe recipe = recipe(30, 400, 0);
+
+        assertEquals(ProcessingSpec.OverclockRule.Ratio.STANDARD, spec.getOverclock(inputs(VoltageIndex.HV, 0)));
+        assertEquals(new ProcessingSpec.OverclockRule.Ratio(1, 4), spec.getOverclock(inputs(VoltageIndex.HV, 1)));
+        assertEquals(
+            100,
+            spec.calculate(recipe, inputs(VoltageIndex.HV, 0))
+                .ticks());
+        assertEquals(
+            400,
+            spec.calculate(recipe, inputs(VoltageIndex.HV, 1))
+                .ticks(),
+            "overclocks that do not speed up");
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .whenTier(ModifierKind.COIL, 1, ProcessingSpec.Builder::noOverclock));
+    }
+
+    @Test
     void aRunDrawsNoMoreThanTheCap() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(16)
@@ -529,6 +588,28 @@ class ProcessingSpecTest {
         assertEquals(VoltageIndex.ZPM, twoLuv.voltageTier());
         assertEquals((GTValues.V[VoltageIndex.LuV] + GTValues.V[VoltageIndex.IV]) / 2, mixed.averageVoltage());
         assertEquals(4 * GTValues.V[VoltageIndex.LuV], twoLuv.totalEu());
+    }
+
+    @Test
+    void theRunCarriesTheStartupEu() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .startupEuPerRecipe((in, recipe) -> 1000L * recipe.mEUt)
+            .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .build();
+        ProcessingInputs iv = inputs(VoltageIndex.IV, 0);
+
+        assertEquals(
+            BigInteger.valueOf(30_000),
+            spec.calculate(recipe(30, 100, 0), iv)
+                .eu()
+                .startup());
+        assertEquals(
+            BigInteger.ZERO,
+            spec.calculate(recipe(120, 100, 0), iv)
+                .eu()
+                .startup(),
+            "a recipe that cannot run starts nothing");
     }
 
     @Test
@@ -630,6 +711,29 @@ class ProcessingSpecTest {
         assertTrue(lines(spec).isEmpty());
     }
 
+    /** As fusion MK1 to MK3. */
+    @Test
+    void aNonStandardOverclockRatioWritesALine() {
+        ProcessingSpec ratio = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .build();
+        ProcessingSpec uncappedTooltip = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .build();
+        ProcessingSpec capped = ProcessingSpec.builder()
+            .overclock(2, 2)
+            .maxOverclocksPerRecipe((in, recipe) -> 1, tt -> tt.addInfo("cap"))
+            .build();
+
+        assertTrue(
+            ratio.getUndescribed()
+                .isEmpty());
+        assertEquals(1, lines(ratio).size());
+        assertEquals(EnumSet.of(ProcessingSpec.Quantity.OVERCLOCK), uncappedTooltip.getUndescribed());
+        assertEquals(2, lines(capped).size());
+    }
+
     /** As the EBF. */
     @Test
     void coilHeatWritesItsVoltageBonusAndItsRules() {
@@ -666,6 +770,23 @@ class ProcessingSpecTest {
             spec.getUndescribed()
                 .isEmpty());
         assertEquals(1, lines(spec).size());
+    }
+
+    /** As the Arc Furnace and the Eye of Harmony, whose markdown states several numbers. */
+    @Test
+    void oneCustomTooltipCanCoverSeveralQuantities() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(in -> 4)
+            .speed(in -> 2)
+            .customTooltip(
+                EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION),
+                tt -> tt.addInfo("block"))
+            .build();
+
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
+        assertEquals(List.of("block"), lines(spec));
     }
 
     /** As the Centrifuge's momentum. */

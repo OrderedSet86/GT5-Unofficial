@@ -147,7 +147,9 @@ public final class ProcessingSpecs {
             && a.parallel() == b.parallel()
             && a.overclocks() == b.overclocks()
             && a.ticks() == b.ticks()
-            && a.euPerTick() == b.euPerTick();
+            && a.euPerTick() == b.euPerTick()
+            && a.eu()
+                .equals(b.eu());
     }
 
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */

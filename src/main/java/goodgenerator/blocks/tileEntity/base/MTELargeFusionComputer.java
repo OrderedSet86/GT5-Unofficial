@@ -11,6 +11,7 @@ import static gregtech.api.util.GTUtility.validMTEList;
 import static net.minecraft.util.StatCollector.translateToLocal;
 
 import java.math.BigInteger;
+import java.util.EnumSet;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -20,12 +21,14 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
@@ -50,6 +53,8 @@ import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
+import gregtech.api.logic.ResolvedRecipe;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -66,7 +71,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTRecipeConstants;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.HatchElementBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 import gregtech.api.util.shutdown.ShutDownReasonRegistry;
 import gregtech.common.tileentities.machines.IDualInputHatch;
@@ -92,9 +96,13 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     public static final String MAIN_NAME = "largeFusion";
     public static final int M = 1_000_000;
+    /** The startup buffer and the reactor's power split into this many shares, one per energy hatch. */
+    private static final int ENERGY_HATCH_SHARES = 32;
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
+    // Built from the tier's constants, like the describer
+    private final ProcessingSpec processingSpec;
     private static final ClassValue<IStructureDefinition<MTELargeFusionComputer>> STRUCTURE_DEFINITION = new ClassValue<>() {
 
         @Override
@@ -160,12 +168,14 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         super(name);
         useLongPower = true;
         this.overclockDescriber = createOverclockDescriber();
+        this.processingSpec = createProcessingSpec();
     }
 
     public MTELargeFusionComputer(int id, String name, String nameRegional) {
         super(id, name, nameRegional);
         useLongPower = true;
         this.overclockDescriber = createOverclockDescriber();
+        this.processingSpec = createProcessingSpec();
     }
 
     protected OverclockDescriber createOverclockDescriber() {
@@ -182,7 +192,11 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     @Override
     public long maxEUStore() {
-        return capableStartupCanonical() * (Math.min(32, this.mEnergyHatches.size() + this.eEnergyMulti.size())) / 32L;
+        return maxEuStore(capableStartupCanonical(), this.mEnergyHatches.size() + this.eEnergyMulti.size());
+    }
+
+    private static long maxEuStore(long capableStartup, int energyHatches) {
+        return capableStartup * Math.min(ENERGY_HATCH_SHARES, energyHatches) / ENERGY_HATCH_SHARES;
     }
 
     /**
@@ -375,7 +389,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
      * @return The power one hatch can deliver to the reactor
      */
     protected long getSingleHatchPower() {
-        return GTValues.V[tier()] * getMaxPara() * extraPara(100) / 32;
+        return GTValues.V[tier()] * getMaxPara() * extraPara(100) / ENERGY_HATCH_SHARES;
     }
 
     public boolean turnCasingActive(boolean status) {
@@ -449,24 +463,9 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
             @NotNull
             @Override
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return overclockDescriber.createCalculator(super.createOverclockCalculator(recipe), recipe);
-            }
-
-            @NotNull
-            @Override
-            protected CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                long powerToStart = recipe.getMetadataOrDefault(GTRecipeConstants.FUSION_THRESHOLD, 0L);
-                if (!mRunningOnLoad) {
-                    if (powerToStart > maxEUStore()) {
-                        return CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.valueOf(powerToStart));
-                    }
-                    if (recipe.mEUt > GTValues.V[tier()]) {
-                        return CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
-                    }
-                }
-                maxParallel = getMaxPara() * extraPara(powerToStart);
-                return CheckRecipeResultRegistry.SUCCESSFUL;
+            protected CheckRecipeResult checkSpecRequirements(@NotNull ResolvedRecipe resolved) {
+                // The running recipe met the spec's requirements when it started
+                return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(resolved);
             }
 
             @NotNull
@@ -487,10 +486,52 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     }
 
     @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        logic.setAvailableVoltage(GTValues.V[tier()]);
-        logic.setAvailableAmperage(getSingleHatchPower() * 32 / GTValues.V[tier()]);
-        logic.setUnlimitedTierSkips();
+    public ProcessingSpec getProcessingSpec() {
+        return processingSpec;
+    }
+
+    private ProcessingSpec createProcessingSpec() {
+        FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
+        int maxParallel = getMaxPara();
+        long voltage = GTValues.V[tier()];
+        long amperage = getSingleHatchPower() * ENERGY_HATCH_SHARES / voltage;
+        long capableStartup = capableStartupCanonical();
+        return ProcessingSpec.builder()
+            .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
+            .overclock(describer.durationDivisorPerOverclock(), describer.euMultiplierPerOverclock())
+            .maxOverclocksPerRecipe(
+                (in, recipe) -> describer.maxOverclocks(recipe),
+                tt -> tt.addInfo(translateToLocal("gt.mbtt.fusion.max_overclocks")))
+            .unlimitedTierSkips()
+            .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
+            .requires(
+                (in, recipe) -> startupEU(recipe) <= maxEuStore(
+                    capableStartup,
+                    in.energyHatches()
+                        .size()),
+                (in, recipe) -> CheckRecipeResultRegistry
+                    .insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+            .requires(
+                (in, recipe) -> recipe.mEUt <= voltage,
+                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
+            .power(in -> voltage, in -> amperage)
+            .startupEuPerRecipe((in, recipe) -> startupEU(recipe))
+            .customTooltip(
+                EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.POWER),
+                tt -> tt.addMarkdown(
+                    new ResourceLocation("gregtech", "large-fusion-computer-mk" + (tier() - 5)),
+                    ImmutableMap.<String, Object>builder()
+                        .put("power", formatNumber(getSingleHatchPower()))
+                        .put("capacity", formatNumber(capableStartupCanonical() / ENERGY_HATCH_SHARES))
+                        .put("tier", GTValues.TIER_COLORS[tier()] + GTValues.VN[tier()])
+                        .put("base_para", formatNumber(maxParallel))
+                        .put("per_tier_para", formatNumber(maxParallel))
+                        .build()))
+            .build();
+    }
+
+    private static long startupEU(GTRecipe recipe) {
+        return recipe.getMetadataOrDefault(GTRecipeConstants.FUSION_THRESHOLD, 0L);
     }
 
     public int getChunkX() {

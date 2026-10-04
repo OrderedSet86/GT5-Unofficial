@@ -26,14 +26,25 @@ public class FusionOverclockDescriber extends EUOverclockDescriber {
 
     @Override
     public OverclockCalculator createCalculator(OverclockCalculator template, GTRecipe recipe) {
-        return super.createCalculator(template, recipe)
-            .setMaxOverclocks(maxOverclocks(recipe.getMetadataOrDefault(FUSION_THRESHOLD, 0L), recipe.mEUt))
+        return super.createCalculator(template, recipe).setMaxOverclocks(maxOverclocks(recipe))
             .setEUtIncreasePerOC(getEUtIncreasePerOC())
             .setDurationDecreasePerOC(getDurationDecreasePerOC());
     }
 
     protected double getEUtIncreasePerOC() {
         return 2.0;
+    }
+
+    public final double euMultiplierPerOverclock() {
+        return getEUtIncreasePerOC();
+    }
+
+    public final double durationDivisorPerOverclock() {
+        return getDurationDecreasePerOC();
+    }
+
+    public final int maxOverclocks(GTRecipe recipe) {
+        return maxOverclocks(recipe.getMetadataOrDefault(FUSION_THRESHOLD, 0L), recipe.mEUt);
     }
 
     protected double getDurationDecreasePerOC() {

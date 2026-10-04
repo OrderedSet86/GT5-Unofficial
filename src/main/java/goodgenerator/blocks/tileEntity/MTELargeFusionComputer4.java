@@ -1,15 +1,11 @@
 package goodgenerator.blocks.tileEntity;
 
-import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
 import static gregtech.api.enums.Textures.BlockIcons.MACHINE_CASING_FUSION_GLASS;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
-
-import com.google.common.collect.ImmutableMap;
 
 import bartworks.common.loaders.ItemRegistry;
 import goodgenerator.blocks.tileEntity.base.MTELargeFusionComputerPP;
@@ -35,8 +31,6 @@ import tectech.thing.metaTileEntity.hatch.MTEHatchEnergyMulti;
 @IMetaTileEntity.SkipGenerateDescription
 public class MTELargeFusionComputer4 extends MTELargeFusionComputerPP {
 
-    private static final int MAX_ENERGY_HATCHES = 32;
-
     public MTELargeFusionComputer4(int id, String name, String nameRegional) {
         super(id, name, nameRegional);
     }
@@ -50,15 +44,7 @@ public class MTELargeFusionComputer4 extends MTELargeFusionComputerPP {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.fusion_reactor"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "large-fusion-computer-mk4"),
-                ImmutableMap.<String, Object>builder()
-                    .put("power", formatNumber(getSingleHatchPower()))
-                    .put("capacity", formatNumber(capableStartupCanonical() / MAX_ENERGY_HATCHES))
-                    .put("tier", GTValues.TIER_COLORS[tier()] + GTValues.VN[tier()])
-                    .put("base_para", formatNumber(getMaxPara()))
-                    .put("per_tier_para", formatNumber(getMaxPara()))
-                    .build())
+            .addProcessingSpecInfo(getProcessingSpec())
             .addSupportAny()
             .beginStructureBlock(47, 7, 47, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.middle_center_4th_layer"))

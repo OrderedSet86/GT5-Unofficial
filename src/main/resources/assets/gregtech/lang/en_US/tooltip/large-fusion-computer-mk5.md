@@ -5,4 +5,3 @@ The total combined EU capacity must be greater than the recipe start cost to ign
 Can only run {var:tier}§7 recipes and below
 {gray:{hr}}
 {yellow:Changing recipes consumes the start cost again}
-{light_purple:Performs 4/4 Perfect Overclocks}
