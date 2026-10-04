@@ -529,11 +529,8 @@ public class GTNEIDefaultHandler extends TemplateRecipeHandler {
             overclockDescriber = new EUNoOverclockDescriber((byte) 1, uiProperties.amperage);
         }
 
-        OverclockCalculator calculator = overclockDescriber.createCalculator(
-            new OverclockCalculator().setRecipeEUt(recipe.mEUt)
-                .setDuration(recipe.mDuration),
-            recipe);
-        calculator.calculate();
+        OverclockCalculator calculator = overclockDescriber.createCalculator(recipe)
+            .calculate();
 
         cachedRecipe.calculator = calculator;
 

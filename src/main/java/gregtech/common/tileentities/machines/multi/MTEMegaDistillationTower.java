@@ -49,7 +49,10 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.recipe.RecipeMaps;
@@ -57,7 +60,6 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.tooltip.TooltipHelper;
 import gregtech.common.misc.GTStructureChannels;
 
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
@@ -65,6 +67,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     private static final int MACHINEMODE_TOWER = 0;
     private static final int MACHINEMODE_DISTILLERY = 1;
+    private static final int MAX_LAYERS = 5;
     private static final List<MachineMode> MODES = List.of(
         MachineMode.of(RecipeMaps.distillationTowerRecipes)
             .nameKey("GT5U.MDT.mode.0")
@@ -72,6 +75,36 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
         MachineMode.of(RecipeMaps.distilleryRecipes)
             .nameKey("GT5U.MDT.mode.1")
             .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .modes(MODES)
+        // still worse than dangote but with laser
+        .inMode(
+            MACHINEMODE_TOWER,
+            mode -> mode.parallel(() -> Configuration.Multiblocks.megaMachinesMax)
+                .speed(1.5)
+                .euModifier(0.9))
+        // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
+        .inMode(
+            MACHINEMODE_DISTILLERY,
+            mode -> mode
+                // 512 - 1024 parallels min to max height
+                .parallel(
+                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2),
+                    ModifierKind.LENGTH)
+                .customTooltip(
+                    ProcessingSpec.Quantity.PARALLEL,
+                    tt -> tt.addParallelFormulaInfo(
+                        StatCollector.translateToLocalFormatted(
+                            "GT5U.MDT.parallel.distillery",
+                            Configuration.Multiblocks.megaMachinesMax)))
+                .speed(2)
+                .euModifier(0.5))
+        .range(ModifierKind.LENGTH, 1, MAX_LAYERS)
+        .unlimitedTierSkips()
+        .powerAtOneAmp()
+        .noTooltip(ProcessingSpec.Quantity.POWER)
+        .build();
 
     protected final List<List<MTEHatchOutput>> outputHatchesPerLayer = new ArrayList<>();
 
@@ -232,7 +265,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
         List<Integer> missingLayers = new ArrayList<>();
 
-        while (this.height <= 5) {
+        while (this.height <= MAX_LAYERS) {
 
             if (this.isTopLayerFound) {
                 break; // needed to break out of the loop in the case the structure isn't max height.
@@ -286,9 +319,16 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     }
 
     @Override
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        // checkMachine leaves height one above the middle layer count
+        return List.of(Modifier.of(ModifierKind.LENGTH, () -> height - 1, layers -> height = layers + 1));
+    }
+
+    @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece(STRUCTURE_PIECE_BASE, stackSize, hintsOnly, HORIZONTAL_OFFSET, VERTICAL_OFFSET, DEPTH_OFFSET);
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, 5);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             buildPiece(
                 STRUCTURE_PIECE_LAYER,
@@ -325,7 +365,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             true);
         if (built >= 0) return built;
 
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, 5);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
 
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             built = this.survivalBuildPiece(
@@ -338,7 +378,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
                 env,
                 false,
                 true);
-            if (currentLayer == 5) {
+            if (currentLayer == MAX_LAYERS) {
                 // workaround as for some reason highest middle level was not building the top piece
                 built += this.survivalBuildPiece(
                     STRUCTURE_PIECE_TOP,
@@ -495,39 +535,13 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
-            // 512 - 1024 parallels min to max height
-            return Configuration.Multiblocks.megaMachinesMax * (1 + this.height / 2);
-        }
-        return Configuration.Multiblocks.megaMachinesMax;
-    }
-
-    @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic().setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic();
     }
 
-    private static final double DISTILLERY_SPEED = 2.0D;
-    private static final double DISTILLERY_EU_EFFICIENCY = 0.5D;
-
-    private static final double TOWER_SPEED = 1.5D;
-    private static final double TOWER_EU_EFFICIENCY = 0.9D;
-
     @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        logic.setAvailableVoltage(this.getMaxInputEu());
-        logic.setAvailableAmperage(1);
-        logic.setUnlimitedTierSkips();
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
-            // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
-            logic.setSpeedBonus(1.0D / DISTILLERY_SPEED);
-            logic.setEuModifier(DISTILLERY_EU_EFFICIENCY);
-        } else {
-            // same here, still worse than dangote but with laser
-            logic.setSpeedBonus(1.0D / TOWER_SPEED);
-            logic.setEuModifier(TOWER_EU_EFFICIENCY);
-        }
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
     @Override
@@ -560,21 +574,15 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillery Mode")
             .addInfo("Outputs only one fluid in the first hatch")
-            .addInfo(
-                TooltipHelper.parallelText(Configuration.Multiblocks.megaMachinesMax + " * (1 + Tower Height/2)")
-                    + " Parallels")
-            .addStaticSpeedInfo((float) DISTILLERY_SPEED)
-            .addStaticEuEffInfo((float) DISTILLERY_EU_EFFICIENCY)
+            .addProcessingSpecInfo(SPEC, MACHINEMODE_DISTILLERY)
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillation Tower Mode")
             .addInfo("Fluids are output one per layer based on the slot number in NEI")
             .addInfo("Increase the height to output more fluid types")
-            .addStaticParallelInfo(Configuration.Multiblocks.megaMachinesMax)
-            .addStaticSpeedInfo((float) TOWER_SPEED)
-            .addStaticEuEffInfo((float) TOWER_EU_EFFICIENCY)
+            .addProcessingSpecInfo(SPEC, MACHINEMODE_TOWER)
             .addSeparator()
             .addSupportAny()
-            .addUnlimitedTierSkips()
+            .addProcessingSpecInfo(SPEC)
             .addInfo(EnumChatFormatting.GOLD + "Big Oil will be pleased with this!")
             .beginVariableStructureBlock(15, 15, 30, 54, 9, 9, true)
             .addController("Front center, 3rd Layer")
