@@ -1,15 +1,11 @@
 package goodgenerator.blocks.tileEntity;
 
-import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FUSION3;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FUSION3_GLOW;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
-
-import com.google.common.collect.ImmutableMap;
 
 import bartworks.common.loaders.ItemRegistry;
 import goodgenerator.blocks.tileEntity.base.MTELargeFusionComputer;
@@ -26,8 +22,6 @@ import gregtech.api.util.MultiblockTooltipBuilder;
 
 @IMetaTileEntity.SkipGenerateDescription
 public class MTELargeFusionComputer3 extends MTELargeFusionComputer {
-
-    private static final int MAX_ENERGY_HATCHES = 32;
 
     private static final ITexture textureOverlay = TextureFactory.of(
         TextureFactory.builder()
@@ -53,15 +47,7 @@ public class MTELargeFusionComputer3 extends MTELargeFusionComputer {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.fusion_reactor"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "large-fusion-computer-mk3"),
-                ImmutableMap.<String, Object>builder()
-                    .put("power", formatNumber(getSingleHatchPower()))
-                    .put("capacity", formatNumber(capableStartupCanonical() / MAX_ENERGY_HATCHES))
-                    .put("tier", GTValues.TIER_COLORS[tier()] + GTValues.VN[tier()])
-                    .put("base_para", formatNumber(getMaxPara()))
-                    .put("per_tier_para", formatNumber(getMaxPara()))
-                    .build())
+            .addProcessingSpecInfo(getProcessingSpec())
             .addSupportAny()
             .beginStructureBlock(47, 7, 47, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.middle_center_4th_layer"))

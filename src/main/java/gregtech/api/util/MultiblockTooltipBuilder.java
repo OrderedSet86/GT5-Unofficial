@@ -78,6 +78,7 @@ public class MultiblockTooltipBuilder {
     private final String TT_HeatPerVoltageTier = StatCollector.translateToLocal("GT5U.MBTT.Heat.PerVoltageTier");
     private final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount");
     private final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock");
+    private final String TT_OverclockRatio = StatCollector.translateToLocal("GT5U.MBTT.Overclock.Ratio");
     private final String TT_RecipeOverride = StatCollector.translateToLocal("GT5U.MBTT.RecipeOverride");
     private final String TT_RisingParallelPerVoltageTier = StatCollector
         .translateToLocal("GT5U.MBTT.Parallel.RisingPerVoltageTier");
@@ -369,6 +370,12 @@ public class MultiblockTooltipBuilder {
                     + "K"
                     + EnumChatFormatting.GRAY,
                 EnumChatFormatting.LIGHT_PURPLE + "Perfect Overclock"));
+        return this;
+    }
+
+    /** "Performs 2/2 overclock": speed, then EU/t, per overclock */
+    public MultiblockTooltipBuilder addOverclockRatioInfo(double durationDivisor, double euMultiplier) {
+        iLines.add(String.format(TT_OverclockRatio, formatNumber(durationDivisor), formatNumber(euMultiplier)));
         return this;
     }
 

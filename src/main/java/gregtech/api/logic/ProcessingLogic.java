@@ -2,6 +2,7 @@ package gregtech.api.logic;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
@@ -606,9 +607,11 @@ public class ProcessingLogic {
             1,
             new ResolvedRecipe.Overclock(
                 new ProcessingSpec.OverclockRule.Ratio(overClockTimeReduction, overClockPowerIncrease),
+                OptionalInt.empty(),
                 maxTierSkips,
                 null),
-            CheckRecipeResultRegistry.SUCCESSFUL);
+            CheckRecipeResultRegistry.SUCCESSFUL,
+            ProcessingRun.RunEu.NONE);
     }
 
     /**
