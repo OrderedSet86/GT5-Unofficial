@@ -22,11 +22,14 @@ import java.text.DecimalFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -104,6 +107,7 @@ import gregtech.api.interfaces.modularui.IAddUIWidgets;
 import gregtech.api.interfaces.modularui.IBindPlayerInventoryUI;
 import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
@@ -2107,7 +2111,36 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return null;
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return null;
+        int mode = getMachineMode();
+        return modes.get(mode < modes.size() ? mode : 0)
+            .recipeMap();
+    }
+
+    public RecipeMap<?> getRecipeMapForMode(int mode) {
+        List<MachineMode> modes = getMachineModes();
+        return modes.isEmpty() ? getRecipeMap()
+            : modes.get(mode)
+                .recipeMap();
+    }
+
+    /**
+     * In mode button order. The recipe map, mode count, names and icons follow from it. Return a static constant.
+     */
+    @Nonnull
+    public List<MachineMode> getMachineModes() {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return IControllerWithOptionalFeatures.super.getAvailableRecipeMaps();
+        Set<RecipeMap<?>> maps = new LinkedHashSet<>();
+        for (MachineMode mode : modes) maps.add(mode.recipeMap());
+        return new ArrayList<>(maps);
     }
 
     /**
@@ -3277,7 +3310,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
      */
     public void setMachineModeIcons() {
-
+        for (MachineMode mode : getMachineModes()) {
+            if (mode.icon() != null) machineModeIcons.add(mode.icon());
+        }
     }
 
     /**
@@ -3286,12 +3321,26 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      */
     @Override
     public boolean supportsMachineModeSwitch() {
-        return false;
+        return getMachineModes().size() > 1;
     }
 
     @Override
     public int getMachineMode() {
         return machineMode;
+    }
+
+    public int getMachineModeCount() {
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty()) return modes.size();
+        return supportsMachineModeSwitch() ? 2 : 1;
+    }
+
+    @Override
+    public String getMachineModeKey() {
+        List<MachineMode> modes = getMachineModes();
+        if (getMachineMode() < modes.size()) return modes.get(getMachineMode())
+            .nameKey();
+        return IControllerWithOptionalFeatures.super.getMachineModeKey();
     }
 
     @Override
@@ -3311,6 +3360,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public int nextMachineMode() {
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty()) return (getMachineMode() + 1) % modes.size();
         if (machineMode == 0) return 1;
         else return 0;
     }
