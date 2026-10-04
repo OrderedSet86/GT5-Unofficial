@@ -111,6 +111,7 @@ public final class ProcessingSpecs {
         int modes = machine.getMachineModes()
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
+            if (!spec.supportsMode(mode)) continue;
             if (modes > 1) machine.setMachineMode(mode);
             for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
                 for (List<ProcessingInputs.EnergyHatch> hatches : ENERGY_SAMPLES) {

@@ -600,7 +600,7 @@ public class ProcessingLogic {
         return new ResolvedRecipe(
             recipe,
             recipe.mDuration,
-            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC),
+            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC, false),
             maxParallel,
             speedBoost,
             euModifier,
@@ -610,6 +610,7 @@ public class ProcessingLogic {
                 OptionalInt.empty(),
                 maxTierSkips,
                 null),
+            CheckRecipeResultRegistry.SUCCESSFUL,
             CheckRecipeResultRegistry.SUCCESSFUL,
             ProcessingRun.RunEu.NONE);
     }
@@ -652,6 +653,8 @@ public class ProcessingLogic {
         specResolved = resolveSpec(recipe);
         CheckRecipeResult check = checkSpecRequirements(specResolved);
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
+        if (!specResolved.checkToStart()
+            .wasSuccessful()) return ProcessingRun.failed(specResolved.checkToStart());
         GTRecipe run = specResolved.recipe();
         ParallelHelper helper = ResolvedRecipe.forPlanning(createParallelHelper(run));
         OverclockCalculator calculator = createOverclockCalculator(run);
