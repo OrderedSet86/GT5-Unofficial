@@ -75,7 +75,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Z = 1;
 
     private static final int MAX_MOMENTUM = 100;
-    public static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
+    private static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
         .name("GT5U.MBTT.Tiers.Momentum")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()

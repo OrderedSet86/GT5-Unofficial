@@ -332,25 +332,13 @@ public class OverclockCalculator {
 
     // region input getters
 
-    public long getRecipeEUt() {
-        return recipeEUt;
-    }
-
     /** @return The recipe's duration before overclocking. {@link #getDuration()} is the result after. */
     public int getRecipeDuration() {
         return duration;
     }
 
-    public long getMachineVoltage() {
-        return machineVoltage;
-    }
-
     public long getMachineAmperage() {
         return machineAmperage;
-    }
-
-    public int getParallel() {
-        return parallel;
     }
 
     /** @return {@link Integer#MAX_VALUE} for unlimited tier skips */
@@ -376,10 +364,6 @@ public class OverclockCalculator {
 
     public boolean isLaserOC() {
         return laserOC;
-    }
-
-    public boolean isAmperageOC() {
-        return amperageOC;
     }
 
     public boolean isNoOverclock() {

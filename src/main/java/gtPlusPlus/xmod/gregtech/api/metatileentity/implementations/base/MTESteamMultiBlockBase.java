@@ -90,7 +90,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     private static final int STEAM_PARALLEL = 8;
 
     /** 1 for Basic, 2 for High Pressure. */
-    public static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
+    protected static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
         .range(1, 2)

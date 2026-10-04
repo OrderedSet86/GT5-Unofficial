@@ -11,7 +11,6 @@ import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.Set;
 
 import net.minecraft.util.EnumChatFormatting;
 
@@ -38,6 +37,10 @@ class ProcessingSpecTest {
         .ordered()
         .range(0, 100)
         .register();
+    private static final ModifierKind.IntKind SOLENOID = ModifierKind.ofInt("test:solenoid")
+        .ordered()
+        .range(VoltageIndex.MV, VoltageIndex.UMV)
+        .register();
     private static final ModifierKind.IntKind CASING = ModifierKind.ofInt("test:casing")
         .range(0, 1)
         .labels(0, "Heat Resistant Casing", "Heat Proof Casing")
@@ -57,11 +60,10 @@ class ProcessingSpecTest {
             .build();
     }
 
-    /** The whole tooltip: the common lines, then each mode's under its name. */
+    /** The common tooltip lines. */
     private static List<String> lines(ProcessingSpec spec) {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         spec.describe(tt);
-        spec.describeModes(tt);
         return tt.getInfoLines();
     }
 
@@ -69,11 +71,11 @@ class ProcessingSpecTest {
     void inputsNameEveryValue() {
         ProcessingInputs luv = ProcessingInputs.builder()
             .energyHatches(VoltageIndex.LuV, 1)
-            .value(ModifierKind.SOLENOID, VoltageIndex.LuV)
+            .value(SOLENOID, VoltageIndex.LuV)
             .build();
 
         assertEquals(VoltageIndex.LuV, luv.value(ModifierKind.VOLTAGE));
-        assertEquals(VoltageIndex.LuV, luv.value(ModifierKind.SOLENOID));
+        assertEquals(VoltageIndex.LuV, luv.value(SOLENOID));
         assertEquals(2, luv.amperage());
         assertTrue(luv.isSingleRegularHatch());
         assertEquals(0, luv.mode());
@@ -88,17 +90,21 @@ class ProcessingSpecTest {
             .build();
 
         assertEquals(4 * 5 + 3, spec.getMaxParallel(inputs(5, 0)));
-        assertEquals(1, ProcessingSpec.STANDARD.getMaxParallel(inputs(5, 3)));
+        assertEquals(
+            1,
+            ProcessingSpec.builder()
+                .build()
+                .getMaxParallel(inputs(5, 3)));
     }
 
     @Test
     void parallelPerTierMultipliesItsTiers() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallelPerTier(6, ModifierKind.VOLTAGE, ModifierKind.SOLENOID)
+            .parallelPerTier(6, ModifierKind.VOLTAGE, SOLENOID)
             .build();
         ProcessingInputs luv = ProcessingInputs.builder()
             .energyHatches(VoltageIndex.LuV, 1)
-            .value(ModifierKind.SOLENOID, VoltageIndex.LuV)
+            .value(SOLENOID, VoltageIndex.LuV)
             .build();
 
         assertEquals(6 * 6 * 6, spec.getMaxParallel(luv));
@@ -256,34 +262,18 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void formulasShowHowANumberIsMade() {
+    void aSpecWithModeTermsVariesByMode() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .parallelPerTier(16, ModifierKind.VOLTAGE)
-            .speedPerTier(1, 1, ModifierKind.ITEM_PIPE_CASING)
+            .parallel(16)
             .inMode(1, mode -> mode.parallel(4))
             .build();
-        ProcessingInputs tower = spec.bestInputs()
-            .energyHatches(VoltageIndex.LV, 1)
-            .build();
 
-        assertEquals(
-            List.of(new Formula.TierProduct(16, List.of(ModifierKind.VOLTAGE))),
-            spec.getFormulas(ProcessingSpec.Quantity.PARALLEL, tower));
-        assertEquals(
-            List.of(new Formula.Constant(4)),
-            spec.getFormulas(
-                ProcessingSpec.Quantity.PARALLEL,
-                tower.toBuilder()
-                    .mode(1)
-                    .build()));
-        assertEquals(
-            Set.of(ModifierKind.ITEM_PIPE_CASING),
-            spec.getFormulas(ProcessingSpec.Quantity.DURATION, tower)
-                .get(0)
-                .reads());
         assertTrue(spec.variesByMode());
-        assertFalse(ProcessingSpec.STANDARD.variesByMode());
+        assertFalse(
+            ProcessingSpec.builder()
+                .build()
+                .variesByMode());
     }
 
     /** As the steam multiblocks run. */
@@ -300,7 +290,6 @@ class ProcessingSpecTest {
             .calculate();
 
         assertTrue(planned.isNoOverclock());
-        assertEquals(16, planned.getMachineVoltage());
         assertEquals(160, planned.getDuration());
         assertEquals(16 * 2.5 * 8, planned.getConsumption());
     }
@@ -359,7 +348,7 @@ class ProcessingSpecTest {
     @Test
     void calculateFollowsTheParallelAndOverclockLimits() {
         ProcessingSpec forgeHammer = ProcessingSpec.builder()
-            .parallelPerTier(6, ModifierKind.VOLTAGE, ModifierKind.SOLENOID)
+            .parallelPerTier(6, ModifierKind.VOLTAGE, SOLENOID)
             .speed(2)
             .euModifier(1)
             .build();
@@ -375,7 +364,7 @@ class ProcessingSpecTest {
                 ironPlates,
                 ProcessingInputs.builder()
                     .energyHatches(VoltageIndex.LuV, 1)
-                    .value(ModifierKind.SOLENOID, row[0])
+                    .value(SOLENOID, row[0])
                     .build());
 
             assertEquals(row[1], run.parallel(), "parallel at solenoid " + row[0]);
@@ -420,18 +409,13 @@ class ProcessingSpecTest {
             spec.getUndescribed()
                 .isEmpty());
 
-        List<String> lines = lines(spec);
-        String distillery = EnumChatFormatting.WHITE + "Distillery" + EnumChatFormatting.GRAY + ": ";
-        assertEquals(3, lines.size(), "the spec's own line and the Distillery's two");
-        assertFalse(
-            lines.get(0)
-                .startsWith(distillery));
-        assertTrue(
-            lines.get(1)
-                .startsWith(distillery));
-        assertTrue(
-            lines.get(2)
-                .startsWith(distillery));
+        assertEquals(1, lines(spec).size(), "the spec's own line: a mode's lines go in its own section");
+        MultiblockTooltipBuilder distillery = new MultiblockTooltipBuilder();
+        spec.describeMode(distillery, 1);
+        assertEquals(
+            2,
+            distillery.getInfoLines()
+                .size());
     }
 
     @Test
@@ -515,7 +499,8 @@ class ProcessingSpecTest {
 
     @Test
     void standardPowerUsesOneAmpOfALoneRegularHatch() {
-        ProcessingSpec spec = ProcessingSpec.STANDARD;
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .build();
         long luv = GTValues.V[VoltageIndex.LuV];
 
         assertEquals(new ProcessingSpec.Power(luv, 1, true, false), spec.getPower(inputs(VoltageIndex.LuV, 0)));
@@ -680,7 +665,8 @@ class ProcessingSpecTest {
 
     @Test
     void theRunCarriesEuPerRunAndItsOutputOdds() {
-        ProcessingSpec plain = ProcessingSpec.STANDARD;
+        ProcessingSpec plain = ProcessingSpec.builder()
+            .build();
         ProcessingSpec spec = ProcessingSpec.builder()
             .euPerRunPerRecipe(
                 (in, recipe) -> BigInteger.valueOf(recipe.mDuration)
@@ -787,13 +773,6 @@ class ProcessingSpecTest {
             tt.getInfoLines()
                 .size(),
             "describe adds the tier skips line, not the modes");
-
-        spec.describeModes(tt);
-        List<String> lines = tt.getInfoLines();
-        assertEquals(6, lines.size());
-        assertTrue(
-            lines.get(3)
-                .startsWith(EnumChatFormatting.WHITE + "Tower" + EnumChatFormatting.GRAY + ": "));
         assertThrows(IllegalArgumentException.class, () -> spec.describeMode(new MultiblockTooltipBuilder(), 2));
     }
 

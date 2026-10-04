@@ -86,18 +86,6 @@ public final class Modifier {
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /** Accepts one solenoid tier. */
-    @Nonnull
-    public static <T> Of<T, Byte> solenoid(@Nonnull Function<T, Byte> getter, @Nonnull BiConsumer<T, Byte> setter) {
-        return new Of<>(
-            ModifierKind.SOLENOID,
-            getter,
-            setter,
-            tier -> tier == null ? 0 : tier,
-            tier -> (byte) tier,
-            GTStructureChannels.SOLENOID.use(GTStructureUtility.ofSolenoidCoil(setter, getter)));
-    }
-
     /** -1 until the structure check sets it. */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,

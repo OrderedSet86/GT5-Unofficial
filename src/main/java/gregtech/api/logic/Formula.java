@@ -13,7 +13,7 @@ import gregtech.api.util.GTUtility;
  * One number of a {@link ProcessingSpec} as data, so a planner can show how it is made and which kinds it reads, and
  * the tooltip can be written from it. Speeds are kept as speeds: 2.5 is 250%.
  */
-public sealed interface Formula {
+sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 

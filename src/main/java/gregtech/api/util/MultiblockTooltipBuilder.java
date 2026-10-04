@@ -441,12 +441,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the spec's lines for every machine mode, each under the mode's name. */
-    public MultiblockTooltipBuilder addProcessingSpecModesInfo(ProcessingSpec spec) {
-        spec.describeModes(this);
-        return this;
-    }
-
     /** "Voltage Tier * Solenoid Tier * 6 Parallels" */
     public MultiblockTooltipBuilder addTierProductParallelInfo(int factor, List<ModifierKind.IntKind> kinds) {
         StringBuilder product = new StringBuilder();

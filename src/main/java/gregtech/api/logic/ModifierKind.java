@@ -15,7 +15,6 @@ import net.minecraft.util.StatCollector;
 
 import gregtech.api.enums.GTValues;
 import gregtech.api.enums.HeatingCoilLevel;
-import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.tooltip.TooltipHelper;
 
@@ -76,12 +75,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
             tier -> HeatingCoilLevel.getFromTier((byte) tier)
                 .getName())
         .register();
-    /** The voltage tier of the solenoids. */
-    public static final IntKind SOLENOID = ofInt("gregtech:solenoid").name("GT5U.MBTT.Tiers.Solenoid")
-        .ordered()
-        .range(VoltageIndex.MV, VoltageIndex.UMV)
-        .labels(tier -> GTValues.VN[(int) tier])
-        .register();
     /** 1 for the lowest item pipe casing. */
     public static final IntKind ITEM_PIPE_CASING = ofInt("gregtech:item_pipe_casing").name("GT5U.MBTT.Tiers.ItemPipe")
         .ordered()
@@ -99,11 +92,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     /** The count of repeated slices or layers. Each machine sets the range. */
     public static final IntKind LENGTH = ofInt("gregtech:length").name("GT5U.MBTT.Tiers.Length")
         .ordered()
-        .register();
-    /** The voltage tier of the glass. */
-    public static final IntKind GLASS = ofInt("gregtech:glass").name("GT5U.MBTT.Tiers.Glass")
-        .ordered()
-        .labels(tier -> GTValues.VN[(int) tier])
         .register();
 
     @Nonnull
@@ -234,7 +222,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         }
 
         /** Added to a value where per-tier terms count tiers: 1 for coils, whose tier 0 is Cupronickel. */
-        public Builder<K> tierOffset(int tierOffset) {
+        private Builder<K> tierOffset(int tierOffset) {
             this.tierOffset = tierOffset;
             return this;
         }

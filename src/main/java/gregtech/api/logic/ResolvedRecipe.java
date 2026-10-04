@@ -37,8 +37,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
 
     public record Heat(int machineHeat, int recipeHeat, boolean overclocking, boolean discounting) {}
 
-    @Nonnull
-    public ResolvedRecipe withMaxParallel(int maxParallel) {
+    private ResolvedRecipe withMaxParallel(int maxParallel) {
         return new ResolvedRecipe(
             recipe,
             duration,

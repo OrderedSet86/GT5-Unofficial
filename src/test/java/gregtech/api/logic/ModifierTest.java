@@ -17,16 +17,7 @@ class ModifierTest {
 
     private static final class Machine {
 
-        Byte solenoid;
         int pipe = -1;
-
-        Byte getSolenoid() {
-            return solenoid;
-        }
-
-        void setSolenoid(byte tier) {
-            solenoid = tier;
-        }
 
         int getPipe() {
             return pipe;
@@ -51,8 +42,6 @@ class ModifierTest {
         .source(ModifierKind.Source.ITEM)
         .register();
 
-    private static final Modifier.Of<Machine, Byte> SOLENOID = Modifier
-        .solenoid(Machine::getSolenoid, Machine::setSolenoid);
     private static final Modifier.Of<Machine, Integer> ITEM_PIPE = Modifier
         .itemPipeCasing(Machine::getPipe, Machine::setPipe);
 
@@ -61,16 +50,15 @@ class ModifierTest {
         Machine first = new Machine();
         Machine second = new Machine();
 
-        SOLENOID.of(first)
-            .set(VoltageIndex.LuV);
+        ITEM_PIPE.of(first)
+            .set(3);
 
-        assertEquals(VoltageIndex.LuV, (byte) first.solenoid);
+        assertEquals(3, first.pipe);
         assertEquals(
-            0,
-            SOLENOID.of(second)
+            -1,
+            ITEM_PIPE.of(second)
                 .get());
-        assertSame(ModifierKind.SOLENOID, SOLENOID.of(first).kind);
-        assertEquals("LuV", ModifierKind.SOLENOID.label(VoltageIndex.LuV));
+        assertSame(ModifierKind.ITEM_PIPE_CASING, ITEM_PIPE.of(first).kind);
     }
 
     @Test
@@ -103,6 +91,7 @@ class ModifierTest {
         assertEquals("High Pressure", PRESSURE.label(2));
         assertEquals("Basic", PRESSURE.label(1));
         assertEquals("3", PRESSURE.label(3));
+        assertEquals("LuV", ModifierKind.VOLTAGE.label(VoltageIndex.LuV));
     }
 
     @Test

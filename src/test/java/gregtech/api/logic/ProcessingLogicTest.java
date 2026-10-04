@@ -2,7 +2,6 @@ package gregtech.api.logic;
 
 import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.jupiter.api.Test;
 
@@ -65,15 +64,12 @@ class ProcessingLogicTest {
             .setUnlimitedTierSkips()
             .createOverclockCalculator(recipe(30, 200, 0));
 
-        assertEquals(512, calculator.getMachineVoltage());
         assertEquals(4, calculator.getMachineAmperage());
         assertEquals(0.5, calculator.getDurationModifier());
         assertEquals(0.75, calculator.getEUtDiscount());
         assertEquals(1.5, calculator.getDurationDecreasePerOC());
         assertEquals(3, calculator.getEUtIncreasePerOC());
-        assertFalse(calculator.isAmperageOC());
         assertEquals(Integer.MAX_VALUE, calculator.getMaxTierSkips());
-        assertEquals(30, calculator.getRecipeEUt());
         assertEquals(200, calculator.getRecipeDuration());
     }
 

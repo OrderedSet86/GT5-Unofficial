@@ -31,7 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.StatCollector;
 
 import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
@@ -158,16 +157,13 @@ public final class ProcessingSpec {
         }
     }
 
-    public static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
+    private static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
         .getFromTier((byte) in.value(ModifierKind.COIL))
         .getHeat();
 
     private static final ToLongFunction<ProcessingInputs> STANDARD_VOLTAGE = ProcessingInputs::averageVoltage;
     private static final ToLongFunction<ProcessingInputs> STANDARD_AMPERAGE = in -> in.isSingleRegularHatch() ? 1
         : in.amperage();
-
-    /** For a machine that runs a plain {@link ProcessingLogic}. */
-    public static final ProcessingSpec STANDARD = builder().build();
 
     /** A formula and its tooltip lines. The lines are null where the formula is plain code. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
@@ -178,9 +174,9 @@ public final class ProcessingSpec {
     private record Requirement(BiPredicate<ProcessingInputs, GTRecipe> met,
         BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {}
 
-    /** @param name Heads the tooltip lines, given the spec's modes */
-    private record Variant(Predicate<ProcessingInputs> appliesTo, Function<List<MachineMode>, String> name,
-        @Nullable Integer mode, ProcessingSpec terms) {}
+    /** @param label Heads a {@link Builder#whenTier} variant's tooltip lines. Null for a mode's. */
+    private record Variant(Predicate<ProcessingInputs> appliesTo, @Nullable String label, @Nullable Integer mode,
+        ProcessingSpec terms) {}
 
     /** The tooltip lines for one quantity the spec sets, and whether they cover all of it. */
     private record Described(boolean readsRecipe, List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
@@ -224,8 +220,6 @@ public final class ProcessingSpec {
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
     private final Map<ModifierKind, ModifierRange> modifiers;
-    @Nullable
-    private final List<MachineMode> modes;
     private final List<Variant> variants;
     private final Set<Integer> unsupportedModes;
 
@@ -265,7 +259,6 @@ public final class ProcessingSpec {
         this.customTooltips = new EnumMap<>(builder.customTooltips);
         this.noTooltip = builder.noTooltip.clone();
         this.modifiers = Collections.unmodifiableMap(modifiers);
-        this.modes = builder.modes == null ? null : List.copyOf(builder.modes);
         this.variants = List.copyOf(builder.variants);
         this.unsupportedModes = Set.copyOf(builder.unsupportedModes);
     }
@@ -421,7 +414,7 @@ public final class ProcessingSpec {
         return factor(inputs, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL);
     }
 
-    public double getRecipeEuMultiplier(@Nonnull ProcessingInputs inputs) {
+    private double getRecipeEuMultiplier(ProcessingInputs inputs) {
         return factor(inputs, Quantity.RECIPE_EU_MULTIPLIER);
     }
 
@@ -430,23 +423,6 @@ public final class ProcessingSpec {
     public OverclockRule getOverclock(@Nonnull ProcessingInputs inputs) {
         OverclockRule rule = resolve(inputs, spec -> spec.overclock, Objects::nonNull);
         return rule == null ? OverclockRule.Ratio.STANDARD : rule;
-    }
-
-    /**
-     * The formulas behind a quantity at these inputs, after variants: the parallel terms that do not read the recipe,
-     * the speed (not the duration multiplier), or an EU factor. Empty for other quantities.
-     */
-    @Nonnull
-    public List<Formula> getFormulas(@Nonnull Quantity quantity, @Nonnull ProcessingInputs inputs) {
-        if (quantity != Quantity.PARALLEL) {
-            Term term = scalar(inputs, quantity);
-            return term == null ? List.of() : List.of(term.formula);
-        }
-        List<Formula> formulas = new ArrayList<>();
-        for (ParallelTerm term : resolve(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
-            if (term.term != null) formulas.add(term.term.formula);
-        }
-        return formulas;
     }
 
     /** {@link Integer#MAX_VALUE} for unlimited. */
@@ -469,11 +445,6 @@ public final class ProcessingSpec {
     public int getMachineHeat(@Nonnull ProcessingInputs inputs) {
         if (heat == null) throw new IllegalStateException("the spec sets no heat");
         return heat.getMachineHeat(inputs);
-    }
-
-    @Nonnull
-    public Optional<RecipeOverride> getRecipeOverride() {
-        return Optional.ofNullable(recipeOverride);
     }
 
     @Nonnull
@@ -542,14 +513,14 @@ public final class ProcessingSpec {
 
     // region What the spec sets
 
-    public boolean sets(@Nonnull Quantity quantity) {
+    boolean sets(@Nonnull Quantity quantity) {
         if (described.containsKey(quantity)) return true;
         for (Variant variant : variants) if (variant.terms.sets(quantity)) return true;
         return false;
     }
 
     /** Whether the spec's number for this quantity depends on the recipe. */
-    public boolean readsRecipe(@Nonnull Quantity quantity) {
+    private boolean readsRecipe(Quantity quantity) {
         Described quantityDescribed = described.get(quantity);
         return quantityDescribed != null && quantityDescribed.readsRecipe;
     }
@@ -596,16 +567,10 @@ public final class ProcessingSpec {
         if (!any) throw new IllegalArgumentException("no inMode terms for mode " + mode);
     }
 
-    /** Writes the {@link Builder#inMode} lines of every mode, each under the mode's name. */
-    public void describeModes(@Nonnull MultiblockTooltipBuilder tt) {
-        for (Variant variant : variants) if (variant.mode != null) writeHeaded(tt, variant);
-    }
-
     private void writeHeaded(MultiblockTooltipBuilder tt, Variant variant) {
         MultiblockTooltipBuilder lines = new MultiblockTooltipBuilder();
         variant.terms.writeLines(lines, overridden());
-        String name = StatCollector.translateToLocal(variant.name.apply(modes));
-        tt.addLinesFrom(EnumChatFormatting.WHITE + name + EnumChatFormatting.GRAY + ": ", lines);
+        tt.addLinesFrom(EnumChatFormatting.WHITE + variant.label + EnumChatFormatting.GRAY + ": ", lines);
     }
 
     private EnumSet<Quantity> overridden() {
@@ -1087,30 +1052,25 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Names the {@link #inMode} lines. */
+        /** The modes {@link #inMode} may name. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
             this.modes = Objects.requireNonNull(modes, "declare the modes before the spec");
             return this;
         }
 
-        /** Replaces the spec's terms in one mode. The lines are headed by the mode's name. */
+        /** Replaces the spec's terms in one mode. {@link ProcessingSpec#describeMode} writes their lines. */
         public Builder inMode(int mode, @Nonnull Consumer<Builder> terms) {
-            return variant(
-                in -> in.mode() == mode,
-                modes -> modes.get(mode)
-                    .nameKey(),
-                mode,
-                terms);
+            return variant(in -> in.mode() == mode, null, mode, terms);
         }
 
         /** Replaces the spec's terms at one value. The lines are headed by the kind's label for it. */
         public Builder whenTier(@Nonnull ModifierKind.IntKind kind, int value, @Nonnull Consumer<Builder> terms) {
             reads(kind);
-            return variant(in -> in.value(kind) == value, modes -> kind.label(value), null, terms);
+            return variant(in -> in.value(kind) == value, kind.label(value), null, terms);
         }
 
-        private Builder variant(Predicate<ProcessingInputs> appliesTo, Function<List<MachineMode>, String> name,
-            @Nullable Integer mode, Consumer<Builder> terms) {
+        private Builder variant(Predicate<ProcessingInputs> appliesTo, @Nullable String label, @Nullable Integer mode,
+            Consumer<Builder> terms) {
             Builder variant = new Builder();
             terms.accept(variant);
             if (!variant.variants.isEmpty() || variant.modes != null || !variant.unsupportedModes.isEmpty()) {
@@ -1134,7 +1094,7 @@ public final class ProcessingSpec {
                 throw new IllegalArgumentException("noOverclock applies in every mode");
             }
             variant.reads.forEach(this.reads::putIfAbsent);
-            this.variants.add(new Variant(appliesTo, name, mode, spec));
+            this.variants.add(new Variant(appliesTo, label, mode, spec));
             return this;
         }
 

@@ -138,40 +138,40 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     // Exact value to get 2^21 parallels.
     private static final long ASTRAL_ARRAY_LIMIT = 8637;
 
-    public static final ModifierKind.IntKind SPACETIME_COMPRESSION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind SPACETIME_COMPRESSION_FIELD = fieldKind(
         "tectech:spacetime_compression_field",
         "GT5U.MBTT.Tiers.SpacetimeCompressionField");
-    public static final ModifierKind.IntKind TIME_DILATION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind TIME_DILATION_FIELD = fieldKind(
         "tectech:time_dilation_field",
         "GT5U.MBTT.Tiers.TimeDilationField");
-    public static final ModifierKind.IntKind STABILISATION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind STABILISATION_FIELD = fieldKind(
         "tectech:stabilisation_field",
         "GT5U.MBTT.Tiers.StabilisationField");
-    public static final ModifierKind.IntKind ASTRAL_ARRAYS = ModifierKind.ofInt("tectech:astral_arrays")
+    private static final ModifierKind.IntKind ASTRAL_ARRAYS = ModifierKind.ofInt("tectech:astral_arrays")
         .name("GT5U.MBTT.Tiers.AstralArrays")
         .source(ModifierKind.Source.ITEM)
         .ordered()
         .range(0, ASTRAL_ARRAY_LIMIT)
         .register();
     /** The programmed circuit, 0 to 24: each step is half the time at 4x the start-up EU. */
-    public static final ModifierKind.IntKind CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
+    private static final ModifierKind.IntKind CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
         .range(0, 24)
         .register();
     // Litres drained from the input hatches beyond what the recipe requires, which lowers its chance and yield. Counted
     // from the requirement so that 0, a planner's default, is both enough and the best.
-    public static final ModifierKind.LongKind EXCESS_HYDROGEN = excessKind(
+    private static final ModifierKind.LongKind EXCESS_HYDROGEN = excessKind(
         "tectech:eoh_excess_hydrogen",
         "GT5U.MBTT.Tiers.ExcessHydrogen");
-    public static final ModifierKind.LongKind EXCESS_HELIUM = excessKind(
+    private static final ModifierKind.LongKind EXCESS_HELIUM = excessKind(
         "tectech:eoh_excess_helium",
         "GT5U.MBTT.Tiers.ExcessHelium");
-    public static final ModifierKind.LongKind EXCESS_STAR_MATTER = excessKind(
+    private static final ModifierKind.LongKind EXCESS_STAR_MATTER = excessKind(
         "tectech:eoh_excess_star_matter",
         "GT5U.MBTT.Tiers.ExcessStarMatter");
     /** 1 when a single run succeeds for certain after repeated failures, before fluid overflow. */
-    public static final ModifierKind.IntKind PITY = ModifierKind.ofInt("tectech:eoh_pity")
+    private static final ModifierKind.IntKind PITY = ModifierKind.ofInt("tectech:eoh_pity")
         .name("GT5U.MBTT.Tiers.EohPity")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()

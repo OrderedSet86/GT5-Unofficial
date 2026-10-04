@@ -124,13 +124,13 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
     /** Not ordered: no electrode is best at everything. */
-    public static final ModifierKind.IntKind ELECTRODE = ModifierKind
+    private static final ModifierKind.IntKind ELECTRODE = ModifierKind
         .ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
         .register();
     /** The Infinity electrode's parallel, which doubles with every run from 1. */
-    public static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
+    private static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
         .name("GT5U.MBTT.Tiers.InfinityParallel")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()

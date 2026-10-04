@@ -93,7 +93,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     private static final int OFFSET_Z_T2 = 0;
 
     /** {@link #TIER_UPGRADED} once a Maceration Upgrade Chip is inserted. */
-    public static final ModifierKind.IntKind UPGRADE_CHIP = ModifierKind.ofInt("gregtech:maceration_upgrade_chip")
+    private static final ModifierKind.IntKind UPGRADE_CHIP = ModifierKind.ofInt("gregtech:maceration_upgrade_chip")
         .name("GT5U.MBTT.Tiers.MacerationUpgradeChip")
         .source(ModifierKind.Source.ITEM)
         .ordered()
