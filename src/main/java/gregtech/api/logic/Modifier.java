@@ -2,12 +2,14 @@ package gregtech.api.logic;
 
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
 import javax.annotation.Nonnull;
@@ -42,6 +44,16 @@ public final class Modifier {
     public static Modifier of(@Nonnull ModifierKind.IntKind kind, @Nonnull IntSupplier getter,
         @Nonnull IntConsumer setter) {
         return new Modifier(kind, getter::getAsInt, value -> setter.accept(Math.toIntExact(value)));
+    }
+
+    /** -1 while there is none. */
+    @Nonnull
+    public static <E extends Enum<E>> Modifier ofEnum(@Nonnull ModifierKind.IntKind kind, @Nonnull E[] values,
+        @Nonnull Supplier<E> getter, @Nonnull Consumer<E> setter) {
+        return of(kind, () -> {
+            E value = getter.get();
+            return value == null ? -1 : value.ordinal();
+        }, index -> setter.accept(values[index]));
     }
 
     /** Outside the spec's range while the structure is unchecked. */

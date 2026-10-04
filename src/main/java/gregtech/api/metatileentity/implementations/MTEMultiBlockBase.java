@@ -2220,9 +2220,17 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Nullable
     public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe) {
         if (processingLogic == null || getProcessingSpec() == null) return null;
+        prepareForInspection();
         setupProcessingLogic(processingLogic);
         return processingLogic.inspect(recipe);
     }
+
+    /**
+     * For the conformance check, on a {@link #newMetaEntity} copy: put the machine in the state it runs recipes in,
+     * such
+     * as past a start-up phase its spec models as a requirement.
+     */
+    protected void prepareForInspection() {}
 
     /**
      * Where the machine keeps the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the

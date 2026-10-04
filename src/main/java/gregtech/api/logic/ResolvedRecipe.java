@@ -19,13 +19,17 @@ import gregtech.api.util.ParallelHelper;
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
  *
- * @param recipe   As the machine runs it: a copy at the spec's fixed cost, else the recipe itself
- * @param duration In ticks before overclocks
- * @param check    The first requirement the recipe fails, else success
+ * @param recipe       As the machine runs it: a copy at the spec's fixed cost or with its EU/t multiplied, else the
+ *                     recipe itself
+ * @param duration     In ticks before overclocks
+ * @param check        The first requirement the recipe fails, else success
+ * @param checkToStart The first requirement to start from idle it fails, else success. Machines check these where they
+ *                     start. {@link #calculate} checks them, since a planner starts from idle.
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,
-    @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check, @Nonnull ProcessingRun.RunEu eu) {
+    @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check, @Nonnull CheckRecipeResult checkToStart,
+    @Nonnull ProcessingRun.RunEu eu) {
 
     /** @param heat Null where heat does not change the overclocks */
     public record Overclock(@Nonnull ProcessingSpec.OverclockRule rule, @Nonnull OptionalInt maxOverclocks,
@@ -44,6 +48,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             euModifierNotLimitingParallel,
             overclock,
             check,
+            checkToStart,
             eu);
     }
 
@@ -87,6 +92,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
                 .setHeatOC(heat.overclocking())
                 .setHeatDiscount(heat.discounting());
         }
+        if (power.unlimited()) calculator.setAmperage(1)
+            .setEUt(Long.MAX_VALUE);
         return calculator;
     }
 
@@ -109,6 +116,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     @Nonnull
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
+        if (!checkToStart.wasSuccessful()) return ProcessingRun.failed(checkToStart);
         ParallelHelper helper = forPlanning(parallelHelper(recipe)).setCalculator(calculator)
             .build();
         return toRun(helper, calculator, () -> ticks(helper, calculator));

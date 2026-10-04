@@ -1,6 +1,7 @@
 package gregtech.api.logic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,10 +26,18 @@ class ModifierTest {
         }
     }
 
+    private enum Blade {
+        STEEL,
+        DIAMOND
+    }
+
     private static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("test:pressure")
         .ordered()
         .range(1, 2)
         .labels(1, "Basic", "High Pressure")
+        .register();
+    private static final ModifierKind.IntKind BLADE = ModifierKind.ofEnum("test:blade", Blade.values())
+        .source(ModifierKind.Source.ITEM)
         .register();
 
     private static final Modifier.Of<Machine, Integer> ITEM_PIPE = Modifier
@@ -81,6 +90,25 @@ class ModifierTest {
         assertEquals("Basic", PRESSURE.label(1));
         assertEquals("3", PRESSURE.label(3));
         assertEquals("LuV", ModifierKind.VOLTAGE.label(VoltageIndex.LuV));
+    }
+
+    @Test
+    void anEnumPartIsNumberedByOrdinal() {
+        Blade[] blade = { null };
+        Modifier modifier = Modifier.ofEnum(BLADE, Blade.values(), () -> blade[0], value -> blade[0] = value);
+
+        assertEquals(-1, modifier.get());
+        modifier.set(1);
+
+        assertEquals(Blade.DIAMOND, blade[0]);
+        assertEquals(
+            1,
+            BLADE.getRange()
+                .max());
+        assertEquals("DIAMOND", BLADE.label(1));
+        assertEquals("None", BLADE.label(-1));
+        assertFalse(BLADE.ordered);
+        assertEquals(ModifierKind.Source.ITEM, BLADE.source);
     }
 
     /** No default arm: a new kind of value stops this compiling until it is handled. */
