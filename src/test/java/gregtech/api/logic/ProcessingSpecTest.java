@@ -108,14 +108,10 @@ class ProcessingSpecTest {
     void coilTermsCountFromOne() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .speedPerTier(0, 0.5, ModifierKind.COIL)
-            .euDiscountPerTier(0.1, ModifierKind.COIL)
-            .maxEuDiscount(0.5)
             .build();
 
         // Cupronickel is coil tier 0 and tier 1 on the tooltip
         assertEquals(1 / 0.5, spec.getDurationMultiplier(inputs(1, 0)));
-        assertEquals(0.9, spec.getEuModifier(inputs(1, 0)), 1e-12);
-        assertEquals(0.5, spec.getEuModifier(inputs(1, 9)));
     }
 
     @Test
@@ -173,35 +169,22 @@ class ProcessingSpecTest {
     void theCalculatorCarriesTheHeat() {
         ResolvedRecipe resolved = ProcessingSpec.builder()
             .parallel(4)
-            .heat(
-                in -> 1000 * in.value(ModifierKind.COIL),
+            .coilHeatPerVoltageTier(
+                100,
+                VoltageIndex.MV,
                 ProcessingSpec.HeatRule.OVERCLOCK,
                 ProcessingSpec.HeatRule.DISCOUNT)
-            .reads(ModifierKind.COIL)
             .build()
-            .resolve(recipe(30, 200, 1800), inputs(5, 3));
+            .resolve(recipe(30, 200, 1800), inputs(VoltageIndex.IV, 3));
 
         OverclockCalculator calculator = resolved.toCalculator();
 
         assertEquals(4, resolved.maxParallel());
-        assertEquals(3000, calculator.getMachineHeat());
+        // TPV coils, plus 100K for each of HV, EV and IV
+        assertEquals(4501 + 300, calculator.getMachineHeat());
         assertEquals(1800, calculator.getRecipeHeat());
         assertTrue(calculator.isHeatOC());
         assertTrue(calculator.isHeatDiscount());
-    }
-
-    @Test
-    void aFixedRecipeHeatReplacesTheRecipes() {
-        ProcessingSpec spec = ProcessingSpec.builder()
-            .heat(in -> 3600, ProcessingSpec.HeatRule.OVERCLOCK)
-            .recipeHeat(0)
-            .build();
-
-        assertEquals(
-            0,
-            spec.getHeat()
-                .get()
-                .getRecipeHeat(recipe(30, 200, 1800)));
     }
 
     @Test
@@ -347,7 +330,7 @@ class ProcessingSpecTest {
         ProcessingSpec described = ProcessingSpec.builder()
             .parallelPerTier(4, ModifierKind.VOLTAGE)
             .speed(2)
-            .perfectOverclock()
+            .overclock(4, 4)
             .build();
         ProcessingSpec undescribed = ProcessingSpec.builder()
             .parallel(in -> 4)
@@ -469,8 +452,8 @@ class ProcessingSpecTest {
     @Test
     void requirementsDecideWhetherARecipeRuns() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .heat(in -> 1800, ProcessingSpec.HeatRule.REQUIRED)
-            .noTooltip(ProcessingSpec.Quantity.HEAT)
+            // Cupronickel coils: 1801K
+            .coilHeatPerVoltageTier(0, VoltageIndex.EV, ProcessingSpec.HeatRule.REQUIRED)
             .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .build();
         ProcessingInputs ev = inputs(VoltageIndex.EV, 0);
@@ -866,25 +849,6 @@ class ProcessingSpecTest {
                 .inMode(1, mode -> mode.maxTierSkips(2)));
     }
 
-    /** As the Large Fluid Extractor: Cupronickel coils give the base speed and EU. */
-    @Test
-    void beyondFirstTermsStartAtTheFirstTier() {
-        ProcessingSpec spec = ProcessingSpec.builder()
-            .speedPerTierBeyondFirst(1.5, 0.1, ModifierKind.COIL)
-            .euModifierPerTierBeyondFirst(0.8, 0.9, ModifierKind.COIL)
-            .build();
-
-        assertEquals(1 / 1.5, spec.getDurationMultiplier(inputs(1, 0)), 1e-12);
-        assertEquals(0.8, spec.getEuModifier(inputs(1, 0)), 1e-12);
-        assertEquals(1 / 1.6, spec.getDurationMultiplier(inputs(1, 1)), 1e-12);
-        assertEquals(0.72, spec.getEuModifier(inputs(1, 1)), 1e-12);
-        assertEquals(1 / 2.8, spec.getDurationMultiplier(inputs(1, 13)), 1e-12);
-        assertEquals(0.203349266266, spec.getEuModifier(inputs(1, 13)), 1e-12);
-        assertTrue(
-            spec.getUndescribed()
-                .isEmpty());
-    }
-
     /** As the steam multiblocks: nothing to say about no overclocks and no tier skips. */
     @Test
     void defaultsNeedNoTooltip() {
@@ -943,12 +907,6 @@ class ProcessingSpecTest {
             spec.getUndescribed()
                 .isEmpty());
         assertEquals(3, lines(spec).size(), "the voltage bonus, the discount and the overclock");
-        assertEquals(
-            EnumSet.of(ProcessingSpec.Quantity.HEAT),
-            ProcessingSpec.builder()
-                .heat(in -> 1800, ProcessingSpec.HeatRule.OVERCLOCK)
-                .build()
-                .getUndescribed());
     }
 
     /** As the Multi Smelter and the Arc Furnace's blast mode. */

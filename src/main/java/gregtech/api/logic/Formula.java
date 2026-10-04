@@ -50,12 +50,12 @@ public sealed interface Formula {
         }
     }
 
-    /** {@code base + perTier * (tier - firstTier)}, where the tier is {@link ModifierKind.IntKind#countedTier}. */
-    record PerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind, int firstTier) implements Formula {
+    /** {@code base + perTier * tier}, where the tier is {@link ModifierKind.IntKind#countedTier}. */
+    record PerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind) implements Formula {
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
-            return base + perTier * (kind.countedTier(inputs.value(kind)) - firstTier);
+            return base + perTier * (kind.countedTier(inputs.value(kind)));
         }
 
         @Nonnull
@@ -142,21 +142,6 @@ public sealed interface Formula {
         @Override
         public Set<ModifierKind> reads() {
             return Set.of(kind, ModifierKind.VOLTAGE);
-        }
-    }
-
-    /** The formula, but never below {@code floor}. */
-    record AtLeast(@Nonnull Formula formula, double floor) implements Formula {
-
-        @Override
-        public double apply(@Nonnull ProcessingInputs inputs) {
-            return Math.max(formula.apply(inputs), floor);
-        }
-
-        @Nonnull
-        @Override
-        public Set<ModifierKind> reads() {
-            return formula.reads();
         }
     }
 

@@ -103,7 +103,6 @@ public final class ProcessingSpec {
         record Ratio(double durationDivisor, double euMultiplier) implements OverclockRule {
 
             public static final Ratio STANDARD = new Ratio(2, 4);
-            public static final Ratio PERFECT = new Ratio(4, 4);
         }
     }
 
@@ -116,15 +115,14 @@ public final class ProcessingSpec {
         REQUIRED
     }
 
-    public record Heat(@Nonnull ToIntFunction<ProcessingInputs> machineHeat, @Nonnull Set<HeatRule> rules,
-        @Nonnull OptionalInt fixedRecipeHeat) {
+    public record Heat(@Nonnull ToIntFunction<ProcessingInputs> machineHeat, @Nonnull Set<HeatRule> rules) {
 
         public int getMachineHeat(@Nonnull ProcessingInputs inputs) {
             return machineHeat.applyAsInt(inputs);
         }
 
         public int getRecipeHeat(@Nonnull GTRecipe recipe) {
-            return fixedRecipeHeat.orElse(recipe.mSpecialValue);
+            return recipe.mSpecialValue;
         }
     }
 
@@ -237,10 +235,7 @@ public final class ProcessingSpec {
         this.overclock = builder.overclock;
         this.maxTierSkips = builder.maxTierSkips;
         Heat heat = builder.heatFunction == null ? null
-            : new Heat(
-                builder.heatFunction,
-                Collections.unmodifiableSet(EnumSet.copyOf(builder.heatRules)),
-                builder.recipeHeat);
+            : new Heat(builder.heatFunction, Collections.unmodifiableSet(EnumSet.copyOf(builder.heatRules)));
         this.heat = heat;
         this.recipeDuration = builder.recipeDuration;
         this.maxOverclocks = builder.maxOverclocks;
@@ -681,16 +676,13 @@ public final class ProcessingSpec {
             described.put(Quantity.TIER_SKIPS, new Described(false, lines, true));
         }
         if (heat != null) {
-            boolean complete = builder.heatTooltip != null && builder.recipeHeat.isEmpty();
             List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
-            if (complete) {
-                lines.add(builder.heatTooltip);
-                if (heat.rules()
-                    .contains(HeatRule.DISCOUNT)) lines.add(MultiblockTooltipBuilder::addHeatDiscountInfo);
-                if (heat.rules()
-                    .contains(HeatRule.OVERCLOCK)) lines.add(MultiblockTooltipBuilder::addHeatOverclockInfo);
-            }
-            described.put(Quantity.HEAT, new Described(true, lines, complete));
+            lines.add(builder.heatTooltip);
+            if (heat.rules()
+                .contains(HeatRule.DISCOUNT)) lines.add(MultiblockTooltipBuilder::addHeatDiscountInfo);
+            if (heat.rules()
+                .contains(HeatRule.OVERCLOCK)) lines.add(MultiblockTooltipBuilder::addHeatOverclockInfo);
+            described.put(Quantity.HEAT, new Described(true, lines, true));
         }
         if (builder.recipeOverride != null) {
             RecipeOverride override = builder.recipeOverride;
@@ -728,7 +720,6 @@ public final class ProcessingSpec {
         private ToIntFunction<ProcessingInputs> heatFunction;
         private Consumer<MultiblockTooltipBuilder> heatTooltip;
         private final EnumSet<HeatRule> heatRules = EnumSet.noneOf(HeatRule.class);
-        private OptionalInt recipeHeat = OptionalInt.empty();
         private RecipeOverride recipeOverride;
         private final EnumMap<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips = new EnumMap<>(
             Quantity.class);
@@ -859,7 +850,7 @@ public final class ProcessingSpec {
         public Builder speedPerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind) {
             return scalar(
                 Quantity.DURATION,
-                new Formula.PerTier(base, perTier, kind, 0),
+                new Formula.PerTier(base, perTier, kind),
                 tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
         }
 
@@ -869,14 +860,6 @@ public final class ProcessingSpec {
                 Quantity.DURATION,
                 new Formula.Rising(min, max, kind, kindMax),
                 tt -> tt.addRisingSpeedInfo((float) min, (float) max, kind));
-        }
-
-        /** {@code first} at the first tier, plus {@code perTier} per further tier. */
-        public Builder speedPerTierBeyondFirst(double first, double perTier, @Nonnull ModifierKind.IntKind kind) {
-            return scalar(
-                Quantity.DURATION,
-                new Formula.PerTier(first, perTier, kind, 1),
-                tt -> tt.addSpeedPerTierBeyondFirstInfo((float) first, (float) perTier, kind));
         }
 
         public Builder euModifier(double euModifier) {
@@ -890,38 +873,6 @@ public final class ProcessingSpec {
         public Builder euModifier(@Nonnull ToDoubleFunction<ProcessingInputs> euModifier,
             @Nonnull ModifierKind... reads) {
             return scalar(Quantity.EU_MODIFIER, new Formula.Custom(euModifier, Set.of(reads)), null);
-        }
-
-        /** Follow with {@link #maxEuDiscount} for a cap. */
-        public Builder euDiscountPerTier(double discount, @Nonnull ModifierKind.IntKind kind) {
-            return scalar(
-                Quantity.EU_MODIFIER,
-                new Formula.PerTier(1, -discount, kind, 0),
-                tt -> tt.addDynamicEuEffInfo((float) discount, kind));
-        }
-
-        /** {@code euModifier} at the first tier, times {@code factor} per further tier. */
-        public Builder euModifierPerTierBeyondFirst(double euModifier, double factor,
-            @Nonnull ModifierKind.IntKind kind) {
-            return scalar(
-                Quantity.EU_MODIFIER,
-                new Formula.CompoundPerTier(euModifier, factor, kind),
-                tt -> tt.addStaticEuEffInfo((float) euModifier)
-                    .addEuMultiplierBeyondFirstInfo((float) factor, kind));
-        }
-
-        public Builder maxEuDiscount(double maxDiscount) {
-            Term euModifier = scalars.get(Quantity.EU_MODIFIER);
-            if (euModifier == null || euModifier.lines == null) {
-                throw new IllegalStateException("maxEuDiscount follows an euModifier with a tooltip");
-            }
-            double floor = 1 - maxDiscount;
-            scalars.put(
-                Quantity.EU_MODIFIER,
-                new Term(
-                    new Formula.AtLeast(euModifier.formula, floor),
-                    euModifier.lines.andThen(tt -> tt.addMaxEuDiscountInfo((float) (1 - floor)))));
-            return this;
         }
 
         /** Multiplies the recipe's EU/t, up to {@link Integer#MAX_VALUE}, as if the recipe were costlier. */
@@ -953,11 +904,6 @@ public final class ProcessingSpec {
         /** As {@link OverclockCalculator#ofNoOverclock}. */
         public Builder noOverclock() {
             this.overclock = new OverclockRule.None();
-            return this;
-        }
-
-        public Builder perfectOverclock() {
-            this.overclock = OverclockRule.Ratio.PERFECT;
             return this;
         }
 
@@ -998,24 +944,12 @@ public final class ProcessingSpec {
 
         // region Heat and recipes
 
-        /** Declare the kinds the function reads with {@link #reads}. */
-        public Builder heat(@Nonnull ToIntFunction<ProcessingInputs> machineHeat, @Nonnull HeatRule... rules) {
-            this.heatFunction = machineHeat;
-            Collections.addAll(this.heatRules, rules);
-            return this;
-        }
-
         /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
         public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
-            heat(in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier), rules);
+            this.heatFunction = in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier);
+            Collections.addAll(this.heatRules, rules);
             reads(ModifierKind.COIL);
             this.heatTooltip = tt -> tt.addHeatPerVoltageTierInfo(heatPerTier, baseVoltageTier);
-            return this;
-        }
-
-        /** Every heat rule compares against this heat, not the recipe's. */
-        public Builder recipeHeat(int heat) {
-            this.recipeHeat = OptionalInt.of(heat);
             return this;
         }
 
@@ -1212,12 +1146,6 @@ public final class ProcessingSpec {
         }
 
         private ProcessingSpec build(boolean needsRanges) {
-            if (!heatRules.isEmpty() && heatFunction == null) {
-                throw new IllegalStateException("heat rules without heat");
-            }
-            if (recipeHeat.isPresent() && heatFunction == null) {
-                throw new IllegalStateException("recipe heat without machine heat");
-            }
             for (Variant variant : variants) {
                 if (variant.mode != null && (modes == null || variant.mode >= modes.size())) {
                     throw new IllegalStateException("inMode(" + variant.mode + ") without that mode in modes()");

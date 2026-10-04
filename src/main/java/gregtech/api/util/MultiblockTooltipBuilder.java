@@ -74,10 +74,6 @@ public class MultiblockTooltipBuilder {
     private static final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private static final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
     private static final String TT_SpeedBasePerTier = StatCollector.translateToLocal("GT5U.MBTT.Speed.BasePerTier");
-    private static final String TT_SpeedBasePerTierBeyondFirst = StatCollector
-        .translateToLocal("GT5U.MBTT.Speed.BasePerTierBeyondFirst");
-    private static final String TT_EuMultiplierBeyondFirst = StatCollector
-        .translateToLocal("GT5U.MBTT.EuDiscount.MultiplicativeBeyondFirst");
     private static final String TT_HeatPerVoltageTier = StatCollector.translateToLocal("GT5U.MBTT.Heat.PerVoltageTier");
     private static final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount");
     private static final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock");
@@ -89,7 +85,6 @@ public class MultiblockTooltipBuilder {
     private static final String TT_RisingSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Rising");
     private static final String TT_ParallelFormula = StatCollector.translateToLocal("GT5U.MBTT.Parallel.Formula");
     private static final String TT_TierOf = StatCollector.translateToLocal("GT5U.MBTT.TierOf");
-    private static final String TT_MaxEuDiscount = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Max");
     private static final String TT_Steam_StaticSteamEff = StatCollector
         .translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
@@ -316,17 +311,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** "Speed: 250% + 5% per Heating Coil Tier beyond the first" */
-    public MultiblockTooltipBuilder addSpeedPerTierBeyondFirstInfo(float first, float perTier, ModifierKind kind) {
-        iLines.add(
-            String.format(
-                TT_SpeedBasePerTierBeyondFirst,
-                TooltipHelper.speedText(percentageFormat.format(first)),
-                TooltipHelper.speedText(percentageFormat.format(perTier)),
-                kind.getTierText()));
-        return this;
-    }
-
     /**
      * Add a line of information about EU Discount bonus relative to SB machines.
      *
@@ -346,25 +330,9 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, TooltipTier tier) {
-        return addDynamicEuEffInfo(euEff, tier.getValue());
-    }
-
-    public MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, ModifierKind kind) {
-        return addDynamicEuEffInfo(euEff, kind.getTierText());
-    }
-
-    private MultiblockTooltipBuilder addDynamicEuEffInfo(float euEff, String tier) {
-        iLines.add(String.format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier));
-        return this;
-    }
-
-    /** "-5% EU Usage per Heating Coil Tier beyond the first, multiplicative" */
-    public MultiblockTooltipBuilder addEuMultiplierBeyondFirstInfo(float factor, ModifierKind kind) {
         iLines.add(
-            String.format(
-                TT_EuMultiplierBeyondFirst,
-                TooltipHelper.effText("-" + percentageFormat.format(1 - factor)),
-                kind.getTierText()));
+            String
+                .format(TT_DynamicEuEff, TooltipHelper.effText("-" + percentageFormat.format(euEff)), tier.getValue()));
         return this;
     }
 
@@ -490,12 +458,6 @@ public class MultiblockTooltipBuilder {
     /** "256 * (1 + Tower Height/2) Parallels" */
     public MultiblockTooltipBuilder addParallelFormulaInfo(String formula) {
         iLines.add(String.format(TT_ParallelFormula, TooltipHelper.parallelText(formula)));
-        return this;
-    }
-
-    /** "Maximum of 50% EU discount" */
-    public MultiblockTooltipBuilder addMaxEuDiscountInfo(float maxDiscount) {
-        iLines.add(String.format(TT_MaxEuDiscount, TooltipHelper.effText(maxDiscount)));
         return this;
     }
 
