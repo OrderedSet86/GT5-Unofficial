@@ -609,7 +609,7 @@ class ProcessingSpecTest {
     void aRunDrawsNoMoreThanTheCap() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(16)
-            .maxEuPerTick(in -> 100)
+            .euPerTickCap(in -> 100)
             .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
 

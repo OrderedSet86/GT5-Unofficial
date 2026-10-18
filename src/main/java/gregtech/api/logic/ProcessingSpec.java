@@ -56,9 +56,9 @@ public final class ProcessingSpec {
     /**
      * The energy a machine's recipes see.
      *
-     * @param maxEuPerTick The most EU/t a run draws, whatever its overclocks cost
+     * @param euPerTickCap The most EU/t a run draws, whatever its overclocks cost
      */
-    public record Power(long voltage, long amperage, boolean amperageOverclock, long maxEuPerTick) {
+    public record Power(long voltage, long amperage, boolean amperageOverclock, long euPerTickCap) {
 
         public Power(long voltage, long amperage, boolean amperageOverclock) {
             this(voltage, amperage, amperageOverclock, Long.MAX_VALUE);
@@ -66,10 +66,6 @@ public final class ProcessingSpec {
 
         public long availableEuPerTick() {
             return voltage * amperage;
-        }
-
-        public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
-            return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
     }
 
@@ -175,7 +171,7 @@ public final class ProcessingSpec {
     private final ToLongFunction<ProcessingInputs> amperage;
     private final boolean noAmperageOverclock;
     @Nullable
-    private final ToLongFunction<ProcessingInputs> maxEuPerTick;
+    private final ToLongFunction<ProcessingInputs> euPerTickCap;
     @Nullable
     private final ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
     private final EnumMap<Quantity, Described> described;
@@ -209,7 +205,7 @@ public final class ProcessingSpec {
         this.voltage = builder.voltage;
         this.amperage = builder.amperage;
         this.noAmperageOverclock = builder.noAmperageOverclock;
-        this.maxEuPerTick = builder.maxEuPerTick;
+        this.euPerTickCap = builder.euPerTickCap;
         this.startupEu = builder.startupEu;
         this.described = describeQuantities(builder, heat);
         this.customTooltips = new EnumMap<>(builder.customTooltips);
@@ -403,7 +399,7 @@ public final class ProcessingSpec {
             (voltage == null ? STANDARD_VOLTAGE : voltage).applyAsLong(inputs),
             (amperage == null ? STANDARD_AMPERAGE : amperage).applyAsLong(inputs),
             !noAmperageOverclock,
-            maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs));
+            euPerTickCap == null ? Long.MAX_VALUE : euPerTickCap.applyAsLong(inputs));
     }
 
     /**
@@ -590,7 +586,7 @@ public final class ProcessingSpec {
         if (powerReadsRecipe || builder.voltage != null
             || builder.amperage != null
             || builder.noAmperageOverclock
-            || builder.maxEuPerTick != null) {
+            || builder.euPerTickCap != null) {
             described.put(Quantity.POWER, new Described(powerReadsRecipe, List.of(), false));
         }
         return described;
@@ -617,7 +613,7 @@ public final class ProcessingSpec {
         private ToLongFunction<ProcessingInputs> voltage;
         private ToLongFunction<ProcessingInputs> amperage;
         private boolean noAmperageOverclock;
-        private ToLongFunction<ProcessingInputs> maxEuPerTick;
+        private ToLongFunction<ProcessingInputs> euPerTickCap;
         private ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
         /** A null range means the kind's range. */
         private final Map<ModifierKind, ModifierKind.Range> reads = new LinkedHashMap<>();
@@ -831,8 +827,8 @@ public final class ProcessingSpec {
         }
 
         /** The most EU/t a run draws, whatever its overclocks cost. */
-        public Builder maxEuPerTick(@Nonnull ToLongFunction<ProcessingInputs> maxEuPerTick) {
-            this.maxEuPerTick = maxEuPerTick;
+        public Builder euPerTickCap(@Nonnull ToLongFunction<ProcessingInputs> euPerTickCap) {
+            this.euPerTickCap = euPerTickCap;
             return this;
         }
 
