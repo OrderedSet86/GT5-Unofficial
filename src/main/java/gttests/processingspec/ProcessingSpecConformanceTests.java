@@ -35,7 +35,7 @@ public class ProcessingSpecConformanceTests {
 
     private static final int SAMPLE_RECIPES = 8;
 
-    /** @param machine The prototype, for its name, modes and recipe maps. Do not change it. */
+    /** @param machine The prototype, for its name, modes and recipe maps. Do not change the prototype. */
     private record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
 
     @GameTest(batch = "gt5.spec.checks")

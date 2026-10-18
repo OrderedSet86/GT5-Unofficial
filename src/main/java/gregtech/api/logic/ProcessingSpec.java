@@ -39,14 +39,13 @@ import gregtech.api.util.OverclockCalculator;
 
 /**
  * How a multiblock runs its recipes, as a function of its energy hatches, mode and {@link ModifierKind} values.
- * {@link MTEMultiBlockBase} runs a machine's recipes through the spec and writes the machine's tooltip from it.
+ * {@link MTEMultiBlockBase} runs a machine's recipes through the spec and writes the machine's tooltip from the spec.
  * Planners evaluate a spec without a world: {@link #getModifiers} returns the kinds the spec reads, {@link #resolve}
  * returns every number for one recipe, and {@link #calculate} runs the recipe.
  * <p>
  * Keep one per machine class in a static field, or one per instance for a machine whose constants depend on its tier.
- * Every number in a spec must reach the tooltip: terms built from a {@link Formula} write a line, and a plain function
- * requires
- * {@link Builder#customTooltip} or {@link Builder#noTooltip}.
+ * Every number in a spec must reach the tooltip: every term built from a {@link Formula} has a tooltip line, and a
+ * plain function requires {@link Builder#customTooltip} or {@link Builder#noTooltip}.
  */
 public final class ProcessingSpec {
 
@@ -156,7 +155,7 @@ public final class ProcessingSpec {
 
     private final List<Term> parallel;
     /** The quantities with a single formula: the speed, the EU factors and the recipe EU/t multiplier. */
-    private final Map<Quantity, Term> scalars;
+    private final EnumMap<Quantity, Term> scalars;
     @Nullable
     private final OverclockRule overclock;
     private final OptionalInt maxTierSkips;
@@ -172,7 +171,7 @@ public final class ProcessingSpec {
     private final boolean noAmperageOverclock;
     @Nullable
     private final ToLongFunction<ProcessingInputs> maxEuPerTick;
-    private final Map<Quantity, Described> described;
+    private final EnumMap<Quantity, Described> described;
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
     private final Map<ModifierKind, ModifierKind.Range> modifiers;
@@ -205,7 +204,7 @@ public final class ProcessingSpec {
         this.maxEuPerTick = builder.maxEuPerTick;
         this.described = describeQuantities(builder, heat);
         this.customTooltips = new EnumMap<>(builder.customTooltips);
-        this.noTooltip = EnumSet.copyOf(builder.noTooltip);
+        this.noTooltip = builder.noTooltip.clone();
         this.modifiers = modifiers;
         this.variants = List.copyOf(builder.variants);
         this.modes = builder.modes == null ? List.of() : List.copyOf(builder.modes);
@@ -263,9 +262,8 @@ public final class ProcessingSpec {
 
     /**
      * The lowest value of an ordered {@code kind} that passes the recipe's requirements, such as the lowest coil tier
-     * hot
-     * enough for the recipe. The search is binary. A higher value of an ordered kind never fails a requirement that a
-     * lower value passes.
+     * hot enough for the recipe. The search is binary. A higher value of an ordered kind never fails a requirement that
+     * a lower value passes.
      *
      * @throws IllegalArgumentException if the kind is not {@link ModifierKind#ordered}
      */
@@ -450,7 +448,7 @@ public final class ProcessingSpec {
     @Nonnull
     public Set<Quantity> getUndescribed() {
         Set<Quantity> overridden = overridden();
-        Set<Quantity> undescribed = EnumSet.noneOf(Quantity.class);
+        EnumSet<Quantity> undescribed = EnumSet.noneOf(Quantity.class);
         for (Quantity quantity : Quantity.values()) {
             if (overridden.contains(quantity)) continue;
             if (!isComplete(quantity)) undescribed.add(quantity);
@@ -491,8 +489,8 @@ public final class ProcessingSpec {
         tt.addLinesFrom(EnumChatFormatting.WHITE + variant.label + EnumChatFormatting.GRAY + ": ", lines);
     }
 
-    private Set<Quantity> overridden() {
-        Set<Quantity> overridden = EnumSet.copyOf(noTooltip);
+    private EnumSet<Quantity> overridden() {
+        EnumSet<Quantity> overridden = EnumSet.copyOf(noTooltip);
         overridden.addAll(customTooltips.keySet());
         return overridden;
     }
@@ -511,8 +509,8 @@ public final class ProcessingSpec {
     }
 
     /** Each quantity's tooltip lines, from the builder's settings. */
-    private static Map<Quantity, Described> describeQuantities(Builder builder, @Nullable Heat heat) {
-        Map<Quantity, Described> described = new EnumMap<>(Quantity.class);
+    private static EnumMap<Quantity, Described> describeQuantities(Builder builder, @Nullable Heat heat) {
+        EnumMap<Quantity, Described> described = new EnumMap<>(Quantity.class);
         if (!builder.parallel.isEmpty()) {
             List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
             boolean complete = true;
@@ -562,15 +560,16 @@ public final class ProcessingSpec {
     public static final class Builder {
 
         private final List<Term> parallel = new ArrayList<>();
-        private final Map<Quantity, Term> scalars = new EnumMap<>(Quantity.class);
+        private final EnumMap<Quantity, Term> scalars = new EnumMap<>(Quantity.class);
         private OverclockRule overclock;
         private OptionalInt maxTierSkips = OptionalInt.empty();
         private ToIntFunction<ProcessingInputs> heatFunction;
         private Consumer<MultiblockTooltipBuilder> heatTooltip;
-        private final Set<HeatRule> heatRules = EnumSet.noneOf(HeatRule.class);
+        private final EnumSet<HeatRule> heatRules = EnumSet.noneOf(HeatRule.class);
         private RecipeOverride recipeOverride;
-        private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips = new EnumMap<>(Quantity.class);
-        private final Set<Quantity> noTooltip = EnumSet.noneOf(Quantity.class);
+        private final EnumMap<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips = new EnumMap<>(
+            Quantity.class);
+        private final EnumSet<Quantity> noTooltip = EnumSet.noneOf(Quantity.class);
         private List<MachineMode> modes;
         private final List<Variant> variants = new ArrayList<>();
         private final List<Requirement> requirements = new ArrayList<>();
@@ -639,8 +638,8 @@ public final class ProcessingSpec {
         }
 
         /**
-         * {@code parallel} per voltage tier, counting ULV as LV, where {@code parallelPerTier(parallel, VOLTAGE)}
-         * counts 0.
+         * {@code parallel} per voltage tier, counting ULV as LV. {@code parallelPerTier(parallel, VOLTAGE)} counts ULV
+         * as 0.
          */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(new Formula.PerVoltageTier(parallel), tt -> tt.addVoltageParallelInfo(parallel));
