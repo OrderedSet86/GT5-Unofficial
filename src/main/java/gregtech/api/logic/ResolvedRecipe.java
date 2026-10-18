@@ -56,7 +56,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return toCalculator(recipe.mEUt, duration);
     }
 
-    /** {@link #toCalculator()} for another recipe the machine runs with the same settings. */
+    /** A fresh calculator for another recipe the machine runs, with this recipe's settings. */
     @Nonnull
     public OverclockCalculator toCalculator(long recipeEuPerTick, int recipeDuration) {
         double euDiscount = euModifier * euModifierNotLimitingParallel;
@@ -103,7 +103,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return calculate(toCalculator());
     }
 
-    /** {@link #calculate()} with a calculator the caller has changed. */
+    /** The run with unlimited inputs and output space, from a calculator the caller has changed. */
     @Nonnull
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);

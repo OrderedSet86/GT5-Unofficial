@@ -64,7 +64,6 @@ public final class ProcessingSpec {
             return voltage * amperage;
         }
 
-        /** The number the scanner prints. */
         public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
             return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
@@ -74,7 +73,7 @@ public final class ProcessingSpec {
 
     public sealed interface OverclockRule {
 
-        /** Same as {@link OverclockCalculator#ofNoOverclock}. */
+        /** No overclocks: each recipe runs at the recipe's EU/t and duration. */
         record None() implements OverclockRule {}
 
         record Ratio(double durationDivisor, double euMultiplier) implements OverclockRule {
@@ -314,7 +313,7 @@ public final class ProcessingSpec {
     }
 
     /**
-     * {@link ResolvedRecipe#calculate()} for the recipe at these inputs.
+     * The run with unlimited inputs and output space.
      *
      * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
@@ -357,7 +356,7 @@ public final class ProcessingSpec {
         return !(overclock instanceof OverclockRule.None);
     }
 
-    /** @see OverclockCalculator#getMaxTierSkips */
+    /** {@link Integer#MAX_VALUE} for unlimited. */
     public int getMaxTierSkipsOrDefault() {
         return maxTierSkips.orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS);
     }
@@ -604,7 +603,6 @@ public final class ProcessingSpec {
                 tt -> tt.addStaticParallelInfo(parallel.getAsInt()));
         }
 
-        /** @see Formula.PerTier */
         public Builder parallelPerTier(int parallel, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
                 new Formula.PerTier(0, parallel, kind),
@@ -626,11 +624,7 @@ public final class ProcessingSpec {
                 tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
         }
 
-        /**
-         * {@code parallelPerTier(parallel, VOLTAGE)} counts ULV as 0.
-         *
-         * @see Formula.PerVoltageTier
-         */
+        /** Counts ULV as LV. {@code parallelPerTier(parallel, VOLTAGE)} counts ULV as 0. */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(new Formula.PerVoltageTier(parallel), tt -> tt.addVoltageParallelInfo(parallel));
         }
@@ -760,7 +754,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** @see Power#maxEuPerTick */
+        /** The most EU/t a run draws, whatever its overclocks cost. */
         public Builder maxEuPerTick(@Nonnull ToLongFunction<ProcessingInputs> maxEuPerTick) {
             this.maxEuPerTick = maxEuPerTick;
             return this;
