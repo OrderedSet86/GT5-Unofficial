@@ -319,7 +319,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     /** Any item's smelting: the spec runs it at its fixed cost. Built on first use, once the game has loaded. */
     private static final class Smelting {
 
-        static final GTRecipe RECIPE = new GTRecipe(
+        private static final GTRecipe RECIPE = new GTRecipe(
             false,
             null,
             null,

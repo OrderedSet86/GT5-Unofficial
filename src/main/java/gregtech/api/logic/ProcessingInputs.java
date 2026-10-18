@@ -57,7 +57,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return rawValue(kind);
     }
 
-    /** The value as a long, for a caller holding a {@link ModifierKind}. */
+    /** The value as a long, for a caller with a {@link ModifierKind} of any value type. */
     public long value(@Nonnull ModifierKind kind) {
         return switch (kind) {
             case ModifierKind.IntKind tier -> value(tier);
@@ -106,7 +106,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return eu;
     }
 
-    /** A standard multiblock draws 1 A of such a hatch's 2 A. */
+    /** A standard multiblock uses 1 A of such a hatch's 2 A. */
     public boolean isSingleRegularHatch() {
         return energyHatches.size() == 1 && !energyHatches.get(0).exotic;
     }
@@ -116,7 +116,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return new Builder();
     }
 
-    /** A builder holding these inputs, to change some of them. */
+    /** A builder with these inputs, to change some of them. */
     @Nonnull
     public Builder toBuilder() {
         Builder builder = new Builder().energyHatches(energyHatches)
@@ -154,10 +154,10 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        /** @throws IllegalArgumentException for {@link ModifierKind#VOLTAGE}, which the energy hatches give */
+        /** @throws IllegalArgumentException for {@link ModifierKind#VOLTAGE}. Add energy hatches for it */
         public Builder value(@Nonnull ModifierKind.IntKind kind, int value) {
             if (kind == ModifierKind.VOLTAGE) {
-                throw new IllegalArgumentException("the energy hatches give the voltage tier");
+                throw new IllegalArgumentException("no value for the voltage tier. Add energy hatches");
             }
             this.values.put(kind, (long) value);
             return this;

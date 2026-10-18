@@ -22,8 +22,8 @@ import gregtech.api.util.tooltip.TooltipHelper;
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
  * constants here. A kind only one machine has is registered in its class.
  * <p>
- * Sealed over the value type, so a consumer's switch over the kinds with no default arm stops compiling when a new
- * value type is added.
+ * The class is sealed over the value type. A consumer's switch over the kinds with no default arm then stops compiling
+ * when a new value type is added.
  */
 public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierKind.LongKind {
 
@@ -46,7 +46,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
 
         /** The tier as per-tier terms and their tooltips count it. */
         public int countedTier(int value) {
-            return value + tierOffset;
+            return value + super.tierOffset;
         }
     }
 
@@ -70,9 +70,10 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         }
     }
 
+    // register() adds kinds while the machine classes load
     private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
 
-    /** Read from the energy hatches, so never given as a value. */
+    /** Its value is the energy hatches' voltage tier. {@link ProcessingInputs} takes no value for it. */
     public static final IntKind VOLTAGE = ofInt("gregtech:voltage").name("GT5U.MBTT.Tiers.Voltage")
         .source(Source.ENERGY)
         .ordered()
@@ -101,7 +102,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
                 .get(1)
                 .getDisplayName())
         .register();
-    /** The count of repeated slices or layers. Each machine sets the range. */
+    /** The count of repeated slices or layers. The range is in each machine's spec. */
     public static final IntKind LENGTH = ofInt("gregtech:length").name("GT5U.MBTT.Tiers.Length")
         .ordered()
         .register();
@@ -112,13 +113,13 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     public final String nameKey;
     @Nonnull
     public final Source source;
-    /** A higher value makes the better machine, so a planner may start at the highest. */
+    /** The machine is better at a higher value, so a planner may start at the highest. */
     public final boolean ordered;
     @Nullable
     private final Range range;
     @Nullable
     private final LongFunction<String> labels;
-    final int tierOffset;
+    private final int tierOffset;
 
     private ModifierKind(Builder<?> builder) {
         this.id = builder.id;
@@ -130,7 +131,9 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         this.tierOffset = builder.tierOffset;
     }
 
-    /** The values machines of this kind take, unless a spec sets a range. Null for kinds each machine ranges. */
+    /**
+     * The values machines of this kind take, where the spec has no range for it. Null for a kind ranged per machine.
+     */
     @Nullable
     public Range getRange() {
         return range;
@@ -158,7 +161,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         return id;
     }
 
-    /** Complete only once the machine classes, which register the kinds only they use, are loaded. */
+    /** Complete only once the machine classes are loaded. A kind only one machine uses is registered in its class. */
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
