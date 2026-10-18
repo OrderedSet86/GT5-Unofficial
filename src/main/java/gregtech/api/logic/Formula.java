@@ -47,7 +47,7 @@ public sealed interface Formula {
         }
     }
 
-    /** {@code base + perTier * tier}. The tier is {@link ModifierKind.IntKind#countedTier}. */
+    /** {@code base + perTier * tier}. The tier is the value plus the kind's tier offset. */
     record PerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind) implements Formula {
 
         @Override

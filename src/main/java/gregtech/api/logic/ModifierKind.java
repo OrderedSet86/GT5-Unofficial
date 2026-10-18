@@ -70,7 +70,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         .ordered()
         .labels(tier -> GTValues.VN[(int) tier])
         .register();
-    /** {@link HeatingCoilLevel#getTier()}. */
+    /** The coil's heating coil tier: 0 for Cupronickel. */
     public static final IntKind COIL = ofInt("gregtech:coil").name("GT5U.MBTT.Tiers.Coil")
         .ordered()
         .range(0, HeatingCoilLevel.getMaxTier())
