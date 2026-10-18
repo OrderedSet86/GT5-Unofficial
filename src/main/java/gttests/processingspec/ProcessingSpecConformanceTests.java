@@ -124,26 +124,6 @@ public class ProcessingSpecConformanceTests {
         return null;
     }
 
-    private static boolean isSameRun(ProcessingRun a, ProcessingRun b) {
-        return a.result()
-            .wasSuccessful()
-            == b.result()
-                .wasSuccessful()
-            && a.result()
-                .getID()
-                .equals(
-                    b.result()
-                        .getID())
-            && a.parallel() == b.parallel()
-            && a.overclocks() == b.overclocks()
-            && a.ticks() == b.ticks()
-            && a.euPerTick() == b.euPerTick()
-            && a.eu()
-                .equals(b.eu())
-            && a.output()
-                .equals(b.output());
-    }
-
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */
     private static List<List<ProcessingInputs.EnergyHatch>> energySamples() {
         List<List<ProcessingInputs.EnergyHatch>> samples = new ArrayList<>();

@@ -696,7 +696,7 @@ public final class ProcessingSpec {
         private final EnumSet<Quantity> noTooltip = EnumSet.noneOf(Quantity.class);
         private List<MachineMode> modes;
         private final List<Variant> variants = new ArrayList<>();
-        private final Set<Integer> unsupportedModes = new HashSet<>();
+        private final Set<Integer> notCalculatedModes = new HashSet<>();
         private ToIntBiFunction<ProcessingInputs, GTRecipe> recipeDuration;
         private ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks;
         private Consumer<MultiblockTooltipBuilder> maxOverclocksTooltip;
@@ -985,10 +985,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
-        // region Output
-
         /** The chance, 0 to 1, that each parallel succeeds. */
         public Builder successChancePerRecipe(@Nonnull ToDoubleBiFunction<ProcessingInputs, GTRecipe> chance) {
             this.successChance = chance;
@@ -1000,10 +996,6 @@ public final class ProcessingSpec {
             this.outputYield = yield;
             return this;
         }
-
-        // endregion
-
-        // region Tooltip
 
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);

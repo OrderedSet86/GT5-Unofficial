@@ -58,6 +58,18 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         }
     }
 
+    /** The values a machine takes for a kind, both ends included. */
+    public record Range(long min, long max) {
+
+        public Range {
+            if (min > max) throw new IllegalArgumentException("min " + min + " > max " + max);
+        }
+
+        public boolean contains(long value) {
+            return value >= min && value <= max;
+        }
+    }
+
     private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
 
     /** Read from the energy hatches, so never given as a value. */
