@@ -16,7 +16,7 @@ public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 
-    /** The kinds the formula reads. A {@link Custom} formula is given them by its caller. */
+    /** The kinds the formula reads. The caller of a {@link Custom} formula passes the kinds. */
     @Nonnull
     Set<ModifierKind> reads();
 
@@ -49,7 +49,7 @@ public sealed interface Formula {
         }
     }
 
-    /** {@code base + perTier * tier}, where the tier is {@link ModifierKind.IntKind#countedTier}. */
+    /** {@code base + perTier * tier}. The tier is {@link ModifierKind.IntKind#countedTier}. */
     record PerTier(double base, double perTier, @Nonnull ModifierKind.IntKind kind) implements Formula {
 
         @Override
