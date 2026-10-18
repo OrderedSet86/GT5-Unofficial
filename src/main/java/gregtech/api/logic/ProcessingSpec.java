@@ -119,7 +119,7 @@ public final class ProcessingSpec {
         TIER_SKIPS(false),
         HEAT(false),
         RECIPE_OVERRIDE(false),
-        /** The voltage, the amperage, amperage overclocks and the EU/t cap. */
+        /** The voltage, the amperage, amperage overclocks, the EU/t cap and EU taken once per start. */
         POWER(false);
 
         private final boolean settableInVariant;
