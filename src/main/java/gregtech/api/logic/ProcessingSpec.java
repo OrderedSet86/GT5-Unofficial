@@ -43,11 +43,11 @@ import gregtech.api.util.OverclockCalculator;
 
 /**
  * How a multiblock runs its recipes, as a function of its energy hatches, mode and {@link ModifierKind} values.
- * {@link MTEMultiBlockBase} runs its recipes through it and writes its tooltip from it. Planners evaluate it without a
- * world: {@link #getModifiers} returns the kinds it reads, {@link #resolve} returns every number for one recipe, and
- * {@link #calculate} runs it.
+ * {@link MTEMultiBlockBase} runs a machine's recipes through the spec and writes the machine's tooltip from it.
+ * Planners evaluate a spec without a world: {@link #getModifiers} returns the kinds the spec reads, {@link #resolve}
+ * returns every number for one recipe, and {@link #calculate} runs the recipe.
  * <p>
- * Keep one per machine class in a static field, or one per instance where the constants depend on the machine's tier.
+ * Keep one per machine class in a static field, or one per instance for a machine whose constants depend on its tier.
  * Every number in a spec must reach the tooltip: terms built from a {@link Formula} write a line, and a plain function
  * requires
  * {@link Builder#customTooltip} or {@link Builder#noTooltip}.
@@ -70,7 +70,7 @@ public final class ProcessingSpec {
             return voltage * amperage;
         }
 
-        /** The highest recipe EU/t the machine accepts, as the scanner prints it. */
+        /** The highest recipe EU/t the machine accepts. The scanner prints this number. */
         public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
             return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
@@ -80,7 +80,7 @@ public final class ProcessingSpec {
 
     public sealed interface OverclockRule {
 
-        /** As {@link OverclockCalculator#ofNoOverclock}. */
+        /** Same as {@link OverclockCalculator#ofNoOverclock}. */
         record None() implements OverclockRule {}
 
         record Ratio(double durationDivisor, double euMultiplier) implements OverclockRule {
@@ -113,10 +113,10 @@ public final class ProcessingSpec {
     public enum Quantity {
 
         PARALLEL(true),
-        /** The value is a speed. Its formula returns 2.5 for 250% speed, a duration multiplier of 0.4. */
+        /** The formula returns a speed: 2.5 means 250% speed and a duration multiplier of 0.4. */
         DURATION(true),
         EU_MODIFIER(true),
-        /** Unlike {@link #EU_MODIFIER}, the energy cap on parallels is unchanged by this modifier. */
+        /** An EU modifier with no effect on the energy cap on parallels. {@link #EU_MODIFIER} changes that cap. */
         EU_MODIFIER_NOT_LIMITING_PARALLEL(true),
         OVERCLOCK(true),
         TIER_SKIPS(false),
@@ -131,7 +131,7 @@ public final class ProcessingSpec {
             this.settableInVariant = settableInVariant;
         }
 
-        /** Whether a {@link Builder#inMode} or {@link Builder#whenTier} variant may have a term for it. */
+        /** Whether a {@link Builder#inMode} or {@link Builder#whenTier} variant may have a term for this quantity. */
         private boolean isSettableInVariant() {
             return settableInVariant;
         }
@@ -158,7 +158,7 @@ public final class ProcessingSpec {
     private record Variant(Predicate<ProcessingInputs> appliesTo, @Nullable String label, @Nullable Integer mode,
         ProcessingSpec terms) {}
 
-    /** The tooltip lines for one quantity of the spec. {@code complete} is false where a term has no lines. */
+    /** The tooltip lines for one quantity of the spec. {@code complete} is false if a term has no lines. */
     private record Described(boolean readsRecipe, List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
     private final List<ParallelTerm> parallel;
@@ -262,7 +262,7 @@ public final class ProcessingSpec {
         return inputs;
     }
 
-    /** Whether some terms differ by mode, so the mode is an input a planner sets. */
+    /** Whether some terms differ by mode. If so, a planner must set the mode. */
     public boolean variesByMode() {
         for (Variant variant : variants) if (variant.mode != null) return true;
         return false;
@@ -275,8 +275,10 @@ public final class ProcessingSpec {
     }
 
     /**
-     * The lowest value of an ordered {@code kind} that passes the recipe's requirements, such as a coil hot enough. A
-     * higher value of an ordered kind never fails a requirement a lower one passes, so the range is binary-searched.
+     * The lowest value of an ordered {@code kind} that passes the recipe's requirements, such as the lowest coil tier
+     * hot
+     * enough for the recipe. The search is binary. A higher value of an ordered kind never fails a requirement that a
+     * lower value passes.
      *
      * @throws IllegalArgumentException if the kind is not {@link ModifierKind#ordered}
      */
@@ -338,9 +340,9 @@ public final class ProcessingSpec {
     }
 
     /**
-     * As the machine would run the recipe from idle, with unlimited inputs and output space.
+     * The machine's run of the recipe from idle, with unlimited inputs and output space.
      *
-     * @throws IllegalArgumentException as {@link #resolve} does
+     * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
     @Nonnull
     public ProcessingRun calculate(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
@@ -417,7 +419,7 @@ public final class ProcessingSpec {
     }
 
     /**
-     * Whether the machine can run the recipe at these inputs: the first requirement it fails, heat first, else
+     * Whether the machine can run the recipe at these inputs: the first requirement the recipe fails, heat first, else
      * success.
      */
     @Nonnull
@@ -433,7 +435,7 @@ public final class ProcessingSpec {
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
-    /** The recipe as the spec runs it: a copy at the fixed cost, else the recipe itself. */
+    /** The recipe the spec runs: a copy at the fixed cost, else the recipe itself. */
     private GTRecipe recipeAsRun(GTRecipe recipe, ProcessingInputs inputs) {
         if (recipeOverride == null) return recipe;
         GTRecipe copy = recipe.copy();
@@ -443,7 +445,7 @@ public final class ProcessingSpec {
         return copy;
     }
 
-    /** 1 where the spec has no term. */
+    /** 1 if the spec has no term. */
     private double factor(ProcessingInputs inputs, Quantity quantity) {
         Term term = scalar(inputs, quantity);
         return term == null ? 1 : term.formula.apply(inputs);
@@ -502,7 +504,7 @@ public final class ProcessingSpec {
         for (Variant variant : variants) if (variant.mode == null) writeHeaded(tt, variant);
     }
 
-    /** Writes the {@link Builder#inMode} lines for one mode without its name, for a tooltip section about it. */
+    /** Writes the {@link Builder#inMode} lines for one mode without its name, for that mode's tooltip section. */
     public void describeMode(@Nonnull MultiblockTooltipBuilder tt, @Nonnull MachineMode mode) {
         int index = modes.indexOf(mode);
         boolean any = false;
@@ -773,7 +775,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** As {@link OverclockCalculator#ofNoOverclock}. */
+        /** Same as {@link OverclockCalculator#ofNoOverclock}. */
         public Builder noOverclock() {
             this.overclock = new OverclockRule.None();
             return this;
@@ -815,7 +817,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Replaces every recipe's cost, as in the Multi Smelter. */
+        /** Replaces every recipe's cost. The Multi Smelter uses this. */
         public Builder recipeOverride(long eut, int duration) {
             this.recipeOverride = new RecipeOverride(eut, duration);
             return this;
@@ -880,7 +882,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The machine's modes in mode button order. Call it before {@link #inMode}. */
+        /** The machine's modes in mode button order. Call this before {@link #inMode}. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
             Objects.requireNonNull(modes, "declare the modes before the spec");
             if (new HashSet<>(modes).size() != modes.size())
@@ -903,7 +905,7 @@ public final class ProcessingSpec {
             return index;
         }
 
-        /** Replaces the spec's terms at one value. The lines are headed by the kind's label for it. */
+        /** Replaces the spec's terms at one value. The lines are headed by the kind's label for that value. */
         public Builder whenTier(@Nonnull ModifierKind.IntKind kind, int value, @Nonnull Consumer<Builder> terms) {
             reads(kind);
             this.variants.add(new Variant(in -> in.value(kind) == value, kind.label(value), null, variantTerms(terms)));
