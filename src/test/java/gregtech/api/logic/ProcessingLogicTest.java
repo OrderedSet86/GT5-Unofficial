@@ -4,9 +4,12 @@ import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.math.BigInteger;
+
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
@@ -48,6 +51,14 @@ class ProcessingLogicTest {
             SPEC.calculate(recipe, LUV),
             halved.setSpec(SPEC, LUV)
                 .inspect(recipe));
+    }
+
+    /** Fusion's start-up failure is a new result on each side of the conformance check. */
+    @Test
+    void twoFailuresForTheSameStartupCostAreTheSameRun() {
+        assertEquals(
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)),
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)));
     }
 
     /** As the scanner prints it. */

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -337,15 +338,13 @@ public final class ProcessingSpec {
 
     /**
      * As the machine would run the recipe from idle, with unlimited inputs and output space.
+     *
+     * @throws IllegalArgumentException as {@link #resolve} does
      */
     @Nonnull
     public ProcessingRun calculate(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         return resolve(recipe, inputs).calculate();
     }
-
-    // endregion
-
-    // region Single numbers
 
     /** At least 1. Leaves out the terms that read the recipe, as a display without one does. */
     public int getMaxParallel(@Nonnull ProcessingInputs inputs) {
@@ -800,10 +799,6 @@ public final class ProcessingSpec {
             return maxOverclocksPerRecipe(maxOverclocks);
         }
 
-        // endregion
-
-        // region Heat and recipes
-
         /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
         public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
             this.heatFunction = in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier);
@@ -859,10 +854,6 @@ public final class ProcessingSpec {
             this.startupEu = eu;
             return this;
         }
-
-        // endregion
-
-        // region Tooltip
 
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);

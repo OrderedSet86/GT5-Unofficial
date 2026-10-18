@@ -530,11 +530,13 @@ class ProcessingSpecTest {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
-                .inMode(0, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(TOWER, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
-                .inMode(0, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(TOWER, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
     }
 
     @Test
