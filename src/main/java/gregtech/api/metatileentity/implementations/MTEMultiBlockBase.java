@@ -2111,18 +2111,30 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public RecipeMap<?> getRecipeMap() {
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? null : mode.recipeMap();
+    }
+
+    /** The mode the machine is in, or null without {@link #getMachineModes}. */
+    @Nullable
+    public final MachineMode getCurrentMachineMode() {
         List<MachineMode> modes = getMachineModes();
         if (modes.isEmpty()) return null;
         int mode = getMachineMode();
-        return modes.get(mode < modes.size() ? mode : 0)
-            .recipeMap();
+        return modes.get(mode >= 0 && mode < modes.size() ? mode : 0);
     }
 
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
+    /** The mode that runs {@code recipeMap}, or -1 where no mode or several modes run it. */
+    public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
-        return modes.isEmpty() ? getRecipeMap()
-            : modes.get(mode)
-                .recipeMap();
+        int found = -1;
+        for (int mode = 0; mode < modes.size(); mode++) {
+            if (modes.get(mode)
+                .recipeMap() != recipeMap) continue;
+            if (found != -1) return -1;
+            found = mode;
+        }
+        return found;
     }
 
     /**
@@ -3310,9 +3322,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
      */
     public void setMachineModeIcons() {
-        for (MachineMode mode : getMachineModes()) {
-            if (mode.icon() != null) machineModeIcons.add(mode.icon());
-        }
+
     }
 
     /**
@@ -3337,10 +3347,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public String getMachineModeKey() {
-        List<MachineMode> modes = getMachineModes();
-        if (getMachineMode() < modes.size()) return modes.get(getMachineMode())
-            .nameKey();
-        return IControllerWithOptionalFeatures.super.getMachineModeKey();
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? IControllerWithOptionalFeatures.super.getMachineModeKey() : mode.nameKey();
     }
 
     @Override
@@ -3351,6 +3359,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public void setMachineMode(int index) {
+        // the GUI's mode sync accepts any int from the client
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty() && (index < 0 || index >= modes.size())) return;
         machineMode = index;
         // The machine is likely using a different recipemap now
         // Clear the cached recipe

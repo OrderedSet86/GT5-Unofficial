@@ -63,15 +63,15 @@ import gregtech.common.misc.GTStructureChannels;
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
-    private static final int MACHINEMODE_TOWER = 0;
-    private static final int MACHINEMODE_DISTILLERY = 1;
-    private static final List<MachineMode> MODES = List.of(
-        MachineMode.of(RecipeMaps.distillationTowerRecipes)
-            .nameKey("GT5U.MDT.mode.0")
-            .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER),
-        MachineMode.of(RecipeMaps.distilleryRecipes)
-            .nameKey("GT5U.MDT.mode.1")
-            .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
+    private static final MachineMode TOWER = new MachineMode(
+        RecipeMaps.distillationTowerRecipes,
+        "GT5U.MDT.mode.0",
+        OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER);
+    private static final MachineMode DISTILLERY = new MachineMode(
+        RecipeMaps.distilleryRecipes,
+        "GT5U.MDT.mode.1",
+        OVERLAY_BUTTON_MACHINEMODE_DISTILLING);
+    private static final List<MachineMode> MODES = List.of(TOWER, DISTILLERY);
 
     protected final List<List<MTEHatchOutput>> outputHatchesPerLayer = new ArrayList<>();
 
@@ -496,7 +496,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     public int getMaxParallelRecipes() {
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
+        if (getCurrentMachineMode() == DISTILLERY) {
             // 512 - 1024 parallels min to max height
             return Configuration.Multiblocks.megaMachinesMax * (1 + this.height / 2);
         }
@@ -519,7 +519,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
         logic.setAvailableVoltage(this.getMaxInputEu());
         logic.setAvailableAmperage(1);
         logic.setUnlimitedTierSkips();
-        if (this.machineMode == MACHINEMODE_DISTILLERY) {
+        if (getCurrentMachineMode() == DISTILLERY) {
             // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
             logic.setSpeedBonus(1.0D / DISTILLERY_SPEED);
             logic.setEuModifier(DISTILLERY_EU_EFFICIENCY);
