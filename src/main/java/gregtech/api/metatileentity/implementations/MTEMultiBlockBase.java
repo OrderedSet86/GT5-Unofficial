@@ -2268,11 +2268,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return processingLogic.inspect(recipe);
     }
 
-    /**
-     * The getters and setters of the values the machine's spec reads. {@link #getCurrentProcessingSpecInputs} calls the
-     * getters, and the conformance test calls the setters on a {@link #newMetaEntity} copy. Planners read the kinds
-     * from {@link ProcessingSpec#getModifiers}.
-     */
+    /** One {@link Modifier} per kind the machine's spec reads. */
     @Nonnull
     public List<Modifier> getSpecModifiers() {
         return Collections.emptyList();
