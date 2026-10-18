@@ -68,10 +68,8 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelCompoundPerTier(4, 2, ModifierKind.COIL)
-        .recipeOverride(
-            ProcessingSpec.RecipeOverride.eut(4)
-                .duration(128))
-        .power(in -> GTUtility.roundUpVoltage(in.totalVoltage()), in -> 1)
+        .recipeOverride(4, 128)
+        .power(in -> GTUtility.roundUpVoltage(in.maxInputVoltage()), in -> 1)
         .noAmperageOverclock()
         .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])
         .noTooltip(ProcessingSpec.Quantity.POWER)

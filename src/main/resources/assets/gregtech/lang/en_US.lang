@@ -1990,7 +1990,6 @@ GT5U.MBTT.RecipeOverride=Recipes run at %s over %s
 GT5U.MBTT.Parallel.RisingPerVoltageTier=%s - %s Parallels per %s Tier, rising with %s
 GT5U.MBTT.Speed.Rising=%s - %s Speed, rising with %s
 GT5U.MBTT.Parallel.Formula=%s Parallels
-GT5U.MBTT.TierOf=%s Tier
 GT5U.MBTT.SteamDiscount.Base=%s Steam Usage
 GT5U.MBTT.Tiers.Basic=§9Basic §b(T1)
 GT5U.MBTT.Tiers.HighPressure=§9High-Pressure §b(T2)

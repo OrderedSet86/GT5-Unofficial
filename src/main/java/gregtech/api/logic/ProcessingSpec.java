@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,23 +70,7 @@ public final class ProcessingSpec {
         }
     }
 
-    /** Replaces every recipe's cost, as the Multi Smelter does. */
-    public record RecipeOverride(long eut, int duration) {
-
-        /** {@code RecipeOverride.eut(4).duration(128)} */
-        @Nonnull
-        public static WithEut eut(long eut) {
-            return new WithEut(eut);
-        }
-
-        public record WithEut(long eut) {
-
-            @Nonnull
-            public RecipeOverride duration(int duration) {
-                return new RecipeOverride(eut, duration);
-            }
-        }
-    }
+    private record RecipeOverride(long eut, int duration) {}
 
     public sealed interface OverclockRule {
 
@@ -188,10 +173,11 @@ public final class ProcessingSpec {
     private final EnumMap<Quantity, Described> described;
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
-    private final Map<ModifierKind, ModifierRange> modifiers;
+    private final Map<ModifierKind, ModifierKind.Range> modifiers;
     private final List<Variant> variants;
+    private final List<MachineMode> modes;
 
-    private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierRange> modifiers) {
+    private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierKind.Range> modifiers) {
         this.parallel = List.copyOf(builder.parallel);
         this.scalars = new EnumMap<>(builder.scalars);
         this.overclock = builder.overclock;
@@ -217,8 +203,9 @@ public final class ProcessingSpec {
         this.described = describeQuantities(builder, heat);
         this.customTooltips = new EnumMap<>(builder.customTooltips);
         this.noTooltip = builder.noTooltip.clone();
-        this.modifiers = Collections.unmodifiableMap(modifiers);
+        this.modifiers = modifiers;
         this.variants = List.copyOf(builder.variants);
+        this.modes = builder.modes == null ? List.of() : List.copyOf(builder.modes);
     }
 
     @Nonnull
@@ -226,32 +213,36 @@ public final class ProcessingSpec {
         return new Builder();
     }
 
-    // region Planning
-
-    /** The kinds the spec reads besides energy and mode, with the values a machine takes. */
+    /** The kinds the spec reads besides energy and mode, in declaration order, with the values a machine takes. */
     @Nonnull
-    public List<ModifierRange> getModifiers() {
-        return List.copyOf(modifiers.values());
+    public Map<ModifierKind, ModifierKind.Range> getModifiers() {
+        return modifiers;
     }
 
     /** @throws IllegalArgumentException if the spec does not read the kind */
     @Nonnull
-    public ModifierRange getRange(@Nonnull ModifierKind kind) {
-        ModifierRange range = modifiers.get(kind);
+    public ModifierKind.Range getRange(@Nonnull ModifierKind kind) {
+        ModifierKind.Range range = modifiers.get(kind);
         if (range == null) throw new IllegalArgumentException("the spec does not read " + kind);
         return range;
     }
 
     /**
-     * Inputs with each {@link ModifierKind#ordered} kind at its max, which makes the best machine, and the others at
-     * their min. Add the energy hatches and the mode.
+     * The value of {@code kind} that makes the best machine: the max of an {@link ModifierKind#ordered} kind, the min
+     * of any other.
+     *
+     * @throws IllegalArgumentException if the spec does not read the kind
      */
+    public long bestValue(@Nonnull ModifierKind kind) {
+        ModifierKind.Range range = getRange(kind);
+        return kind.ordered ? range.max() : range.min();
+    }
+
+    /** Inputs with every kind at its {@link #bestValue}. Add the energy hatches and the mode. */
     @Nonnull
     public ProcessingInputs.Builder bestInputs() {
         ProcessingInputs.Builder inputs = ProcessingInputs.builder();
-        for (ModifierRange range : modifiers.values()) {
-            inputs.put(range.kind(), range.kind().ordered ? range.max() : range.min());
-        }
+        for (ModifierKind kind : modifiers.keySet()) inputs.value(kind, bestValue(kind));
         return inputs;
     }
 
@@ -261,18 +252,40 @@ public final class ProcessingSpec {
         return false;
     }
 
-    /** The lowest value of {@code kind} at which the recipe meets its requirements, such as the coil hot enough. */
+    /** The machine's modes in mode button order, or none. */
+    @Nonnull
+    public List<MachineMode> getModes() {
+        return modes;
+    }
+
+    /**
+     * The lowest value of an ordered {@code kind} at which the recipe meets its requirements, such as the coil hot
+     * enough. A higher value of an ordered kind never fails a requirement a lower one meets, so the range is
+     * binary-searched.
+     *
+     * @throws IllegalArgumentException if the kind is not {@link ModifierKind#ordered}
+     */
     @Nonnull
     public OptionalInt lowestPassing(@Nonnull ModifierKind.IntKind kind, @Nonnull GTRecipe recipe,
         @Nonnull ProcessingInputs inputs) {
-        ModifierRange range = getRange(kind);
-        for (long value = range.min(); value <= range.max(); value++) {
-            ProcessingInputs candidate = inputs.toBuilder()
-                .value(kind, (int) value)
-                .build();
-            if (check(recipeAsRun(recipe, candidate), candidate).wasSuccessful()) return OptionalInt.of((int) value);
+        if (!kind.ordered) throw new IllegalArgumentException(kind + " is not ordered");
+        ModifierKind.Range range = getRange(kind);
+        long low = range.min();
+        long high = range.max();
+        if (!passes(kind, high, recipe, inputs)) return OptionalInt.empty();
+        while (low < high) {
+            long middle = low + (high - low) / 2;
+            if (passes(kind, middle, recipe, inputs)) high = middle;
+            else low = middle + 1;
         }
-        return OptionalInt.empty();
+        return OptionalInt.of((int) low);
+    }
+
+    private boolean passes(ModifierKind.IntKind kind, long value, GTRecipe recipe, ProcessingInputs inputs) {
+        ProcessingInputs candidate = inputs.toBuilder()
+            .value(kind, (int) value)
+            .build();
+        return check(recipeAsRun(recipe, candidate), candidate).wasSuccessful();
     }
 
     /**
@@ -308,15 +321,15 @@ public final class ProcessingSpec {
             check(run, inputs));
     }
 
-    /** As the machine would run the recipe, with unlimited inputs and output space. */
+    /**
+     * As the machine would run the recipe, with unlimited inputs and output space.
+     *
+     * @throws IllegalArgumentException as {@link #resolve} does
+     */
     @Nonnull
     public ProcessingRun calculate(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         return resolve(recipe, inputs).calculate();
     }
-
-    // endregion
-
-    // region Single numbers
 
     /** At least 1. */
     public int getMaxParallel(@Nonnull ProcessingInputs inputs) {
@@ -347,13 +360,12 @@ public final class ProcessingSpec {
         return rule == null ? OverclockRule.Ratio.STANDARD : rule;
     }
 
-    /** {@link Integer#MAX_VALUE} for unlimited. */
-    @Nonnull
-    public OptionalInt getMaxTierSkips() {
-        return maxTierSkips;
+    /** False after {@link Builder#noOverclock}, which applies in every mode and tier. */
+    public boolean overclocks() {
+        return !(overclock instanceof OverclockRule.None);
     }
 
-    /** As {@link #getMaxTierSkips()}, else the calculator's default. */
+    /** The spec's tier skips, else the calculator's default. {@link Integer#MAX_VALUE} for unlimited. */
     public int getMaxTierSkipsOrDefault() {
         return maxTierSkips.orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS);
     }
@@ -425,10 +437,6 @@ public final class ProcessingSpec {
         return setting.apply(this);
     }
 
-    // endregion
-
-    // region What the spec sets
-
     boolean sets(@Nonnull Quantity quantity) {
         if (described.containsKey(quantity)) return true;
         for (Variant variant : variants) if (variant.terms.sets(quantity)) return true;
@@ -456,10 +464,6 @@ public final class ProcessingSpec {
         return quantityDescribed == null || quantityDescribed.complete;
     }
 
-    // endregion
-
-    // region Tooltip
-
     /** Writes the lines in {@link Quantity} order, then each {@link Builder#whenTier} variant's under its label. */
     public void describe(@Nonnull MultiblockTooltipBuilder tt) {
         writeLines(tt, EnumSet.noneOf(Quantity.class));
@@ -467,14 +471,15 @@ public final class ProcessingSpec {
     }
 
     /** Writes the {@link Builder#inMode} lines for one mode without its name, for a tooltip section about it. */
-    public void describeMode(@Nonnull MultiblockTooltipBuilder tt, int mode) {
+    public void describeMode(@Nonnull MultiblockTooltipBuilder tt, @Nonnull MachineMode mode) {
+        int index = modes.indexOf(mode);
         boolean any = false;
         for (Variant variant : variants) {
-            if (variant.mode == null || variant.mode != mode) continue;
+            if (variant.mode == null || variant.mode != index) continue;
             any = true;
             variant.terms.writeLines(tt, overridden());
         }
-        if (!any) throw new IllegalArgumentException("no inMode terms for mode " + mode);
+        if (!any) throw new IllegalArgumentException("no inMode terms for " + mode.nameKey());
     }
 
     private void writeHeaded(MultiblockTooltipBuilder tt, Variant variant) {
@@ -551,8 +556,6 @@ public final class ProcessingSpec {
         return described;
     }
 
-    // endregion
-
     public static final class Builder {
 
         private final List<Term> parallel = new ArrayList<>();
@@ -574,11 +577,9 @@ public final class ProcessingSpec {
         private boolean noAmperageOverclock;
         private ToLongFunction<ProcessingInputs> maxEuPerTick;
         /** Null where the kind's range applies. */
-        private final Map<ModifierKind, ModifierRange> reads = new LinkedHashMap<>();
+        private final Map<ModifierKind, ModifierKind.Range> reads = new LinkedHashMap<>();
 
         private Builder() {}
-
-        // region Modifiers
 
         /** For kinds that plain functions read. A term built from a {@link Formula} adds the kinds it reads. */
         private Builder reads(@Nonnull ModifierKind... kinds) {
@@ -590,7 +591,7 @@ public final class ProcessingSpec {
 
         /** Reads the kind, at a range for this machine. */
         public Builder range(@Nonnull ModifierKind kind, long min, long max) {
-            this.reads.put(kind, new ModifierRange(kind, min, max));
+            this.reads.put(kind, new ModifierKind.Range(min, max));
             return this;
         }
 
@@ -600,10 +601,6 @@ public final class ProcessingSpec {
                     .toArray(new ModifierKind[0]));
             return formula;
         }
-
-        // endregion
-
-        // region Parallel
 
         /** Parallel terms add up. */
         public Builder parallel(int parallel) {
@@ -617,14 +614,11 @@ public final class ProcessingSpec {
                 tt -> tt.addStaticParallelInfo(parallel.getAsInt()));
         }
 
-        /** {@code parallel} times the product of the kinds' tiers. */
-        public Builder parallelPerTier(int parallel, @Nonnull ModifierKind.IntKind... kinds) {
-            if (kinds.length == 0) throw new IllegalArgumentException("parallelPerTier needs a tier");
-            List<ModifierKind.IntKind> tiers = List.of(kinds);
+        /** {@code parallel} per tier of {@code kind}. ULV is voltage tier 0. */
+        public Builder parallelPerTier(int parallel, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
-                new Formula.TierProduct(parallel, tiers),
-                tiers.size() == 1 ? tt -> tt.addDynamicParallelInfo(parallel, tiers.get(0))
-                    : tt -> tt.addTierProductParallelInfo(parallel, tiers));
+                new Formula.PerTier(0, parallel, kind),
+                tt -> tt.addDynamicParallelInfo(parallel, kind));
         }
 
         /** {@code parallel} times {@code factor} per tier of {@code kind}: 4 and 2 is 8 at the first tier. */
@@ -642,7 +636,10 @@ public final class ProcessingSpec {
                 tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
         }
 
-        /** Counts ULV as LV. */
+        /**
+         * {@code parallel} per voltage tier, counting ULV as LV, where {@code parallelPerTier(parallel, VOLTAGE)}
+         * counts 0.
+         */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(new Formula.PerVoltageTier(parallel), tt -> tt.addVoltageParallelInfo(parallel));
         }
@@ -656,10 +653,6 @@ public final class ProcessingSpec {
             this.parallel.add(new Term(reading(formula), lines));
             return this;
         }
-
-        // endregion
-
-        // region Speed and EU
 
         /** 2.5 is 250% speed: recipes take 1 / 2.5 of the time. */
         public Builder speed(double speed) {
@@ -714,10 +707,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
-        // region Overclocks
-
         /** As {@link OverclockCalculator#ofNoOverclock}. */
         public Builder noOverclock() {
             this.overclock = new OverclockRule.None();
@@ -734,10 +723,6 @@ public final class ProcessingSpec {
             return maxTierSkips(Integer.MAX_VALUE);
         }
 
-        // endregion
-
-        // region Heat and recipes
-
         /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
         public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
             this.heatFunction = in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier);
@@ -747,8 +732,9 @@ public final class ProcessingSpec {
             return this;
         }
 
-        public Builder recipeOverride(@Nonnull RecipeOverride recipeOverride) {
-            this.recipeOverride = recipeOverride;
+        /** Replaces every recipe's cost, as the Multi Smelter does. */
+        public Builder recipeOverride(long eut, int duration) {
+            this.recipeOverride = new RecipeOverride(eut, duration);
             return this;
         }
 
@@ -758,10 +744,6 @@ public final class ProcessingSpec {
             this.requirements.add(new Requirement(met, failure));
             return this;
         }
-
-        // endregion
-
-        // region Power
 
         /**
          * Replaces the standard power: the average hatch voltage, and all amps except that only 1 A of a lone regular
@@ -791,10 +773,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
-        // region Tooltip
-
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);
             return this;
@@ -806,19 +784,26 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
-        // region Modes and tiers
-
-        /** The modes {@link #inMode} may name. */
+        /** The machine's modes in mode button order. Call it before {@link #inMode}. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
-            this.modes = Objects.requireNonNull(modes, "declare the modes before the spec");
+            Objects.requireNonNull(modes, "declare the modes before the spec");
+            if (new HashSet<>(modes).size() != modes.size())
+                throw new IllegalArgumentException("a mode is listed twice");
+            this.modes = modes;
             return this;
         }
 
         /** Replaces the spec's terms in one mode. {@link ProcessingSpec#describeMode} writes their lines. */
-        public Builder inMode(int mode, @Nonnull Consumer<Builder> terms) {
-            return variant(in -> in.mode() == mode, null, mode, terms);
+        public Builder inMode(@Nonnull MachineMode mode, @Nonnull Consumer<Builder> terms) {
+            int index = indexOf(mode);
+            return variant(in -> in.mode() == index, null, index, terms);
+        }
+
+        private int indexOf(MachineMode mode) {
+            if (modes == null) throw new IllegalStateException("call modes() first");
+            int index = modes.indexOf(mode);
+            if (index < 0) throw new IllegalArgumentException(mode.nameKey() + " is not one of modes()");
+            return index;
         }
 
         /** Replaces the spec's terms at one value. The lines are headed by the kind's label for it. */
@@ -852,27 +837,20 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
         @Nonnull
         public ProcessingSpec build() {
             return build(true);
         }
 
         private ProcessingSpec build(boolean needsRanges) {
-            for (Variant variant : variants) {
-                if (variant.mode != null && (modes == null || variant.mode >= modes.size())) {
-                    throw new IllegalStateException("inMode(" + variant.mode + ") without that mode in modes()");
-                }
-            }
-            Map<ModifierKind, ModifierRange> modifiers = new LinkedHashMap<>();
+            Map<ModifierKind, ModifierKind.Range> modifiers = new LinkedHashMap<>();
             reads.forEach((kind, range) -> {
-                ModifierRange resolved = range != null ? range : kind.getRange();
+                ModifierKind.Range resolved = range != null ? range : kind.getRange();
                 if (resolved != null) modifiers.put(kind, resolved);
                 else if (needsRanges) throw new IllegalStateException(
                     "the spec reads " + kind + ", which has no range of its own; give one with range()");
             });
-            return new ProcessingSpec(this, modifiers);
+            return new ProcessingSpec(this, Collections.unmodifiableMap(modifiers));
         }
     }
 }

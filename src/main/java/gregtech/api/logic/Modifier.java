@@ -84,10 +84,10 @@ public final class Modifier {
      *                loads
      */
     @Nonnull
-    public static <T> Of<T, Integer> tiered(@Nonnull ModifierKind.IntKind kind, @Nonnull Function<T, Integer> getter,
+    private static <T> Of<T, Integer> tiered(@Nonnull ModifierKind.IntKind kind, @Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter,
         @Nonnull BiFunction<BiConsumer<T, Integer>, Function<T, Integer>, IStructureElement<T>> element) {
-        ModifierRange range = kind.getRange();
+        ModifierKind.Range range = kind.getRange();
         int absent = range == null ? -1 : (int) range.min() - 1;
         return new Of<>(
             kind,
