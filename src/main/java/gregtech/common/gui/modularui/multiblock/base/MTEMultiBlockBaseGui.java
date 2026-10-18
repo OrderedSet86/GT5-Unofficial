@@ -104,7 +104,8 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
         this.multiblock = multiblock;
         this.baseMetaTileEntity = multiblock.getBaseMetaTileEntity();
         for (MachineMode mode : multiblock.getMachineModes()) {
-            // createModeSwitchButton() sets the cycle length to the icon count. Add a null icon too
+            // the mode button has one state per machineModeIcons entry, in mode order.
+            // Keep a null entry for a mode with no icon
             this.machineModeIcons.add(mode.guiIcon());
         }
         initCustomIcons();
