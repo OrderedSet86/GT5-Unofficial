@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
@@ -225,7 +226,7 @@ class ProcessingSpecTest {
     @Test
     void theBestInputsPutOrderedKindsAtTheirMax() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallelPerVoltageTierRising(4, 8, MOMENTUM, 100)
+            .parallelPerVoltageTierRising(4, 8, MOMENTUM)
             .whenTier(CASING, 0, tier -> tier.speed(1))
             .whenTier(CASING, 1, tier -> tier.speed(2))
             .build();
@@ -540,7 +541,7 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void standardPowerUsesOneAmpOfALoneRegularHatch() {
+    void standardPowerUsesOneAmpOfALoneRegularHatch() throws ReflectiveOperationException {
         ProcessingSpec spec = ProcessingSpec.builder()
             .build();
         long luv = GTValues.V[VoltageIndex.LuV];
@@ -559,11 +560,11 @@ class ProcessingSpecTest {
                 ProcessingInputs.builder()
                     .energyHatch(ProcessingInputs.EnergyHatch.exotic(VoltageIndex.LuV, 16))
                     .build()));
-        assertFalse(spec.sets(ProcessingSpec.Quantity.POWER));
+        assertFalse(sets(spec, ProcessingSpec.Quantity.POWER));
     }
 
     @Test
-    void powerRulesReadTheHatchesAsTheMachineDoes() {
+    void powerRulesReadTheHatchesAsTheMachineDoes() throws ReflectiveOperationException {
         ProcessingInputs oneHatch = inputs(VoltageIndex.LuV, 0);
         long luv = GTValues.V[VoltageIndex.LuV];
 
@@ -571,7 +572,7 @@ class ProcessingSpecTest {
             .powerAtOneAmp()
             .build();
         assertEquals(new ProcessingSpec.Power(2 * luv, 1, true), atOneAmp.getPower(oneHatch));
-        assertTrue(atOneAmp.sets(ProcessingSpec.Quantity.POWER));
+        assertTrue(sets(atOneAmp, ProcessingSpec.Quantity.POWER));
 
         ProcessingSpec fixed = ProcessingSpec.builder()
             .power(in -> 32, in -> 8)
@@ -836,8 +837,8 @@ class ProcessingSpecTest {
     @Test
     void risingTermsSpanTheirRange() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallelPerVoltageTierRising(4, 8, MOMENTUM, 100)
-            .speedRising(2, 3, MOMENTUM, 100)
+            .parallelPerVoltageTierRising(4, 8, MOMENTUM)
+            .speedRising(2, 3, MOMENTUM)
             .build();
 
         assertEquals(16, spec.getMaxParallel(atMomentum(0)));
@@ -854,5 +855,13 @@ class ProcessingSpecTest {
             .energyHatches(VoltageIndex.EV, 1)
             .value(MOMENTUM, momentum)
             .build();
+    }
+
+    /** {@code ProcessingSpec.sets()}, which is private. */
+    private static boolean sets(ProcessingSpec spec, ProcessingSpec.Quantity quantity)
+        throws ReflectiveOperationException {
+        Method sets = ProcessingSpec.class.getDeclaredMethod("sets", ProcessingSpec.Quantity.class);
+        sets.setAccessible(true);
+        return (boolean) sets.invoke(spec, quantity);
     }
 }

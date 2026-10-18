@@ -12,7 +12,7 @@ import gregtech.api.util.GTUtility;
  * One number of a {@link ProcessingSpec} as data: the kinds it reads, and a shape the tooltip line is written from.
  * Speeds are kept as speeds: 2.5 is 250%.
  */
-sealed interface Formula {
+public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 
@@ -110,8 +110,9 @@ sealed interface Formula {
     }
 
     /**
-     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. In float, so
-     * truncation to whole parallels matches the machines' code.
+     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. The product is
+     * a
+     * float, as in the machines' code, so the truncation to whole parallels matches.
      */
     record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind, int kindMax) implements Formula {
 

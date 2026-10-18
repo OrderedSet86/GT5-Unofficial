@@ -324,7 +324,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     @Nonnull
     public List<Modifier> getSpecModifiers() {
-        // checkMachine leaves height one above the middle layer count
+        // after checkMachine(), height is one above the middle layer count
         return List.of(Modifier.of(ModifierKind.LENGTH, () -> height - 1, layers -> height = layers + 1));
     }
 

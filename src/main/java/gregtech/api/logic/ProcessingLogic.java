@@ -310,7 +310,7 @@ public class ProcessingLogic {
         return this;
     }
 
-    /** Caps the spec's parallels, as the power panel does. */
+    /** Caps the spec's parallels at the power panel's limit. */
     public ProcessingLogic setParallelLimit(int parallelLimit) {
         this.parallelLimit = parallelLimit;
         return this;
@@ -591,8 +591,8 @@ public class ProcessingLogic {
     }
 
     /**
-     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' as they are now,
-     * which hooks such as {@link #validateRecipe} may have just changed.
+     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' as they are now. A
+     * hook such as {@link #validateRecipe} may have just written to the setters' fields.
      */
     @Nonnull
     protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {
