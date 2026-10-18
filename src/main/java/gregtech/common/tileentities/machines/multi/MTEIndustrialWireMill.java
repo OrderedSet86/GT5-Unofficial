@@ -55,7 +55,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelPerTier(4, ModifierKind.VOLTAGE)
-        .speedPerTier(0, 0.5, ModifierKind.ITEM_PIPE_CASING)
+        .speedPerTier(1, 0.5, ModifierKind.ITEM_PIPE_CASING)
         .euModifier(0.75)
         .build();
     private static final Modifier.Of<MTEIndustrialWireMill, Integer> ITEM_PIPE = Modifier

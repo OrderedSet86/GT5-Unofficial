@@ -28,6 +28,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
@@ -62,6 +63,7 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.misc.GTStructureChannels;
 
+@IMetaTileEntity.SkipGenerateDescription
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
@@ -175,6 +177,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
                 }))
             // spotless:on
             // base structure blocks / elements
+            .addChannel(GTStructureChannels.STRUCTURE_HEIGHT.get(), 1, 5)
             .addElement(
                 'A',
                 onElementPass(
@@ -328,7 +331,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         buildPiece(STRUCTURE_PIECE_BASE, stackSize, hintsOnly, HORIZONTAL_OFFSET, VERTICAL_OFFSET, DEPTH_OFFSET);
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueLimited(stackSize, 1, MAX_LAYERS);
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             buildPiece(
                 STRUCTURE_PIECE_LAYER,
@@ -365,7 +368,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             true);
         if (built >= 0) return built;
 
-        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueClamped(stackSize, 1, MAX_LAYERS);
+        int totalHeight = GTStructureChannels.STRUCTURE_HEIGHT.getValueLimited(stackSize, 1, MAX_LAYERS);
 
         for (int currentLayer = 1; currentLayer <= totalHeight; currentLayer++) {
             built = this.survivalBuildPiece(
@@ -560,19 +563,15 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
 
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
-        MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
+        final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
+        // spotless:off
         tt.addMachineType("Distillery, DT, MDT")
-            .addInfo("Stats dictated by tower mode, change mode in GUI or with a screwdriver")
-            .addInfo("Has up to 5 middle slices and 1 top slice, the amount of middle slices is the 'Tower Height'")
-            .addInfo("Each middle slice adds 2 output hatches, the top slice adds one output hatch")
+            .addMarkdown(new ResourceLocation("gregtech", "mega-distillation-tower"))
             .addSeparator()
-            .addInfo(EnumChatFormatting.WHITE + "Distillery Mode")
-            .addInfo("Outputs only one fluid in the first hatch")
+            .addMarkdown(new ResourceLocation("gregtech", "mega-distillation-tower-distillery"))
             .addProcessingSpecInfo(SPEC, DISTILLERY)
             .addSeparator()
-            .addInfo(EnumChatFormatting.WHITE + "Distillation Tower Mode")
-            .addInfo("Fluids are output one per layer based on the slot number in NEI")
-            .addInfo("Increase the height to output more fluid types")
+            .addMarkdown(new ResourceLocation("gregtech", "mega-distillation-tower-tower"))
             .addProcessingSpecInfo(SPEC, TOWER)
             .addSeparator()
             .addSupportAny()
@@ -609,6 +608,7 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addSubChannel(GTStructureChannels.STRUCTURE_HEIGHT)
             .addStructureAuthors(EnumChatFormatting.GOLD + "Mallady")
             .toolTipFinisher();
+        // spotless:on
         return tt;
     }
 
