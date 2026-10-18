@@ -8,9 +8,8 @@ import com.cleanroommc.modularui.drawable.UITexture;
 import gregtech.api.recipe.RecipeMap;
 
 /**
- * One mode of a multiblock, as its mode button shows it.
+ * One mode of a multiblock: its recipe map, its name and its mode button icon.
  *
- * @param nameKey The translation key of the mode's name
- * @param guiIcon The mode button's icon
+ * @param nameKey A lang key
  */
 public record MachineMode(@Nonnull RecipeMap<?> recipeMap, @Nonnull String nameKey, @Nullable UITexture guiIcon) {}
