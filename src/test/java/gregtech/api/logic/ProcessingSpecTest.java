@@ -932,7 +932,7 @@ class ProcessingSpecTest {
         assertTrue(
             spec.getUndescribed()
                 .isEmpty());
-        assertEquals(3, lines(spec).size(), "the voltage bonus, the discount and the overclock");
+        assertEquals(4, lines(spec).size(), "the coils, the voltage bonus, the discount and the overclock");
     }
 
     /** As the Multi Smelter and the Arc Furnace's blast mode. */

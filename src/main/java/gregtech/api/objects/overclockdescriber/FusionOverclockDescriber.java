@@ -31,23 +31,15 @@ public class FusionOverclockDescriber extends EUOverclockDescriber {
             .setDurationDecreasePerOC(getDurationDecreasePerOC());
     }
 
-    protected double getEUtIncreasePerOC() {
+    public double getEUtIncreasePerOC() {
         return 2.0;
-    }
-
-    public final double euMultiplierPerOverclock() {
-        return getEUtIncreasePerOC();
-    }
-
-    public final double durationDivisorPerOverclock() {
-        return getDurationDecreasePerOC();
     }
 
     public final int maxOverclocks(GTRecipe recipe) {
         return maxOverclocks(recipe.getMetadataOrDefault(FUSION_THRESHOLD, 0L), recipe.mEUt);
     }
 
-    protected double getDurationDecreasePerOC() {
+    public double getDurationDecreasePerOC() {
         return 2.0;
     }
 
