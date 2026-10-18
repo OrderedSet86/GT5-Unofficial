@@ -2137,8 +2137,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The mode the machine is in, or null if {@link #getMachineModes} is empty. For a saved index out of range, this
-     * returns the first mode.
+     * The mode the machine is in, or null if {@link #getMachineModes} is empty. For a {@code machineMode} out of
+     * range, this returns the first mode.
      */
     @Nullable
     public final MachineMode getCurrentMachineMode() {
@@ -2162,9 +2162,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The machine's modes, in mode button order. The recipe map, mode count, names and icons are read from this list.
-     * With a {@link ProcessingSpec}, the modes are the spec's. Without one, override this to return a static constant.
-     * The mode getters call this on each use.
+     * The machine's modes, in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode count and
+     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's. Without one,
+     * override this to return a static constant: the mode methods of this class call this on each use.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
@@ -3487,7 +3487,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public void setMachineMode(int index) {
-        // the GUI's mode sync accepts any int from the client
+        // MTEMultiBlockBaseGui passes the mode index a client sends to setMachineMode(), unchecked.
+        // Ignore an index out of range
         List<MachineMode> modes = getMachineModes();
         if (!modes.isEmpty() && (index < 0 || index >= modes.size())) return;
         machineMode = index;
