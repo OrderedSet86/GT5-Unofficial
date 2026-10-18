@@ -3,12 +3,16 @@ package gregtech.api.logic;
 import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.math.BigInteger;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
@@ -33,6 +37,27 @@ class ProcessingLogicTest {
             .inspect(recipe);
 
         assertEquals(SPEC.calculate(recipe, LUV), machine);
+    }
+
+    /** The Arc Furnace's ore mode still runs the recipe that starts it through the spec. */
+    @Test
+    void aMachineRunsItsRecipeInAModeTheSpecDoesNotCalculate() {
+        MachineMode normal = new MachineMode(mock(RecipeMap.class), "Normal", null);
+        MachineMode ore = new MachineMode(mock(RecipeMap.class), "Ore", null);
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(List.of(normal, ore))
+            .notCalculatedIn(ore)
+            .build();
+        ProcessingInputs inOre = LUV.toBuilder()
+            .mode(1)
+            .build();
+
+        ProcessingRun machine = new ProcessingLogic().setSpec(spec, inOre)
+            .inspect(recipe(30, 200, 0));
+
+        assertTrue(
+            machine.result()
+                .wasSuccessful());
     }
 
     /** The conformance check compares inspect() with the spec, so a hook that changes a number shows. */

@@ -468,14 +468,6 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void aModeIsListedOnce() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> ProcessingSpec.builder()
-                .modes(List.of(TOWER, TOWER)));
-    }
-
-    @Test
     void requirementsDecideWhetherARecipeRuns() {
         ProcessingSpec spec = ProcessingSpec.builder()
             // Cupronickel coils: 1801K
@@ -614,7 +606,7 @@ class ProcessingSpecTest {
     void aRecipeEuMultiplierMakesTheRecipeAskForMore() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(1, mode -> mode.recipeEuMultiplier(16))
+            .inMode(DISTILLERY, mode -> mode.recipeEuMultiplier(16))
             .requires(
                 (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
                 (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
@@ -691,18 +683,28 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void anUnsupportedModeIsNotCalculated() {
+    void aModeOutsideRecipeProcessingIsNotCalculated() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .unsupportedInMode(2)
+            .modes(List.of(TOWER, DISTILLERY, ORE))
+            .notCalculatedIn(ORE)
             .build();
 
-        assertTrue(spec.supportsMode(0));
-        assertFalse(spec.supportsMode(2));
+        assertTrue(spec.calculates(0));
+        assertFalse(spec.calculates(2));
         assertTrue(
             spec.calculate(recipe(30, 100, 0), inMode(0))
                 .result()
                 .wasSuccessful());
         assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
+        assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 100, 0), inMode(2)));
+    }
+
+    @Test
+    void aModeIsListedOnce() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .modes(List.of(TOWER, TOWER)));
     }
 
     @Test
@@ -906,9 +908,7 @@ class ProcessingSpecTest {
     @Test
     void recipeCostTermsWriteALine() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .recipeOverride(
-                ProcessingSpec.RecipeOverride.eut(4)
-                    .duration(128))
+            .recipeOverride(4, 128)
             .recipeEuMultiplier(16)
             .build();
 

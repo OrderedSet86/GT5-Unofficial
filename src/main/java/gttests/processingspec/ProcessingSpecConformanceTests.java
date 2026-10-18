@@ -81,7 +81,7 @@ public class ProcessingSpecConformanceTests {
     }
 
     /**
-     * On a copy of the machine with every modifier at the top of its range, in every mode, over
+     * On a copy of the machine with every modifier at the top of its range, in every mode the spec calculates, over
      * sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
      */
     @Nullable
@@ -97,7 +97,7 @@ public class ProcessingSpecConformanceTests {
         int modes = machine.getMachineModes()
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
-            if (!spec.supportsMode(mode)) continue;
+            if (!spec.calculates(mode)) continue;
             if (modes > 1) machine.setMachineMode(mode);
             for (GTRecipe recipe : sample(machine.getRecipeMap())) {
                 for (List<ProcessingInputs.EnergyHatch> hatches : energySamples()) {

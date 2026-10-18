@@ -60,36 +60,6 @@ public class ArcFurnaceProcessingEvent {
         }
     }
 
-    public static class EventConfigureProcessing extends ArcFurnaceProcessingEvent {
-
-        public final ProcessingLogic processingLogic;
-
-        public EventConfigureProcessing(final ArcFurnaceContext arcFurnace, final ProcessingLogic processingLogic) {
-            super(arcFurnace);
-            this.processingLogic = processingLogic;
-        }
-    }
-
-    public static class EventCreateParallelHelper extends ArcFurnaceProcessingEvent {
-
-        public final ParallelHelper parallelHelper;
-
-        public EventCreateParallelHelper(final ArcFurnaceContext arcFurnace, final ParallelHelper parallelHelper) {
-            super(arcFurnace);
-            this.parallelHelper = parallelHelper;
-        }
-    }
-
-    public static class EventConfigureOverclock extends ArcFurnaceProcessingEvent {
-
-        public final OverclockCalculator overclockCalculator;
-
-        public EventConfigureOverclock(final ArcFurnaceContext arcFurnace, OverclockCalculator overclockCalculator) {
-            super(arcFurnace);
-            this.overclockCalculator = overclockCalculator;
-        }
-    }
-
     public static class EventRunCompleted extends ArcFurnaceProcessingEvent {
 
         public EventRunCompleted(final ArcFurnaceContext arcFurnace) {

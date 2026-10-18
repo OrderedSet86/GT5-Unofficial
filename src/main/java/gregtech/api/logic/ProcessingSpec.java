@@ -192,7 +192,8 @@ public final class ProcessingSpec {
     private final Set<Quantity> noTooltip;
     private final Map<ModifierKind, ModifierKind.Range> modifiers;
     private final List<Variant> variants;
-    private final Set<Integer> unsupportedModes;
+    private final List<MachineMode> modes;
+    private final Set<Integer> notCalculatedModes;
 
     private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierKind.Range> modifiers) {
         this.parallel = List.copyOf(builder.parallel);
@@ -226,7 +227,8 @@ public final class ProcessingSpec {
         this.noTooltip = builder.noTooltip.clone();
         this.modifiers = modifiers;
         this.variants = List.copyOf(builder.variants);
-        this.unsupportedModes = Set.copyOf(builder.unsupportedModes);
+        this.modes = builder.modes == null ? List.of() : List.copyOf(builder.modes);
+        this.notCalculatedModes = Set.copyOf(builder.notCalculatedModes);
     }
 
     @Nonnull
@@ -273,12 +275,24 @@ public final class ProcessingSpec {
         return false;
     }
 
-    /** False in a mode whose numbers the machine's code sets. {@link #calculate} throws there. */
-    public boolean supportsMode(int mode) {
-        return !unsupportedModes.contains(mode);
+    /** The machine's modes in mode button order, or none. */
+    @Nonnull
+    public List<MachineMode> getModes() {
+        return modes;
     }
 
-    /** The lowest value of {@code kind} at which the recipe meets its requirements, such as the coil hot enough. */
+    /** False in a mode the machine runs outside recipe processing. {@link #resolve} throws there. */
+    public boolean calculates(int mode) {
+        return !notCalculatedModes.contains(mode);
+    }
+
+    /**
+     * The lowest value of an ordered {@code kind} at which the recipe meets its requirements, such as the coil hot
+     * enough. A higher value of an ordered kind never fails a requirement a lower one meets, so the range is
+     * binary-searched.
+     *
+     * @throws IllegalArgumentException if the kind is not {@link ModifierKind#ordered}
+     */
     @Nonnull
     public OptionalInt lowestPassing(@Nonnull ModifierKind.IntKind kind, @Nonnull GTRecipe recipe,
         @Nonnull ProcessingInputs inputs) {
@@ -305,10 +319,20 @@ public final class ProcessingSpec {
     /**
      * Every number the spec gives the recipe at these inputs.
      *
-     * @throws IllegalArgumentException if the inputs lack a kind the spec reads
+     * @throws IllegalArgumentException in a mode the spec does not {@link #calculates calculate}, or if the inputs
+     *                                  lack a kind the spec reads
      */
     @Nonnull
     public ResolvedRecipe resolve(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+        if (!calculates(inputs.mode())) {
+            throw new IllegalArgumentException("the spec does not calculate mode " + inputs.mode());
+        }
+        return resolveInAnyMode(recipe, inputs);
+    }
+
+    /** As {@link #resolve}, also in a mode the spec does not calculate, for the recipe a machine runs there. */
+    @Nonnull
+    ResolvedRecipe resolveInAnyMode(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         for (ModifierKind kind : modifiers.keySet()) {
             if (!inputs.has(kind)) throw new IllegalArgumentException("no " + kind + " value given");
         }
@@ -341,13 +365,10 @@ public final class ProcessingSpec {
     /**
      * As the machine would run the recipe from idle, with unlimited inputs and output space.
      *
-     * @throws IllegalArgumentException in a mode the spec does not support
+     * @throws IllegalArgumentException as {@link #resolve} does
      */
     @Nonnull
     public ProcessingRun calculate(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
-        if (!supportsMode(inputs.mode())) {
-            throw new IllegalArgumentException("the spec does not describe mode " + inputs.mode());
-        }
         return resolve(recipe, inputs).calculate();
     }
 
@@ -637,7 +658,7 @@ public final class ProcessingSpec {
         private final EnumSet<Quantity> noTooltip = EnumSet.noneOf(Quantity.class);
         private List<MachineMode> modes;
         private final List<Variant> variants = new ArrayList<>();
-        private final Set<Integer> unsupportedModes = new HashSet<>();
+        private final Set<Integer> notCalculatedModes = new HashSet<>();
         private ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks;
         private Consumer<MultiblockTooltipBuilder> maxOverclocksTooltip;
         private final List<Requirement> requirements = new ArrayList<>();
@@ -921,20 +942,17 @@ public final class ProcessingSpec {
             return this;
         }
 
-        // endregion
-
-        // region Modes and tiers
-
         /**
-         * For a mode whose numbers the machine's code sets, such as a simulation that is not a recipe. The spec still
-         * applies there. {@link ProcessingSpec#supportsMode} returns false for it.
+         * A mode the machine runs outside recipe processing, such as the Arc Furnace's ore smelting. Planners cannot
+         * take numbers from the spec there: {@link ProcessingSpec#calculates} is false and
+         * {@link ProcessingSpec#resolve} throws. The machine's own recipe checks still run through the spec.
          */
-        public Builder unsupportedInMode(int mode) {
-            this.unsupportedModes.add(mode);
+        public Builder notCalculatedIn(@Nonnull MachineMode mode) {
+            this.notCalculatedModes.add(indexOf(mode));
             return this;
         }
 
-        /** The modes {@link #inMode} may name. */
+        /** The machine's modes in mode button order. Call it before {@link #inMode} and {@link #notCalculatedIn}. */
         public Builder modes(@Nonnull List<MachineMode> modes) {
             Objects.requireNonNull(modes, "declare the modes before the spec");
             if (new HashSet<>(modes).size() != modes.size())
@@ -966,7 +984,7 @@ public final class ProcessingSpec {
             Consumer<Builder> terms) {
             Builder variant = new Builder();
             terms.accept(variant);
-            if (!variant.variants.isEmpty() || variant.modes != null || !variant.unsupportedModes.isEmpty()) {
+            if (!variant.variants.isEmpty() || variant.modes != null || !variant.notCalculatedModes.isEmpty()) {
                 throw new IllegalArgumentException("a mode or tier takes terms and their tooltips only");
             }
             if (!variant.requirements.isEmpty()) {

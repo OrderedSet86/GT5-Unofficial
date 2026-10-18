@@ -2245,8 +2245,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * @return null if the machine has no spec or no processing logic
      */
     @Nullable
-    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe) {
-        if (processingLogic == null || getProcessingSpec() == null) return null;
+    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+        ProcessingSpec spec = getProcessingSpec();
+        if (processingLogic == null || spec == null) return null;
         prepareForInspection();
         setupProcessingLogic(processingLogic);
         processingLogic.setSpec(spec, inputs);
@@ -2255,8 +2256,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * For the conformance check, on a {@link #newMetaEntity} copy: put the machine in the state it runs recipes in,
-     * such
-     * as past a start-up phase its spec models as a requirement.
+     * such as past a start-up phase its spec models as a requirement.
      */
     protected void prepareForInspection() {}
 
