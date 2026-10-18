@@ -29,6 +29,7 @@ import com.gtnewhorizon.structurelib.StructureLibAPI;
 import gregtech.GTMod;
 import gregtech.api.enums.GTAuthors;
 import gregtech.api.enums.GTValues;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.structure.IStructureChannels;
@@ -84,7 +85,6 @@ public class MultiblockTooltipBuilder {
         .translateToLocal("GT5U.MBTT.Parallel.RisingPerVoltageTier");
     private final String TT_RisingSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Rising");
     private final String TT_ParallelFormula = StatCollector.translateToLocal("GT5U.MBTT.Parallel.Formula");
-    private final String TT_TierOf = StatCollector.translateToLocal("GT5U.MBTT.TierOf");
     private final String TT_Steam_StaticSteamEff = StatCollector.translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
     private final String TT_dimensions = StatCollector.translateToLocal("GT5U.MBTT.Dimensions");
@@ -429,17 +429,9 @@ public class MultiblockTooltipBuilder {
     }
 
     /** Adds the spec's lines for one machine mode, for that mode's section of the tooltip. */
-    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec, int mode) {
+    public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec, MachineMode mode) {
         spec.describeMode(this, mode);
         return this;
-    }
-
-    /** "Voltage Tier * Solenoid Tier * 6 Parallels" */
-    public MultiblockTooltipBuilder addTierProductParallelInfo(int factor, List<ModifierKind.IntKind> kinds) {
-        StringBuilder product = new StringBuilder();
-        for (ModifierKind kind : kinds) product.append(String.format(TT_TierOf, kind.getName()))
-            .append(" * ");
-        return addParallelFormulaInfo(product.toString() + factor);
     }
 
     /** "256 * (1 + Tower Height/2) Parallels" */

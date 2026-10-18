@@ -52,6 +52,13 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return (int) rawValue(kind);
     }
 
+    /** The value as a long, for a caller holding a {@link ModifierKind}. */
+    public long value(@Nonnull ModifierKind kind) {
+        return switch (kind) {
+            case ModifierKind.IntKind tier -> value(tier);
+        };
+    }
+
     public boolean has(@Nonnull ModifierKind kind) {
         return kind == ModifierKind.VOLTAGE || values.containsKey(kind);
     }
@@ -62,17 +69,18 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of the summed hatch voltages, as parallels per voltage tier read it. */
+    /** The tier of {@link #maxInputVoltage()}, as parallels per voltage tier read it. */
     public int voltageTier() {
-        return GTUtility.getTier(totalVoltage());
+        return GTUtility.getTier(maxInputVoltage());
     }
 
     /** 0 without hatches. */
     public long averageVoltage() {
-        return energyHatches.isEmpty() ? 0 : totalVoltage() / energyHatches.size();
+        return energyHatches.isEmpty() ? 0 : maxInputVoltage() / energyHatches.size();
     }
 
-    public long totalVoltage() {
+    /** The hatch voltages summed, as {@code MTEMultiBlockBase.getMaxInputVoltage()} sums them. */
+    public long maxInputVoltage() {
         long voltage = 0;
         for (EnergyHatch hatch : energyHatches) voltage += hatch.voltage;
         return voltage;
@@ -149,10 +157,11 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        /** For values taken from a {@link ModifierRange}, whose bounds are longs. */
-        Builder put(ModifierKind kind, long value) {
-            this.values.put(kind, value);
-            return this;
+        /** For a value taken from a {@link ModifierKind.Range}, whose bounds are longs. */
+        public Builder value(@Nonnull ModifierKind kind, long value) {
+            return switch (kind) {
+                case ModifierKind.IntKind tier -> value(tier, Math.toIntExact(value));
+            };
         }
 
         /** Each modifier's current value. */

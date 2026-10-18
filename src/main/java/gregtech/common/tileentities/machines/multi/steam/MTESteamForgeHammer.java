@@ -57,7 +57,8 @@ import mcp.mobius.waila.api.IWailaDataAccessor;
 
 public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHammer> implements ISurvivalConstructable {
 
-    private static final ProcessingSpec SPEC = steamSpec(1).build();
+    private static final int TIER_RECIPES = 1;
+    private static final ProcessingSpec SPEC = steamSpec(TIER_RECIPES).build();
 
     public MTESteamForgeHammer(String aName) {
         super(aName);
@@ -295,7 +296,7 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
 
     @Override
     public int getTierRecipes() {
-        return 1;
+        return TIER_RECIPES;
     }
 
     @Override

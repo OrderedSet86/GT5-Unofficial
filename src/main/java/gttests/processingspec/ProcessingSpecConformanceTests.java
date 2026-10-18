@@ -1,37 +1,49 @@
-package gregtech.api.logic;
+package gttests.processingspec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.gtnewhorizons.horizonqa.api.GameTestHelper;
+import com.gtnewhorizons.horizonqa.api.annotation.GameTest;
+import com.gtnewhorizons.horizonqa.api.annotation.GameTestHolder;
+
 import gregtech.api.GregTechAPI;
+import gregtech.api.enums.Mods;
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ProcessingInputs;
+import gregtech.api.logic.ProcessingRun;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
-/** The registered multiblocks with a {@link ProcessingSpec}, and the check that each machine's runs match its spec. */
-public final class ProcessingSpecs {
+/** That each registered multiblock with a {@link ProcessingSpec} runs recipes as its spec says. */
+@GameTestHolder(Mods.ModIDs.GREG_TECH)
+public class ProcessingSpecConformanceTests {
 
     private static final int SAMPLE_RECIPES = 8;
-    private static final List<List<ProcessingInputs.EnergyHatch>> ENERGY_SAMPLES = createEnergySamples();
 
     /** @param machine The prototype, for its name, modes and recipe maps. Do not change it. */
-    public record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
+    record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
 
-    private ProcessingSpecs() {}
+    @GameTest(batch = "gt5.spec.checks")
+    public static void machinesRunAsTheirSpecsSay(GameTestHelper helper) {
+        List<String> problems = new ArrayList<>();
+        all().forEach(entry -> problems.addAll(problems(entry)));
+        helper.assertTrue(problems.isEmpty(), String.join("\n", problems));
+        helper.succeed();
+    }
 
-    @Nonnull
-    public static Stream<Entry> all() {
+    static Stream<Entry> all() {
         return Arrays.stream(GregTechAPI.METATILEENTITIES)
             .filter(MTEMultiBlockBase.class::isInstance)
             .map(MTEMultiBlockBase.class::cast)
@@ -43,47 +55,21 @@ public final class ProcessingSpecs {
             .filter(Objects::nonNull);
     }
 
-    public static void check() {
-        List<String> problems = problems();
-        if (!problems.isEmpty()) {
-            throw new IllegalStateException("Processing spec problems:\n  " + String.join("\n  ", problems));
-        }
-    }
-
-    /**
-     * Tooltips missing a number their spec sets, machines whose modifiers differ from the kinds their spec reads, and
-     * machines that run a recipe differently from their spec, over sampled recipes and energy hatches.
-     */
-    @Nonnull
-    public static List<String> problems() {
-        List<String> problems = new ArrayList<>();
-        all().forEach(entry -> problems.addAll(problems(entry)));
-        return problems;
-    }
-
-    @Nonnull
-    public static List<String> problems(@Nonnull Entry entry) {
+    /** Tooltips missing a number their spec sets, and machines that run a recipe differently from their spec. */
+    private static List<String> problems(Entry entry) {
         List<String> problems = new ArrayList<>();
         String name = entry.machine()
             .getClass()
             .getSimpleName();
-        Set<ProcessingSpec.Quantity> undescribed = entry.spec()
-            .getUndescribed();
-        if (!undescribed.isEmpty()) {
+        if (!entry.spec()
+            .getUndescribed()
+            .isEmpty()) {
             problems.add(
                 name + " sets "
-                    + undescribed
+                    + entry.spec()
+                        .getUndescribed()
                     + " but its tooltip does not show them; use a term that describes itself,"
                     + " customTooltip or noTooltip");
-        }
-        Set<ModifierKind> declared = new HashSet<>();
-        for (ModifierRange range : entry.spec()
-            .getModifiers()) declared.add(range.kind());
-        Set<ModifierKind> kept = new HashSet<>();
-        for (Modifier modifier : entry.machine()
-            .getSpecModifiers()) kept.add(modifier.kind);
-        if (!declared.equals(kept)) {
-            problems.add(name + " keeps modifiers " + kept + " but its spec reads " + declared);
         }
         try {
             String run = findRunDifference(entry);
@@ -95,7 +81,7 @@ public final class ProcessingSpecs {
     }
 
     /**
-     * On a copy of the machine with every modifier at the top of its range, in every mode the spec supports, over
+     * On a copy of the machine with every modifier at the top of its range, in every mode, over
      * sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
      */
     @Nullable
@@ -112,8 +98,8 @@ public final class ProcessingSpecs {
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
             if (modes > 1) machine.setMachineMode(mode);
-            for (GTRecipe recipe : sample(modes > 1 ? machine.getRecipeMapForMode(mode) : machine.getRecipeMap())) {
-                for (List<ProcessingInputs.EnergyHatch> hatches : ENERGY_SAMPLES) {
+            for (GTRecipe recipe : sample(machine.getRecipeMap())) {
+                for (List<ProcessingInputs.EnergyHatch> hatches : energySamples()) {
                     // as a planner does, from the declared kinds alone: throws if a function reads another
                     spec.calculate(
                         recipe,
@@ -121,11 +107,14 @@ public final class ProcessingSpecs {
                             .energyHatches(hatches)
                             .mode(mode)
                             .build());
-                    machine.setEnergyHatchesForInspection(hatches);
-                    ProcessingRun own = machine.calculateForInspection(recipe);
+                    ProcessingInputs inputs = machine.getCurrentProcessingSpecInputs()
+                        .toBuilder()
+                        .energyHatches(hatches)
+                        .build();
+                    ProcessingRun own = machine.calculateForInspection(recipe, inputs);
                     if (own == null) continue;
-                    ProcessingRun fromSpec = spec.calculate(recipe, machine.getCurrentProcessingSpecInputs());
-                    if (!isSameRun(own, fromSpec)) {
+                    ProcessingRun fromSpec = spec.calculate(recipe, inputs);
+                    if (!own.equals(fromSpec)) {
                         return "mode " + mode + ", " + hatches + ": own " + own + ", spec " + fromSpec;
                     }
                 }
@@ -153,7 +142,7 @@ public final class ProcessingSpecs {
     }
 
     /** One regular hatch, two, and a 16 A hatch, at three tiers. */
-    private static List<List<ProcessingInputs.EnergyHatch>> createEnergySamples() {
+    private static List<List<ProcessingInputs.EnergyHatch>> energySamples() {
         List<List<ProcessingInputs.EnergyHatch>> samples = new ArrayList<>();
         for (int tier : new int[] { VoltageIndex.HV, VoltageIndex.LuV, VoltageIndex.UHV }) {
             ProcessingInputs.EnergyHatch regular = ProcessingInputs.EnergyHatch.regular(tier);

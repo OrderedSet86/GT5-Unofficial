@@ -119,16 +119,19 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int ARC_SURGE_CHANCE_PERCENT = 5;
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
-    private static final List<MachineMode> MODES = List.of(
-        MachineMode.of(arcFurnaceRecipes)
-            .nameKey("kubatech.arcfurnace.mode.normal")
-            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_ARC),
-        MachineMode.of(blastFurnaceRecipes)
-            .nameKey("kubatech.arcfurnace.mode.blast")
-            .guiIcon(GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PLASMA_ARC),
-        MachineMode.of(furnaceRecipes)
-            .nameKey("kubatech.arcfurnace.mode.ore")
-            .guiIcon(GTGuiTextures.TT_OVERLAY_BUTTON_FURNACE_MODE));
+    private static final MachineMode NORMAL = new MachineMode(
+        arcFurnaceRecipes,
+        "kubatech.arcfurnace.mode.normal",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_ARC);
+    private static final MachineMode BLAST = new MachineMode(
+        blastFurnaceRecipes,
+        "kubatech.arcfurnace.mode.blast",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PLASMA_ARC);
+    private static final MachineMode ORE = new MachineMode(
+        furnaceRecipes,
+        "kubatech.arcfurnace.mode.ore",
+        GTGuiTextures.TT_OVERLAY_BUTTON_FURNACE_MODE);
+    private static final List<MachineMode> MODES = List.of(NORMAL, BLAST, ORE);
 
     public MTEIndustrialArcFurnace(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -147,15 +150,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private MTEHatchElectrode electrodeHatch;
     private final List<MTEHatchElectrodeDetector> electrodeDetectorHatch = new ArrayList<>();
 
-    enum ArcFurnaceMode {
-
-        Normal,
-        Blast,
-        Ore;
-
-        static final ArcFurnaceMode[] modes = values();
-    }
-
     enum ArcFurnacePhase {
 
         Standby,
@@ -166,7 +160,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         static final ArcFurnacePhase[] values = values();
     }
 
-    private ArcFurnaceMode mode = ArcFurnaceMode.Normal;
     private ArcFurnacePhase phase = ArcFurnacePhase.Standby;
     private ArcFurnaceElectrode electrode = null;
     private int durabilityCostThisRun = 1;
@@ -323,7 +316,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        mode = ArcFurnaceMode.modes[aNBT.getInteger("mode")];
+        // saves from before the base class kept the mode have it here, beside a stale "machineMode" of 0
+        if (aNBT.hasKey("mode")) machineMode = aNBT.getInteger("mode");
         phase = ArcFurnacePhase.values[aNBT.getInteger("phase")];
         lastCompletedStartupTick = aNBT.hasKey("lastCompletedStartupTick") ? aNBT.getLong("lastCompletedStartupTick")
             : -1;
@@ -349,7 +343,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("mode", mode.ordinal());
         aNBT.setInteger("phase", phase.ordinal());
         aNBT.setLong("lastCompletedStartupTick", lastCompletedStartupTick);
         aNBT.setInteger("electrode", electrode == null ? -1 : electrode.ordinal());
@@ -507,16 +500,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     }
 
     @Override
-    public int getMachineMode() {
-        return mode.ordinal();
-    }
-
-    @Override
-    public void setMachineMode(int index) {
-        mode = ArcFurnaceMode.modes[index];
-    }
-
-    @Override
     public boolean supportsSingleRecipeLocking() {
         return false;
     }
@@ -644,7 +627,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
          * we set all the outputs and calculate additional overclock if it wasn't used up in the first phase and then
          * start processing with the normal logic of the machine
          */
-        if (phase == ArcFurnacePhase.Processing && mode == ArcFurnaceMode.Ore
+        if (phase == ArcFurnacePhase.Processing && getCurrentMachineMode() == ORE
             && mMaxProgresstime > 0
             && didOres != -1
             && (aTick % 5 == 0 || mProgresstime == 0)) {
@@ -704,7 +687,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                 mProgresstime = mMaxProgresstime - 1;
             }
         }
-        if (phase == ArcFurnacePhase.Processing && mode == ArcFurnaceMode.Ore
+        if (phase == ArcFurnacePhase.Processing && getCurrentMachineMode() == ORE
             && mProgresstime > 0
             && mProgresstime >= mMaxProgresstime - 1
             && !oreOutputs.isEmpty()) {
@@ -839,8 +822,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             @Override
             protected @NotNull Stream<GTRecipe> findRecipeMatches(@Nullable RecipeMap<?> map) {
                 Stream<GTRecipe> str = super.findRecipeMatches(map).limit(1);
-                if (mode == ArcFurnaceMode.Normal) return str;
-                if (mode == ArcFurnaceMode.Blast) {
+                if (getCurrentMachineMode() == NORMAL) return str;
+                if (getCurrentMachineMode() == BLAST) {
                     GTRecipe found = str.findAny()
                         .orElse(null);
                     if (found == null) return Stream.of();
@@ -929,7 +912,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
             @Override
             protected @NotNull OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                if (phase == ArcFurnacePhase.ArcIgnition || (mode == ArcFurnaceMode.Ore && recipe == fakeRecipe())) {
+                if (phase == ArcFurnacePhase.ArcIgnition
+                    || (getCurrentMachineMode() == ORE && recipe == fakeRecipe())) {
                     return super.createOverclockCalculator(fakeRecipe()).setNoOverclock(true)
                         .setAmperage(1)
                         .setEUt(getMaxInputEu())
@@ -974,7 +958,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                         .setConsumption(false)
                         .setMaxParallel(1);
                 }
-                if (phase == ArcFurnacePhase.Processing && mode == ArcFurnaceMode.Ore && recipe == fakeRecipe()) {
+                if (phase == ArcFurnacePhase.Processing && getCurrentMachineMode() == ORE && recipe == fakeRecipe()) {
                     this.setBatchSize(1);
                     return super.createParallelHelper(recipe).setConsumption(false)
                         .setMaxParallel(1);

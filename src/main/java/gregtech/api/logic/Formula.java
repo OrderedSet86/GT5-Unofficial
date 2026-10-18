@@ -1,6 +1,5 @@
 package gregtech.api.logic;
 
-import java.util.List;
 import java.util.Set;
 import java.util.function.DoubleSupplier;
 import java.util.function.ToDoubleFunction;
@@ -10,8 +9,8 @@ import javax.annotation.Nonnull;
 import gregtech.api.util.GTUtility;
 
 /**
- * One number of a {@link ProcessingSpec} as data, so a planner can show how it is made and which kinds it reads, and
- * the tooltip can be written from it. Speeds are kept as speeds: 2.5 is 250%.
+ * One number of a {@link ProcessingSpec} as data: the kinds it reads, and a shape the tooltip line is written from.
+ * Speeds are kept as speeds: 2.5 is 250%.
  */
 sealed interface Formula {
 
@@ -77,23 +76,6 @@ sealed interface Formula {
         @Override
         public Set<ModifierKind> reads() {
             return Set.of(kind);
-        }
-    }
-
-    /** {@code factor} times the product of the kinds' tiers. */
-    record TierProduct(int factor, @Nonnull List<ModifierKind.IntKind> kinds) implements Formula {
-
-        @Override
-        public double apply(@Nonnull ProcessingInputs inputs) {
-            int product = factor;
-            for (ModifierKind.IntKind kind : kinds) product *= kind.countedTier(inputs.value(kind));
-            return product;
-        }
-
-        @Nonnull
-        @Override
-        public Set<ModifierKind> reads() {
-            return Set.copyOf(kinds);
         }
     }
 
