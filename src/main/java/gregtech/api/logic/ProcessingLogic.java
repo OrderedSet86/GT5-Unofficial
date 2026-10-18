@@ -708,8 +708,10 @@ public class ProcessingLogic {
 
     public long getMaxAllowedRecipeEUt() {
         if (spec != null) {
-            return spec.getPower(specInputs)
-                .maxAllowedRecipeEuPerTick(spec.getMaxTierSkipsOrDefault());
+            return OverclockCalculator.getMaxAllowedRecipeEUt(
+                spec.getPower(specInputs)
+                    .voltage(),
+                spec.getMaxTierSkipsOrDefault());
         }
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
     }

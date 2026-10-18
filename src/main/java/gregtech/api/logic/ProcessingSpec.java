@@ -58,9 +58,9 @@ public final class ProcessingSpec {
      * The energy a machine's recipes see.
      *
      * @param unlimited    Energy limits neither parallels nor overclocks
-     * @param maxEuPerTick The most EU/t a run draws, whatever its overclocks cost
+     * @param euPerTickCap The most EU/t a run draws, whatever its overclocks cost
      */
-    public record Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited, long maxEuPerTick) {
+    public record Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited, long euPerTickCap) {
 
         public Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited) {
             this(voltage, amperage, amperageOverclock, unlimited, Long.MAX_VALUE);
@@ -68,10 +68,6 @@ public final class ProcessingSpec {
 
         public long availableEuPerTick() {
             return unlimited ? Long.MAX_VALUE : voltage * amperage;
-        }
-
-        public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
-            return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
     }
 
@@ -186,7 +182,7 @@ public final class ProcessingSpec {
     @Nullable
     private final Predicate<ProcessingInputs> unlimitedEnergy;
     @Nullable
-    private final ToLongFunction<ProcessingInputs> maxEuPerTick;
+    private final ToLongFunction<ProcessingInputs> euPerTickCap;
     @Nullable
     private final ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
     @Nullable
@@ -232,7 +228,7 @@ public final class ProcessingSpec {
         this.amperage = builder.amperage;
         this.noAmperageOverclock = builder.noAmperageOverclock;
         this.unlimitedEnergy = builder.unlimitedEnergy;
-        this.maxEuPerTick = builder.maxEuPerTick;
+        this.euPerTickCap = builder.euPerTickCap;
         this.startupEu = builder.startupEu;
         this.euPerRun = builder.euPerRun;
         this.euGeneratedPerRun = builder.euGeneratedPerRun;
@@ -461,7 +457,7 @@ public final class ProcessingSpec {
             (amperage == null ? STANDARD_AMPERAGE : amperage).applyAsLong(inputs),
             !noAmperageOverclock,
             unlimitedEnergy != null && unlimitedEnergy.test(inputs),
-            maxEuPerTick == null ? Long.MAX_VALUE : maxEuPerTick.applyAsLong(inputs));
+            euPerTickCap == null ? Long.MAX_VALUE : euPerTickCap.applyAsLong(inputs));
     }
 
     /**
@@ -664,7 +660,7 @@ public final class ProcessingSpec {
             || builder.amperage != null
             || builder.noAmperageOverclock
             || builder.unlimitedEnergy != null
-            || builder.maxEuPerTick != null) {
+            || builder.euPerTickCap != null) {
             described.put(Quantity.POWER, new Described(powerReadsRecipe, List.of(), false));
         }
         if (builder.successChance != null || builder.outputYield != null) {
@@ -698,7 +694,7 @@ public final class ProcessingSpec {
         private ToLongFunction<ProcessingInputs> amperage;
         private boolean noAmperageOverclock;
         private Predicate<ProcessingInputs> unlimitedEnergy;
-        private ToLongFunction<ProcessingInputs> maxEuPerTick;
+        private ToLongFunction<ProcessingInputs> euPerTickCap;
         private ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
         private BiFunction<ProcessingInputs, GTRecipe, BigInteger> euPerRun;
         private BiFunction<ProcessingInputs, GTRecipe, BigInteger> euGeneratedPerRun;
@@ -936,8 +932,8 @@ public final class ProcessingSpec {
         }
 
         /** The most EU/t a run draws, whatever its overclocks cost. */
-        public Builder maxEuPerTick(@Nonnull ToLongFunction<ProcessingInputs> maxEuPerTick) {
-            this.maxEuPerTick = maxEuPerTick;
+        public Builder euPerTickCap(@Nonnull ToLongFunction<ProcessingInputs> euPerTickCap) {
+            this.euPerTickCap = euPerTickCap;
             return this;
         }
 
