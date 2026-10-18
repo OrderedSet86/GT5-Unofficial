@@ -85,8 +85,8 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
         .range(0, MAX_MOMENTUM)
         .register();
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
-        .parallelPerVoltageTierRising(4, 8, MOMENTUM, MAX_MOMENTUM)
-        .speedRising(2, 3, MOMENTUM, MAX_MOMENTUM)
+        .parallelPerVoltageTierRising(4, 8, MOMENTUM)
+        .speedRising(2, 3, MOMENTUM)
         .euModifier(0.9)
         // heavy mode recipes are for the heavy centrifuge
         .requires(

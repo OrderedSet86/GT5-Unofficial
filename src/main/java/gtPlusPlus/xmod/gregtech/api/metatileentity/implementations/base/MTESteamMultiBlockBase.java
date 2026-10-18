@@ -116,7 +116,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
                 tt -> tt.addStaticSteamEffInfo(0.625f))
             .noOverclock()
             .maxTierSkips(0)
-            // an amp per parallel, so the energy limit never lowers the parallel
+            // one amp per parallel: the parallel count is then never limited by energy
             .power(in -> V[tierRecipes], in -> STEAM_PARALLEL)
             .noAmperageOverclock()
             .noTooltip(ProcessingSpec.Quantity.POWER)
