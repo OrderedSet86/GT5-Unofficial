@@ -2193,7 +2193,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Return a static constant, so planners can read it from the prototype.
+     * Return a static constant. Planners read the spec from the prototype.
      *
      * @return null if the machine computes its numbers in code
      */
@@ -2269,9 +2269,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The machine's fields for the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the
-     * conformance test writes them on a {@link #newMetaEntity} copy. Planners read the kinds from
-     * {@link ProcessingSpec#getModifiers}.
+     * The getters and setters of the values the machine's spec reads. {@link #getCurrentProcessingSpecInputs} calls the
+     * getters, and the conformance test calls the setters on a {@link #newMetaEntity} copy. Planners read the kinds
+     * from {@link ProcessingSpec#getModifiers}.
      */
     @Nonnull
     public List<Modifier> getSpecModifiers() {

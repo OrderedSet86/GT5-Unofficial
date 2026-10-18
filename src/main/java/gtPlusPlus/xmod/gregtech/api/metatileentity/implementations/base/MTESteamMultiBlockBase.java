@@ -102,7 +102,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     /**
      * High Pressure runs twice as fast for twice the steam.
      *
-     * @param tierRecipes As {@link #getTierRecipes()}: the voltage tier of the recipes the machine can run
+     * @param tierRecipes The voltage tier of the recipes the machine can run, from {@link #getTierRecipes()}
      */
     @Nonnull
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
@@ -116,7 +116,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
                 tt -> tt.addStaticSteamEffInfo(0.625f))
             .noOverclock()
             .maxTierSkips(0)
-            // one amp per parallel: the parallel count is then never limited by energy
+            // matches setProcessingLogicPower(): V[tierRecipes] with an amp for every parallel
             .power(in -> V[tierRecipes], in -> STEAM_PARALLEL)
             .noAmperageOverclock()
             .noTooltip(ProcessingSpec.Quantity.POWER)

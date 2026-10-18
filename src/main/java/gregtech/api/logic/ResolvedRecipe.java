@@ -13,12 +13,12 @@ import gregtech.api.util.ParallelHelper;
 
 /**
  * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks. Machines and planners both
- * calculate from it, so their results can't drift apart.
+ * calculate from it. Their results then match.
  * <p>
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
  *
- * @param recipe   As the machine runs it: a copy at the spec's fixed cost, else the recipe itself
+ * @param recipe   The recipe the machine runs: a copy at the spec's fixed cost, else the recipe itself
  * @param duration In ticks before overclocks
  * @param check    The first requirement the recipe fails, else success
  */
@@ -44,7 +44,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             check);
     }
 
-    /** At most {@code limit} parallels, and at least 1, as the power panel or a planner's cap allows. */
+    /** The recipe with at most {@code limit} parallels, and at least 1, for the power panel's or a planner's cap. */
     @Nonnull
     public ResolvedRecipe capParallel(int limit) {
         return limit >= maxParallel ? this : withMaxParallel(Math.max(1, limit));
@@ -56,7 +56,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return toCalculator(recipe.mEUt, duration);
     }
 
-    /** As {@link #toCalculator()}, for another recipe the machine runs with the same settings. */
+    /** {@link #toCalculator()} for another recipe the machine runs with the same settings. */
     @Nonnull
     public OverclockCalculator toCalculator(long recipeEuPerTick, int recipeDuration) {
         double euDiscount = euModifier * euModifierNotLimitingParallel;
@@ -94,13 +94,13 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             .setEUtModifier(euModifier);
     }
 
-    /** With unlimited inputs and output space, as a planner runs it. */
+    /** The run with unlimited inputs and output space. Planners use this. */
     @Nonnull
     public ProcessingRun calculate() {
         return calculate(toCalculator());
     }
 
-    /** As {@link #calculate()}, with a calculator the caller has changed. */
+    /** {@link #calculate()} with a calculator the caller has changed. */
     @Nonnull
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
@@ -110,8 +110,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     }
 
     /**
-     * Unlimited inputs and output space: no void protection, recipe lock, batch or input consumption. Call it after
-     * every machine setting of the helper.
+     * Unlimited inputs and output space: no void protection, recipe lock, batch or input consumption. Call this after
+     * the machine's settings on the helper.
      */
     @Nonnull
     public static ParallelHelper forPlanning(@Nonnull ParallelHelper helper) {

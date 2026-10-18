@@ -32,7 +32,10 @@ class ProcessingLogicTest {
         assertEquals(SPEC.calculate(recipe, LUV), machine);
     }
 
-    /** The conformance check compares inspect() with the spec, so a hook that changes a number shows. */
+    /**
+     * The conformance test compares inspect() with the spec. A hook that changes a number then shows up as a
+     * difference.
+     */
     @Test
     void aHookThatChangesANumberMakesTheRunDiffer() {
         GTRecipe recipe = recipe(30, 200, 0);
@@ -50,7 +53,7 @@ class ProcessingLogicTest {
                 .inspect(recipe));
     }
 
-    /** As the scanner prints it. */
+    /** The scanner prints this voltage. */
     @Test
     void theHighestRecipeVoltageFollowsTheSpec() {
         ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)

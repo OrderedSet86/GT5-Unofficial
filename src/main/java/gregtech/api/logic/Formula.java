@@ -9,8 +9,8 @@ import javax.annotation.Nonnull;
 import gregtech.api.util.GTUtility;
 
 /**
- * One number of a {@link ProcessingSpec} as data: the kinds it reads, and a shape the tooltip line is written from.
- * Speeds are kept as speeds: 2.5 is 250%.
+ * One number of a {@link ProcessingSpec}, in a form planners and tooltips can read: the kinds it reads, and a shape
+ * for the tooltip line. Speed formulas return speeds: 2.5 is 250%.
  */
 public sealed interface Formula {
 
@@ -110,15 +110,13 @@ public sealed interface Formula {
     }
 
     /**
-     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}. The product is
-     * a
-     * float, as in the machines' code, so the truncation to whole parallels matches.
+     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}.
      */
     record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind, int kindMax) implements Formula {
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
-            return (int) ((min + (max - min) * inputs.value(kind) / (float) kindMax) * inputs.voltageTier());
+            return (int) ((min + (max - min) * inputs.value(kind) / (double) kindMax) * inputs.voltageTier());
         }
 
         @Nonnull
@@ -129,7 +127,7 @@ public sealed interface Formula {
     }
 
     /**
-     * Plain code, with no shape a planner or tooltip can read. Describe it with
+     * Plain code, with no shape a planner or tooltip can read. Describe the formula with
      * {@link ProcessingSpec.Builder#customTooltip}.
      */
     record Custom(@Nonnull ToDoubleFunction<ProcessingInputs> function, @Nonnull Set<ModifierKind> reads)
