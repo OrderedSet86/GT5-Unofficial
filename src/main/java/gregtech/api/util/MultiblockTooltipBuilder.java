@@ -1,6 +1,7 @@
 package gregtech.api.util;
 
 import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.formatNumber;
+import static gregtech.api.util.StringUtils.voltageTooltipFormatted;
 import static gregtech.api.util.tooltip.TooltipHelper.percentageFormat;
 import static net.minecraft.util.StatCollector.translateToLocal;
 import static net.minecraft.util.StatCollector.translateToLocalFormatted;
@@ -76,6 +77,7 @@ public class MultiblockTooltipBuilder {
     private final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
     private final String TT_SpeedBasePerTier = StatCollector.translateToLocal("GT5U.MBTT.Speed.BasePerTier");
+    private final String TT_HeatCoils = StatCollector.translateToLocal("GT5U.MBTT.Heat.Coils");
     private final String TT_HeatPerVoltageTier = StatCollector.translateToLocal("GT5U.MBTT.Heat.PerVoltageTier");
     private final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount");
     private final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock");
@@ -90,6 +92,7 @@ public class MultiblockTooltipBuilder {
     private final String TT_dimensions = StatCollector.translateToLocal("GT5U.MBTT.Dimensions");
     private final String TT_hollow = StatCollector.translateToLocal("GT5U.MBTT.Hollow");
     private final String TT_structure = StatCollector.translateToLocal("GT5U.MBTT.Structure");
+    private final String TT_tier = StatCollector.translateToLocal("GT5U.MBTT.Tier");
     private final String TT_controller = StatCollector.translateToLocal("GT5U.MBTT.Controller");
     private final String TT_minimum = StatCollector.translateToLocal("GT5U.MBTT.Minimum");
     private final String TT_tiered = StatCollector.translateToLocal("GT5U.MBTT.Tiered");
@@ -128,6 +131,8 @@ public class MultiblockTooltipBuilder {
     private List<String> authors;
     private List<String> structureAuthors;
     private SetMultimap<Integer, String> hBlocks;
+
+    private int tierNoteIndex = -1;
 
     private String[] iArray;
     private String[] sArray;
@@ -335,41 +340,27 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** "Increases Heat by 100K for every Voltage tier past MV" */
+    /** "Base Heat is determined by the Heating Coils", then "Heat increases by +100K for every Voltage tier past MV" */
     public MultiblockTooltipBuilder addHeatPerVoltageTierInfo(int heatPerTier, int baseVoltageTier) {
+        iLines.add(TT_HeatCoils);
         iLines.add(
-            String.format(
-                TT_HeatPerVoltageTier,
-                EnumChatFormatting.RED + String.valueOf(heatPerTier) + "K" + EnumChatFormatting.GRAY,
-                TooltipHelper.tierText("Voltage"),
-                EnumChatFormatting.AQUA + GTValues.VN[baseVoltageTier]));
+            String.format(TT_HeatPerVoltageTier, formatNumber(heatPerTier), voltageTooltipFormatted(baseVoltageTier)));
         return this;
     }
 
-    /** "Reduces EU Usage by 5% every 900K above the recipe requirement" */
+    /** "Every 900K above the recipe requirement reduces EU Usage by 5%" */
     public MultiblockTooltipBuilder addHeatDiscountInfo() {
         iLines.add(
             String.format(
                 TT_HeatDiscount,
-                TooltipHelper.effText("EU Usage"),
-                EnumChatFormatting.WHITE
-                    + percentageFormat.format(1 - OverclockCalculator.DEFAULT_HEAT_DISCOUNT_MULTIPLIER)
-                    + EnumChatFormatting.GRAY,
-                EnumChatFormatting.RED + String.valueOf(OverclockCalculator.HEAT_DISCOUNT_THRESHOLD)
-                    + "K"
-                    + EnumChatFormatting.GRAY));
+                formatNumber(OverclockCalculator.HEAT_DISCOUNT_THRESHOLD),
+                percentageFormat.format(1 - OverclockCalculator.DEFAULT_HEAT_DISCOUNT_MULTIPLIER)));
         return this;
     }
 
-    /** "Every 1800K over the recipe requirement grants 1 Perfect Overclock" */
+    /** "Every 1800K above the recipe requirement grants 1 Perfect Overclock" */
     public MultiblockTooltipBuilder addHeatOverclockInfo() {
-        iLines.add(
-            String.format(
-                TT_HeatOverclock,
-                EnumChatFormatting.RED + String.valueOf(OverclockCalculator.HEAT_OVERCLOCK_THRESHOLD)
-                    + "K"
-                    + EnumChatFormatting.GRAY,
-                EnumChatFormatting.LIGHT_PURPLE + "Perfect Overclock"));
+        iLines.add(String.format(TT_HeatOverclock, formatNumber(OverclockCalculator.HEAT_OVERCLOCK_THRESHOLD)));
         return this;
     }
 
@@ -592,6 +583,7 @@ public class MultiblockTooltipBuilder {
                 + EnumChatFormatting.GRAY
                 + ") "
                 + (hollow ? EnumChatFormatting.RED + TT_hollow : ""));
+        tierNoteIndex = sLines.size();
         sLines.add(EnumChatFormatting.WHITE + TT_structure + COLON);
         return this;
     }
@@ -1405,21 +1397,6 @@ public class MultiblockTooltipBuilder {
 
     /**
      * Add a line of information about the structure:<br>
-     * t-tier Glass required for Laser Hatches
-     *
-     * @param t Tier of glass that unlocks all energy hatches
-     * @return Instance this method was called on.
-     */
-    public MultiblockTooltipBuilder addMinGlassForLaser(int t) {
-        iLines.add(
-            GTValues.TIER_COLORS[t] + GTValues.VN[t]
-                + EnumChatFormatting.GRAY
-                + StatCollector.translateToLocal("GT5U.MBTT.Structure.MinGlassForLaser"));
-        return this;
-    }
-
-    /**
-     * Add a line of information about the structure:<br>
      * Energy Hatch limited by Glass tier
      *
      * @return Instance this method was called on.
@@ -1462,6 +1439,18 @@ public class MultiblockTooltipBuilder {
      * Add a line of information about the structure:<br>
      * This machine can run recipes regardless of tier, if given enough energy
      *
+     * @param skips The number of tier skips it can run
+     * @return Instance this method was called on.
+     */
+    public MultiblockTooltipBuilder addMaxTierSkips(int skips) {
+        iLines.add(StatCollector.translateToLocalFormatted("GT5U.MBTT.Structure.MaxTierSkips", skips));
+        return this;
+    }
+
+    /**
+     * Add a line of information about the structure:<br>
+     * This machine can run recipes regardless of tier, if given enough energy
+     *
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addUnlimitedTierSkips() {
@@ -1471,14 +1460,26 @@ public class MultiblockTooltipBuilder {
 
     /**
      * Add a line of information about the structure:<br>
-     * This machine can run recipes at most n tiers above the average energy hatch tier
+     * Energy Hatch limited by Glass Tier
      *
-     * @param n The max number of tier skips allowed
      * @return Instance this method was called on.
      */
-    public MultiblockTooltipBuilder addMaxTierSkips(int n) {
-        iLines.add(translateToLocalFormatted("GT5U.MBTT.Structure.MaxTierSkips", n));
-        return this;
+    public MultiblockTooltipBuilder addEnergyHatchGlassTier() {
+        return addTierNote(StatCollector.translateToLocal("GT5U.MBTT.Structure.EnergyHatchGlassTier"));
+    }
+
+    /**
+     * Add a line of information about the structure:<br>
+     * t-tier Glass required for Laser Hatches
+     *
+     * @param t Tier of glass that unlocks all energy hatches
+     * @return Instance this method was called on.
+     */
+    public MultiblockTooltipBuilder addMinGlassForLaser(int t) {
+        return addTierNote(
+            GTValues.TIER_COLORS[t] + GTValues.VN[t]
+                + EnumChatFormatting.GRAY
+                + StatCollector.translateToLocal("GT5U.MBTT.Structure.MinGlassForLaser"));
     }
 
     /**
@@ -1662,6 +1663,23 @@ public class MultiblockTooltipBuilder {
      */
     public MultiblockTooltipBuilder addStructureFooter(String info) {
         sLines.add(info);
+        return this;
+    }
+
+    /**
+     * Use this method to add a note about relevant tiering:<br>
+     * (indent)info
+     *
+     * @param info The line to be added
+     * @return Instance this method was called on.
+     */
+    public MultiblockTooltipBuilder addTierNote(String info) {
+        if (tierNoteIndex < 0) {
+            sLines.add(info);
+            return this;
+        }
+        sLines.add(tierNoteIndex, info);
+        tierNoteIndex++;
         return this;
     }
 
