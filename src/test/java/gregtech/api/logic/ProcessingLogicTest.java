@@ -53,7 +53,6 @@ class ProcessingLogicTest {
                 .inspect(recipe));
     }
 
-    /** The scanner prints this voltage. */
     @Test
     void theHighestRecipeVoltageFollowsTheSpec() {
         ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)

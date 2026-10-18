@@ -130,7 +130,6 @@ public class ProcessingSpecConformanceTests {
         return null;
     }
 
-    /** One regular hatch, two, and a 16 A hatch, at three tiers. */
     private static List<List<ProcessingInputs.EnergyHatch>> energySamples() {
         List<List<ProcessingInputs.EnergyHatch>> samples = new ArrayList<>();
         for (int tier : new int[] { VoltageIndex.HV, VoltageIndex.LuV, VoltageIndex.UHV }) {

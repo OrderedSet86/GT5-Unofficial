@@ -20,7 +20,6 @@ import gregtech.api.util.GTUtility;
 public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mode,
     @Nonnull Map<ModifierKind, Long> values) {
 
-    /** One energy hatch, with the numbers the machine's power getters read. */
     public record EnergyHatch(long voltage, long amperage, boolean exotic) {
 
         /** An invalid hatch: the average voltage counts it, the amperage and EU sums do not. */
@@ -52,7 +51,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return (int) rawValue(kind);
     }
 
-    /** The value as a long, for a caller with a {@link ModifierKind} of any value type. */
     public long value(@Nonnull ModifierKind kind) {
         return switch (kind) {
             case ModifierKind.IntKind tier -> value(tier);
@@ -69,7 +67,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of {@link #maxInputVoltage()}. The per-voltage-tier parallel formulas take this tier. */
+    /** The tier of {@link #maxInputVoltage()}. */
     public int voltageTier() {
         return GTUtility.getTier(maxInputVoltage());
     }
@@ -100,7 +98,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return eu;
     }
 
-    /** A standard multiblock uses 1 A of a lone regular hatch's 2 A. */
     public boolean isSingleRegularHatch() {
         return energyHatches.size() == 1 && !energyHatches.get(0).exotic;
     }
@@ -110,7 +107,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return new Builder();
     }
 
-    /** A builder with these inputs, to change some of them. */
     @Nonnull
     public Builder toBuilder() {
         Builder builder = new Builder().energyHatches(energyHatches)
@@ -168,7 +164,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             };
         }
 
-        /** Each modifier's current value. */
         public Builder modifiers(@Nonnull List<Modifier> modifiers) {
             for (Modifier modifier : modifiers) this.values.put(modifier.kind, modifier.get());
             return this;

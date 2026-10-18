@@ -60,12 +60,11 @@ public final class ProcessingSpec {
             this(voltage, amperage, amperageOverclock, Long.MAX_VALUE);
         }
 
-        /** The EU/t that parallels may use up to. */
         public long availableEuPerTick() {
             return voltage * amperage;
         }
 
-        /** The highest recipe EU/t the machine accepts. The scanner prints this number. */
+        /** The number the scanner prints. */
         public long maxAllowedRecipeEuPerTick(int maxTierSkips) {
             return OverclockCalculator.getMaxAllowedRecipeEUt(voltage, maxTierSkips);
         }
@@ -108,16 +107,15 @@ public final class ProcessingSpec {
     public enum Quantity {
 
         PARALLEL(true),
-        /** The formula returns a speed: 2.5 means 250% speed and a duration multiplier of 0.4. */
+        /** The formula of this quantity returns a speed, set with {@link Builder#speed}. */
         DURATION(true),
         EU_MODIFIER(true),
-        /** An EU modifier with no effect on the energy cap on parallels. {@link #EU_MODIFIER} changes that cap. */
         EU_MODIFIER_NOT_LIMITING_PARALLEL(true),
         OVERCLOCK(true),
         TIER_SKIPS(false),
         HEAT(false),
         RECIPE_OVERRIDE(false),
-        /** Voltage, amperage, and EU taken once per start. */
+        /** The voltage, the amperage, amperage overclocks and the EU/t cap. */
         POWER(false);
 
         private final boolean settableInVariant;
@@ -126,7 +124,6 @@ public final class ProcessingSpec {
             this.settableInVariant = settableInVariant;
         }
 
-        /** Whether a {@link Builder#inMode} or {@link Builder#whenTier} variant may have a term for this quantity. */
         private boolean isSettableInVariant() {
             return settableInVariant;
         }
@@ -140,7 +137,7 @@ public final class ProcessingSpec {
     private static final ToLongFunction<ProcessingInputs> STANDARD_AMPERAGE = in -> in.isSingleRegularHatch() ? 1
         : in.amperage();
 
-    /** A formula and its tooltip lines. The lines are null where the formula is plain code. */
+    /** {@code lines} is null for a {@link Formula.Custom} formula. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
 
     private record Requirement(BiPredicate<ProcessingInputs, GTRecipe> met,
@@ -150,11 +147,11 @@ public final class ProcessingSpec {
     private record Variant(Predicate<ProcessingInputs> appliesTo, @Nullable String label, @Nullable Integer mode,
         ProcessingSpec terms) {}
 
-    /** The tooltip lines for one quantity of the spec. {@code complete} is false if a term has no lines. */
+    /** {@code complete} is false if a term of the quantity has no lines. */
     private record Described(List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
     private final List<Term> parallel;
-    /** The quantities with a single formula: the speed, the EU factors and the recipe EU/t multiplier. */
+    /** The quantities with a single formula: the speed and the two EU modifiers. */
     private final EnumMap<Quantity, Term> scalars;
     @Nullable
     private final OverclockRule overclock;
@@ -248,13 +245,11 @@ public final class ProcessingSpec {
         return inputs;
     }
 
-    /** Whether some terms differ by mode. If so, a planner must set the mode. */
     public boolean variesByMode() {
         for (Variant variant : variants) if (variant.mode != null) return true;
         return false;
     }
 
-    /** The machine's modes in mode button order, or none. */
     @Nonnull
     public List<MachineMode> getModes() {
         return modes;
@@ -289,11 +284,7 @@ public final class ProcessingSpec {
         return OptionalInt.of((int) low);
     }
 
-    /**
-     * The spec's numbers for the recipe at these inputs.
-     *
-     * @throws IllegalArgumentException if the inputs lack a kind the spec reads
-     */
+    /** @throws IllegalArgumentException if the inputs lack a kind the spec reads */
     @Nonnull
     public ResolvedRecipe resolve(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         for (ModifierKind kind : modifiers.keySet()) {
@@ -323,7 +314,7 @@ public final class ProcessingSpec {
     }
 
     /**
-     * The machine's run of the recipe, with unlimited inputs and output space.
+     * {@link ResolvedRecipe#calculate()} for the recipe at these inputs.
      *
      * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
@@ -366,7 +357,7 @@ public final class ProcessingSpec {
         return !(overclock instanceof OverclockRule.None);
     }
 
-    /** The spec's tier skips, else the calculator's default. {@link Integer#MAX_VALUE} for unlimited. */
+    /** @see OverclockCalculator#getMaxTierSkips */
     public int getMaxTierSkipsOrDefault() {
         return maxTierSkips.orElse(OverclockCalculator.DEFAULT_MAX_TIER_SKIPS);
     }
@@ -408,7 +399,6 @@ public final class ProcessingSpec {
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
-    /** The recipe the spec runs: a copy at the fixed cost, else the recipe itself. */
     private GTRecipe recipeAsRun(GTRecipe recipe, ProcessingInputs inputs) {
         if (recipeOverride == null) return recipe;
         GTRecipe copy = recipe.copy();
@@ -582,7 +572,6 @@ public final class ProcessingSpec {
 
         private Builder() {}
 
-        /** For kinds that plain functions read. {@link #reading} adds a {@link Formula}'s kinds. */
         private Builder reads(@Nonnull ModifierKind... kinds) {
             for (ModifierKind kind : kinds) {
                 if (kind != ModifierKind.VOLTAGE) this.reads.putIfAbsent(kind, null);
@@ -615,7 +604,7 @@ public final class ProcessingSpec {
                 tt -> tt.addStaticParallelInfo(parallel.getAsInt()));
         }
 
-        /** {@code parallel} per tier of {@code kind}. ULV is voltage tier 0. */
+        /** @see Formula.PerTier */
         public Builder parallelPerTier(int parallel, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
                 new Formula.PerTier(0, parallel, kind),
@@ -638,14 +627,14 @@ public final class ProcessingSpec {
         }
 
         /**
-         * {@code parallel} per voltage tier, counting ULV as LV. {@code parallelPerTier(parallel, VOLTAGE)} counts ULV
-         * as 0.
+         * {@code parallelPerTier(parallel, VOLTAGE)} counts ULV as 0.
+         *
+         * @see Formula.PerVoltageTier
          */
         public Builder parallelPerVoltageTier(int parallel) {
             return parallelTerm(new Formula.PerVoltageTier(parallel), tt -> tt.addVoltageParallelInfo(parallel));
         }
 
-        /** @param reads The kinds the function reads */
         public Builder parallel(@Nonnull ToIntFunction<ProcessingInputs> parallel, @Nonnull ModifierKind... reads) {
             return parallelTerm(new Formula.Custom(parallel::applyAsInt, Set.of(reads)), null);
         }
@@ -660,7 +649,6 @@ public final class ProcessingSpec {
             return scalar(Quantity.DURATION, new Formula.Constant(speed), tt -> tt.addStaticSpeedInfo((float) speed));
         }
 
-        /** @param reads The kinds the function reads */
         public Builder speed(@Nonnull ToDoubleFunction<ProcessingInputs> speed, @Nonnull ModifierKind... reads) {
             return scalar(Quantity.DURATION, new Formula.Custom(speed, Set.of(reads)), null);
         }
@@ -695,13 +683,11 @@ public final class ProcessingSpec {
                 tt -> tt.addStaticEuEffInfo((float) euModifier));
         }
 
-        /** @param reads The kinds the function reads */
         public Builder euModifier(@Nonnull ToDoubleFunction<ProcessingInputs> euModifier,
             @Nonnull ModifierKind... reads) {
             return scalar(Quantity.EU_MODIFIER, new Formula.Custom(euModifier, Set.of(reads)), null);
         }
 
-        /** @param reads The kinds the function reads */
         public Builder euModifierNotLimitingParallel(@Nonnull ToDoubleFunction<ProcessingInputs> euModifier,
             @Nonnull ModifierKind... reads) {
             return scalar(
@@ -715,7 +701,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Same as {@link OverclockCalculator#ofNoOverclock}. */
         public Builder noOverclock() {
             this.overclock = new OverclockRule.None();
             return this;
@@ -740,7 +725,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Replaces every recipe's cost. The Multi Smelter uses this. */
+        /** Replaces every recipe's cost. */
         public Builder recipeOverride(long eut, int duration) {
             this.recipeOverride = new RecipeOverride(eut, duration);
             return this;
@@ -775,7 +760,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The most EU/t a run draws, whatever its overclocks cost. */
+        /** @see Power#maxEuPerTick */
         public Builder maxEuPerTick(@Nonnull ToLongFunction<ProcessingInputs> maxEuPerTick) {
             this.maxEuPerTick = maxEuPerTick;
             return this;

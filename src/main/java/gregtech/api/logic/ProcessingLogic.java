@@ -309,7 +309,6 @@ public class ProcessingLogic {
         return this;
     }
 
-    /** Caps the spec's parallels at the power panel's limit. */
     public ProcessingLogic setParallelLimit(int parallelLimit) {
         this.parallelLimit = parallelLimit;
         return this;

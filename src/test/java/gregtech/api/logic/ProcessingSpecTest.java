@@ -66,7 +66,6 @@ class ProcessingSpecTest {
             .build();
     }
 
-    /** The common tooltip lines. */
     private static List<String> lines(ProcessingSpec spec) {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         spec.describe(tt);
