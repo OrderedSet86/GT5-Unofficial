@@ -586,7 +586,7 @@ public class ProcessingLogic {
     }
 
     private ResolvedRecipe resolveSpec(GTRecipe recipe) {
-        return spec.resolve(recipe, specInputs)
+        return spec.resolveInAnyMode(recipe, specInputs)
             .capParallel(parallelLimit);
     }
 

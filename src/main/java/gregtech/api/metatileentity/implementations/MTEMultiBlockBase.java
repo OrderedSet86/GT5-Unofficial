@@ -109,6 +109,7 @@ import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.logic.ProcessingRun;
@@ -215,7 +216,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     protected boolean usesTurbine = false;
     protected boolean canBeMuffled = true;
     protected boolean debugEnergyPresent = false;
-    private List<ProcessingInputs.EnergyHatch> energyHatchesForInspection;
     /** A pending IMMEDIATE recipe-check push (new inputs, drained output, user/structure change); never throttled. */
     protected boolean recipeCheckImmediately = false;
     /**
@@ -2121,26 +2121,40 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public RecipeMap<?> getRecipeMap() {
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? null : mode.recipeMap();
+    }
+
+    /** The mode the machine is in, or null without {@link #getMachineModes}. */
+    @Nullable
+    public final MachineMode getCurrentMachineMode() {
         List<MachineMode> modes = getMachineModes();
         if (modes.isEmpty()) return null;
         int mode = getMachineMode();
-        return modes.get(mode < modes.size() ? mode : 0)
-            .recipeMap();
+        return modes.get(mode >= 0 && mode < modes.size() ? mode : 0);
     }
 
-    public RecipeMap<?> getRecipeMapForMode(int mode) {
+    /** The mode that runs {@code recipeMap}, or -1 where no mode or several modes run it. */
+    public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
-        return modes.isEmpty() ? getRecipeMap()
-            : modes.get(mode)
-                .recipeMap();
+        int found = -1;
+        for (int mode = 0; mode < modes.size(); mode++) {
+            if (modes.get(mode)
+                .recipeMap() != recipeMap) continue;
+            if (found != -1) return -1;
+            found = mode;
+        }
+        return found;
     }
 
     /**
-     * In mode button order. The recipe map, mode count, names and icons follow from it. Return a static constant.
+     * In mode button order. The recipe map, mode count, names and icons follow from it. A machine with a
+     * {@link ProcessingSpec} declares its modes there, else it overrides this with a static constant.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
-        return Collections.emptyList();
+        ProcessingSpec spec = getProcessingSpec();
+        return spec == null ? Collections.emptyList() : spec.getModes();
     }
 
     @Nonnull
@@ -2173,13 +2187,34 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return null;
     }
 
+    /** @throws IllegalStateException if {@link #getSpecModifiers} and the spec name different kinds */
     @Nonnull
     public ProcessingInputs getCurrentProcessingSpecInputs() {
+        List<Modifier> modifiers = getSpecModifiers();
+        ProcessingSpec spec = getProcessingSpec();
+        if (spec != null) {
+            boolean same = modifiers.size() == spec.getModifiers()
+                .size();
+            for (Modifier modifier : modifiers) same &= spec.getModifiers()
+                .containsKey(modifier.kind);
+            if (!same) throw rejectModifiers(spec, modifiers);
+        }
         return ProcessingInputs.builder()
-            .energyHatches(energyHatchesForInspection != null ? energyHatchesForInspection : getSpecEnergyHatches())
+            .energyHatches(getSpecEnergyHatches())
             .mode(getMachineMode())
-            .modifiers(getSpecModifiers())
+            .modifiers(modifiers)
             .build();
+    }
+
+    private IllegalStateException rejectModifiers(ProcessingSpec spec, List<Modifier> modifiers) {
+        List<ModifierKind> kept = new ArrayList<>();
+        for (Modifier modifier : modifiers) kept.add(modifier.kind);
+        return new IllegalStateException(
+            getClass().getSimpleName() + " keeps modifiers "
+                + kept
+                + " but its spec reads "
+                + spec.getModifiers()
+                    .keySet());
     }
 
     /** The hatches {@link #getAverageInputVoltage()} and the other power getters read. */
@@ -2204,31 +2239,24 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For the conformance check, on a {@link #newMetaEntity} copy: the energy hatches the copy reads in place of the
-     * built ones.
-     */
-    public final void setEnergyHatchesForInspection(@Nonnull List<ProcessingInputs.EnergyHatch> hatches) {
-        this.energyHatchesForInspection = hatches;
-    }
-
-    /**
      * For the conformance check, on a {@link #newMetaEntity} copy: the recipe through the machine's own processing
-     * logic, which should match {@link ProcessingSpec#calculate}.
+     * logic at these inputs, which should match {@link ProcessingSpec#calculate}.
      *
      * @return null if the machine has no spec or no processing logic
      */
     @Nullable
-    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe) {
-        if (processingLogic == null || getProcessingSpec() == null) return null;
+    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+        ProcessingSpec spec = getProcessingSpec();
+        if (processingLogic == null || spec == null) return null;
         prepareForInspection();
         setupProcessingLogic(processingLogic);
+        processingLogic.setSpec(spec, inputs);
         return processingLogic.inspect(recipe);
     }
 
     /**
      * For the conformance check, on a {@link #newMetaEntity} copy: put the machine in the state it runs recipes in,
-     * such
-     * as past a start-up phase its spec models as a requirement.
+     * such as past a start-up phase its spec models as a requirement.
      */
     protected void prepareForInspection() {}
 
@@ -3400,9 +3428,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
      */
     public void setMachineModeIcons() {
-        for (MachineMode mode : getMachineModes()) {
-            if (mode.icon() != null) machineModeIcons.add(mode.icon());
-        }
+
     }
 
     /**
@@ -3435,10 +3461,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public String getMachineModeKey() {
-        List<MachineMode> modes = getMachineModes();
-        if (getMachineMode() < modes.size()) return modes.get(getMachineMode())
-            .nameKey();
-        return IControllerWithOptionalFeatures.super.getMachineModeKey();
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? IControllerWithOptionalFeatures.super.getMachineModeKey() : mode.nameKey();
     }
 
     @Override
@@ -3449,6 +3473,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public void setMachineMode(int index) {
+        // the GUI's mode sync accepts any int from the client
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty() && (index < 0 || index >= modes.size())) return;
         machineMode = index;
         // The machine is likely using a different recipemap now
         // Clear the cached recipe

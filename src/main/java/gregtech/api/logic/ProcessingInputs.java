@@ -67,17 +67,18 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of the summed hatch voltages, as parallels per voltage tier read it. */
+    /** The tier of {@link #maxInputVoltage()}, as parallels per voltage tier read it. */
     public int voltageTier() {
-        return GTUtility.getTier(totalVoltage());
+        return GTUtility.getTier(maxInputVoltage());
     }
 
     /** 0 without hatches. */
     public long averageVoltage() {
-        return energyHatches.isEmpty() ? 0 : totalVoltage() / energyHatches.size();
+        return energyHatches.isEmpty() ? 0 : maxInputVoltage() / energyHatches.size();
     }
 
-    public long totalVoltage() {
+    /** The hatch voltages summed, as {@code MTEMultiBlockBase.getMaxInputVoltage()} sums them. */
+    public long maxInputVoltage() {
         long voltage = 0;
         for (EnergyHatch hatch : energyHatches) voltage += hatch.voltage;
         return voltage;

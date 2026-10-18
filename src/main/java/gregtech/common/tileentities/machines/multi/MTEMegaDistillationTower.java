@@ -65,28 +65,28 @@ import gregtech.common.misc.GTStructureChannels;
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
-    private static final int MACHINEMODE_TOWER = 0;
-    private static final int MACHINEMODE_DISTILLERY = 1;
     private static final int MAX_LAYERS = 5;
-    private static final List<MachineMode> MODES = List.of(
-        MachineMode.of(RecipeMaps.distillationTowerRecipes)
-            .nameKey("GT5U.MDT.mode.0")
-            .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER),
-        MachineMode.of(RecipeMaps.distilleryRecipes)
-            .nameKey("GT5U.MDT.mode.1")
-            .guiIcon(OVERLAY_BUTTON_MACHINEMODE_DISTILLING));
+    private static final MachineMode TOWER = new MachineMode(
+        RecipeMaps.distillationTowerRecipes,
+        "GT5U.MDT.mode.0",
+        OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER);
+    private static final MachineMode DISTILLERY = new MachineMode(
+        RecipeMaps.distilleryRecipes,
+        "GT5U.MDT.mode.1",
+        OVERLAY_BUTTON_MACHINEMODE_DISTILLING);
+    private static final List<MachineMode> MODES = List.of(TOWER, DISTILLERY);
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .modes(MODES)
         // still worse than dangote but with laser
         .inMode(
-            MACHINEMODE_TOWER,
+            TOWER,
             mode -> mode.parallel(() -> Configuration.Multiblocks.megaMachinesMax)
                 .speed(1.5)
                 .euModifier(0.9))
         // make it compete with dangote somewhat. it will still be less eu efficient. numbers can be tweaked
         .inMode(
-            MACHINEMODE_DISTILLERY,
+            DISTILLERY,
             mode -> mode
                 // 512 - 1024 parallels min to max height
                 .parallel(
@@ -523,12 +523,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
     }
 
-    @Nonnull
-    @Override
-    public List<MachineMode> getMachineModes() {
-        return MODES;
-    }
-
     @Override
     public int getRecipeCatalystPriority() {
         return -1;
@@ -574,12 +568,12 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillery Mode")
             .addInfo("Outputs only one fluid in the first hatch")
-            .addProcessingSpecInfo(SPEC, MACHINEMODE_DISTILLERY)
+            .addProcessingSpecInfo(SPEC, DISTILLERY)
             .addSeparator()
             .addInfo(EnumChatFormatting.WHITE + "Distillation Tower Mode")
             .addInfo("Fluids are output one per layer based on the slot number in NEI")
             .addInfo("Increase the height to output more fluid types")
-            .addProcessingSpecInfo(SPEC, MACHINEMODE_TOWER)
+            .addProcessingSpecInfo(SPEC, TOWER)
             .addSeparator()
             .addSupportAny()
             .addProcessingSpecInfo(SPEC)

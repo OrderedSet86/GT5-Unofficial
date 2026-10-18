@@ -336,8 +336,6 @@ public class OverclockCalculator {
         return durationUnderOneTickSupplier.get();
     }
 
-    // region input getters
-
     /** @return The recipe's duration before overclocking. {@link #getDuration()} is the result after. */
     public int getRecipeDuration() {
         return duration;
@@ -403,8 +401,6 @@ public class OverclockCalculator {
     public double getHeatDiscountMultiplier() {
         return heatDiscountExponent;
     }
-
-    // endregion
 
     /** Call this when all values have been put it. */
     @Nonnull

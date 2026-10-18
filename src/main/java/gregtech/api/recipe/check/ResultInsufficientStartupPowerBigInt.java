@@ -69,4 +69,17 @@ public class ResultInsufficientStartupPowerBigInt implements CheckRecipeResult {
             required = buffer.readStringFromBuffer(32768);
         } catch (Exception ignored) {}
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ResultInsufficientStartupPowerBigInt that = (ResultInsufficientStartupPowerBigInt) o;
+        return required.equals(that.required);
+    }
+
+    @Override
+    public int hashCode() {
+        return required.hashCode();
+    }
 }

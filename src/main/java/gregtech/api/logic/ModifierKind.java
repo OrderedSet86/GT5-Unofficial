@@ -103,7 +103,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     /** A higher value makes the better machine, so a planner may start at the highest. */
     public final boolean ordered;
     @Nullable
-    private final ModifierRange range;
+    private final Range range;
     @Nullable
     private final LongFunction<String> labels;
     final int tierOffset;
@@ -113,14 +113,14 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         this.nameKey = builder.nameKey;
         this.source = builder.source;
         this.ordered = builder.ordered;
-        this.range = builder.hasRange ? new ModifierRange(this, builder.min, builder.max) : null;
+        this.range = builder.hasRange ? new Range(builder.min, builder.max) : null;
         this.labels = builder.labels;
         this.tierOffset = builder.tierOffset;
     }
 
     /** The values machines of this kind take, unless a spec sets a range. Null for kinds each machine ranges. */
     @Nullable
-    public ModifierRange getRange() {
+    public Range getRange() {
         return range;
     }
 
@@ -150,11 +150,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
-    }
-
-    @Nullable
-    public static ModifierKind byId(@Nonnull String id) {
-        return REGISTRY.get(id);
     }
 
     /** @param id Namespaced by mod, such as {@code "gregtech:coil"} */

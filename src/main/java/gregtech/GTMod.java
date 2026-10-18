@@ -66,7 +66,6 @@ import gregtech.api.enums.Mods;
 import gregtech.api.enums.OrePrefixes;
 import gregtech.api.enums.StoneType;
 import gregtech.api.gui.modularui.GTUIInfos;
-import gregtech.api.logic.ProcessingSpecs;
 import gregtech.api.metatileentity.BaseMetaPipeEntity;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.modularui2.GTGuiTheme;
@@ -629,7 +628,6 @@ public class GTMod {
         for (Runnable tRunnable : GregTechAPI.sGTCompleteLoad) {
             tRunnable.run();
         }
-        if (GTValues.DEVENV) ProcessingSpecs.check();
 
         if (!NewHorizonsCoreMod.isModLoaded()) {
             GT_FML_LOGGER.debug("stopping second buffering pass, likely a dev env.");

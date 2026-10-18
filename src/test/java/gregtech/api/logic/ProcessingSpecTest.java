@@ -10,7 +10,9 @@ import static org.mockito.Mockito.mock;
 import java.math.BigInteger;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.minecraft.util.EnumChatFormatting;
 
@@ -26,11 +28,10 @@ import gregtech.api.util.OverclockCalculator;
 
 class ProcessingSpecTest {
 
-    private static final List<MachineMode> TOWER_AND_DISTILLERY = List.of(
-        MachineMode.of(mock(RecipeMap.class))
-            .nameKey("Tower"),
-        MachineMode.of(mock(RecipeMap.class))
-            .nameKey("Distillery"));
+    private static final MachineMode TOWER = new MachineMode(mock(RecipeMap.class), "Tower", null);
+    private static final MachineMode DISTILLERY = new MachineMode(mock(RecipeMap.class), "Distillery", null);
+    private static final MachineMode ORE = new MachineMode(mock(RecipeMap.class), "Ore", null);
+    private static final List<MachineMode> TOWER_AND_DISTILLERY = List.of(TOWER, DISTILLERY);
 
     private static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("test:momentum")
         .source(ModifierKind.Source.RUNTIME)
@@ -44,6 +45,11 @@ class ProcessingSpecTest {
     private static final ModifierKind.IntKind CASING = ModifierKind.ofInt("test:casing")
         .range(0, 1)
         .labels(0, "Heat Resistant Casing", "Heat Proof Casing")
+        .register();
+    private static final ModifierKind.IntKind WIDE = ModifierKind.ofInt("test:wide")
+        .source(ModifierKind.Source.RUNTIME)
+        .ordered()
+        .range(1, Integer.MAX_VALUE)
         .register();
 
     private static ProcessingInputs inputs(int voltageTier, int coilTier) {
@@ -95,19 +101,6 @@ class ProcessingSpecTest {
             ProcessingSpec.builder()
                 .build()
                 .getMaxParallel(inputs(5, 3)));
-    }
-
-    @Test
-    void parallelPerTierMultipliesItsTiers() {
-        ProcessingSpec spec = ProcessingSpec.builder()
-            .parallelPerTier(6, ModifierKind.VOLTAGE, SOLENOID)
-            .build();
-        ProcessingInputs luv = ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LuV, 1)
-            .value(SOLENOID, VoltageIndex.LuV)
-            .build();
-
-        assertEquals(6 * 6 * 6, spec.getMaxParallel(luv));
     }
 
     @Test
@@ -219,7 +212,7 @@ class ProcessingSpecTest {
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
 
-        assertEquals(List.of(new ModifierRange(MOMENTUM, 0, 100)), spec.getModifiers());
+        assertEquals(Map.of(MOMENTUM, new ModifierKind.Range(0, 100)), spec.getModifiers());
         assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 200, 0), inputs(5, 3)));
         assertThrows(
             IllegalStateException.class,
@@ -261,12 +254,53 @@ class ProcessingSpecTest {
         assertEquals(OptionalInt.empty(), spec.lowestPassing(ModifierKind.COIL, recipe(120, 100, 99_999), mv));
     }
 
+    /** A runtime kind such as the Infinity electrode's parallel ranges up to Integer.MAX_VALUE. */
+    @Test
+    void aWideRangeIsSearchedInFewChecks() {
+        AtomicInteger checks = new AtomicInteger();
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(in -> 1, WIDE)
+            .requires((in, recipe) -> {
+                checks.incrementAndGet();
+                return in.value(WIDE) >= recipe.mSpecialValue;
+            }, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .build();
+        ProcessingInputs inputs = spec.bestInputs()
+            .energyHatches(VoltageIndex.LV, 1)
+            .build();
+
+        assertEquals(OptionalInt.of(1_000_000), spec.lowestPassing(WIDE, recipe(30, 100, 1_000_000), inputs));
+        assertTrue(checks.get() <= 2 * Integer.SIZE, checks + " checks for one search");
+        checks.set(0);
+        ProcessingSpec never = ProcessingSpec.builder()
+            .parallel(in -> 1, WIDE)
+            .requires((in, recipe) -> {
+                checks.incrementAndGet();
+                return false;
+            }, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .build();
+        assertEquals(OptionalInt.empty(), never.lowestPassing(WIDE, recipe(30, 100, 0), inputs));
+        assertTrue(checks.get() <= 2 * Integer.SIZE, checks + " checks for a recipe no value passes");
+    }
+
+    @Test
+    void onlyAnOrderedKindHasALowestPassingValue() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(in -> 1, CASING)
+            .build();
+        ProcessingInputs inputs = spec.bestInputs()
+            .energyHatches(VoltageIndex.LV, 1)
+            .build();
+
+        assertThrows(IllegalArgumentException.class, () -> spec.lowestPassing(CASING, recipe(30, 100, 0), inputs));
+    }
+
     @Test
     void aSpecWithModeTermsVariesByMode() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
             .parallel(16)
-            .inMode(1, mode -> mode.parallel(4))
+            .inMode(DISTILLERY, mode -> mode.parallel(4))
             .build();
 
         assertTrue(spec.variesByMode());
@@ -348,7 +382,7 @@ class ProcessingSpecTest {
     @Test
     void calculateFollowsTheParallelAndOverclockLimits() {
         ProcessingSpec forgeHammer = ProcessingSpec.builder()
-            .parallelPerTier(6, ModifierKind.VOLTAGE, SOLENOID)
+            .parallel(in -> 6 * in.voltageTier() * in.value(SOLENOID), SOLENOID)
             .speed(2)
             .euModifier(1)
             .build();
@@ -396,7 +430,7 @@ class ProcessingSpecTest {
             .modes(TOWER_AND_DISTILLERY)
             .parallel(4)
             .inMode(
-                1,
+                DISTILLERY,
                 mode -> mode.parallel(8)
                     .speed(2))
             .build();
@@ -411,7 +445,7 @@ class ProcessingSpecTest {
 
         assertEquals(1, lines(spec).size(), "the spec's own line: a mode's lines go in its own section");
         MultiblockTooltipBuilder distillery = new MultiblockTooltipBuilder();
-        spec.describeMode(distillery, 1);
+        spec.describeMode(distillery, DISTILLERY);
         assertEquals(
             2,
             distillery.getInfoLines()
@@ -423,13 +457,13 @@ class ProcessingSpecTest {
         assertThrows(
             IllegalStateException.class,
             () -> ProcessingSpec.builder()
-                .inMode(1, mode -> mode.parallel(8))
+                .inMode(DISTILLERY, mode -> mode.parallel(8))
                 .build());
         assertThrows(
-            IllegalStateException.class,
+            IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .modes(TOWER_AND_DISTILLERY)
-                .inMode(2, mode -> mode.parallel(8))
+                .inMode(ORE, mode -> mode.parallel(8))
                 .build());
     }
 
@@ -490,11 +524,13 @@ class ProcessingSpecTest {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
-                .inMode(0, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(TOWER, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
-                .inMode(0, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(TOWER, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
     }
 
     @Test
@@ -572,7 +608,7 @@ class ProcessingSpecTest {
     void aRecipeEuMultiplierMakesTheRecipeAskForMore() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(1, mode -> mode.recipeEuMultiplier(16))
+            .inMode(DISTILLERY, mode -> mode.recipeEuMultiplier(16))
             .requires(
                 (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
                 (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
@@ -649,18 +685,28 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void anUnsupportedModeIsNotCalculated() {
+    void aModeOutsideRecipeProcessingIsNotCalculated() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .unsupportedInMode(2)
+            .modes(List.of(TOWER, DISTILLERY, ORE))
+            .notCalculatedIn(ORE)
             .build();
 
-        assertTrue(spec.supportsMode(0));
-        assertFalse(spec.supportsMode(2));
+        assertTrue(spec.calculates(0));
+        assertFalse(spec.calculates(2));
         assertTrue(
             spec.calculate(recipe(30, 100, 0), inMode(0))
                 .result()
                 .wasSuccessful());
         assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
+        assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 100, 0), inMode(2)));
+    }
+
+    @Test
+    void aModeIsListedOnce() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .modes(List.of(TOWER, TOWER)));
     }
 
     @Test
@@ -748,15 +794,15 @@ class ProcessingSpecTest {
         ProcessingSpec spec = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
             .unlimitedTierSkips()
-            .inMode(0, mode -> mode.parallel(4))
+            .inMode(TOWER, mode -> mode.parallel(4))
             .inMode(
-                1,
+                DISTILLERY,
                 mode -> mode.parallel(8)
                     .speed(2))
             .build();
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
 
-        spec.describeMode(tt, 1);
+        spec.describeMode(tt, DISTILLERY);
         assertEquals(
             2,
             tt.getInfoLines()
@@ -773,7 +819,7 @@ class ProcessingSpecTest {
             tt.getInfoLines()
                 .size(),
             "describe adds the tier skips line, not the modes");
-        assertThrows(IllegalArgumentException.class, () -> spec.describeMode(new MultiblockTooltipBuilder(), 2));
+        assertThrows(IllegalArgumentException.class, () -> spec.describeMode(new MultiblockTooltipBuilder(), ORE));
     }
 
     @Test
@@ -810,11 +856,11 @@ class ProcessingSpecTest {
     void aTermThatDiffersByModeNeedsATooltipToo() {
         ProcessingSpec undescribed = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(1, mode -> mode.parallel(in -> 3))
+            .inMode(DISTILLERY, mode -> mode.parallel(in -> 3))
             .build();
         ProcessingSpec coveredForEveryMode = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(1, mode -> mode.parallel(in -> 3))
+            .inMode(DISTILLERY, mode -> mode.parallel(in -> 3))
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
 
@@ -825,7 +871,8 @@ class ProcessingSpecTest {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
-                .inMode(1, mode -> mode.maxTierSkips(2)));
+                .modes(TOWER_AND_DISTILLERY)
+                .inMode(DISTILLERY, mode -> mode.maxTierSkips(2)));
     }
 
     /** As the steam multiblocks: nothing to say about no overclocks and no tier skips. */
@@ -892,9 +939,7 @@ class ProcessingSpecTest {
     @Test
     void recipeCostTermsWriteALine() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .recipeOverride(
-                ProcessingSpec.RecipeOverride.eut(4)
-                    .duration(128))
+            .recipeOverride(4, 128)
             .recipeEuMultiplier(16)
             .build();
 
