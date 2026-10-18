@@ -37,7 +37,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         RUNTIME
     }
 
-    /** Tiers and counts. */
     public static final class IntKind extends ModifierKind {
 
         private IntKind(Builder<IntKind> builder) {
@@ -198,7 +197,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
             return this;
         }
 
-        /** {@link Source#STRUCTURE} unless set. */
         public Builder<K> source(@Nonnull Source source) {
             this.source = source;
             return this;

@@ -52,7 +52,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             eu);
     }
 
-    /** The recipe with at most {@code limit} parallels, and at least 1, for the power panel's or a planner's cap. */
+    /** At most {@code limit} parallels, and at least 1. */
     @Nonnull
     public ResolvedRecipe capParallel(int limit) {
         return limit >= maxParallel ? this : withMaxParallel(Math.max(1, limit));
@@ -109,7 +109,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             .setEUtModifier(euModifier);
     }
 
-    /** The run with unlimited inputs and output space. Planners use this. */
+    /** The run with unlimited inputs and output space. */
     @Nonnull
     public ProcessingRun calculate() {
         return calculate(toCalculator());

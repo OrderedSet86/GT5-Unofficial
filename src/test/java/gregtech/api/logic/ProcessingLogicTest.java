@@ -89,7 +89,6 @@ class ProcessingLogicTest {
             ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)));
     }
 
-    /** The scanner prints this voltage. */
     @Test
     void theHighestRecipeVoltageFollowsTheSpec() {
         ProcessingLogic logic = new ProcessingLogic().setAvailableVoltage(32)
