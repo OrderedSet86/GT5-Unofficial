@@ -1,7 +1,6 @@
 package gregtech.api.logic;
 
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -22,9 +21,9 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * The getter and setter of one machine's value for a {@link ModifierKind}. The machine's spec inputs read it, and the
- * conformance check sets it on a copy of the machine. Planners read the kinds and ranges from
- * {@link ProcessingSpec#getModifiers()}. An {@link Of} constant is also the structure element that sets the value:
+ * The getter and setter of one machine's value for a {@link ModifierKind}. The machine's spec inputs read the value,
+ * and the conformance test writes it on a copy of the machine. Planners read the kinds and ranges from
+ * {@link ProcessingSpec#getModifiers()}. An {@link Of} constant is also the structure element that writes the value:
  * {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
@@ -61,7 +60,7 @@ public final class Modifier {
         return getter.getAsLong();
     }
 
-    /** As the structure check would set it. Machine code must not call this. */
+    /** Writes the value in place of the structure check. Machine code must not call this. */
     public void set(long value) {
         setter.accept(value);
     }
@@ -80,34 +79,19 @@ public final class Modifier {
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /** -1 until the structure check sets it. */
+    /** -1 until a structure check writes it. */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
-        return tiered(
-            ModifierKind.ITEM_PIPE_CASING,
-            getter,
-            setter,
-            (set, get) -> GTStructureUtility.chainItemPipeCasings(-1, set, get));
-    }
-
-    /**
-     * @param element Wrap it in {@code lazy} if it refers to blocks, which may not exist yet when the machine class
-     *                loads
-     */
-    @Nonnull
-    private static <T> Of<T, Integer> tiered(@Nonnull ModifierKind.IntKind kind, @Nonnull Function<T, Integer> getter,
-        @Nonnull BiConsumer<T, Integer> setter,
-        @Nonnull BiFunction<BiConsumer<T, Integer>, Function<T, Integer>, IStructureElement<T>> element) {
-        ModifierKind.Range range = kind.getRange();
-        int absent = range == null ? -1 : (int) range.min() - 1;
+        int absent = (int) ModifierKind.ITEM_PIPE_CASING.getRange()
+            .min() - 1;
         return new Of<>(
-            kind,
+            ModifierKind.ITEM_PIPE_CASING,
             getter,
             setter,
             tier -> tier == null ? absent : tier,
             tier -> tier,
-            element.apply(setter, getter));
+            GTStructureUtility.chainItemPipeCasings(-1, setter, getter));
     }
 
     /** Bound to one machine with {@link #of}. */

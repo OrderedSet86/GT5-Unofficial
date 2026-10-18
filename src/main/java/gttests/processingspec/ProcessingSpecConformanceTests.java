@@ -26,14 +26,17 @@ import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
-/** That each registered multiblock with a {@link ProcessingSpec} runs recipes as its spec says. */
+/**
+ * Checks every registered multiblock with a {@link ProcessingSpec}: its tooltip has a line for each number of the spec,
+ * and its recipe runs match {@link ProcessingSpec#calculate}.
+ */
 @GameTestHolder(Mods.ModIDs.GREG_TECH)
 public class ProcessingSpecConformanceTests {
 
     private static final int SAMPLE_RECIPES = 8;
 
     /** @param machine The prototype, for its name, modes and recipe maps. Do not change it. */
-    record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
+    private record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
 
     @GameTest(batch = "gt5.spec.checks")
     public static void machinesRunAsTheirSpecsSay(GameTestHelper helper) {
@@ -43,7 +46,7 @@ public class ProcessingSpecConformanceTests {
         helper.succeed();
     }
 
-    static Stream<Entry> all() {
+    private static Stream<Entry> all() {
         return Arrays.stream(GregTechAPI.METATILEENTITIES)
             .filter(MTEMultiBlockBase.class::isInstance)
             .map(MTEMultiBlockBase.class::cast)
@@ -55,7 +58,9 @@ public class ProcessingSpecConformanceTests {
             .filter(Objects::nonNull);
     }
 
-    /** Tooltips missing a number their spec sets, and machines that run a recipe differently from their spec. */
+    /**
+     * The machine's problems: a number of the spec with no tooltip line, and a recipe run that differs from the spec's.
+     */
     private static List<String> problems(Entry entry) {
         List<String> problems = new ArrayList<>();
         String name = entry.machine()
@@ -65,24 +70,25 @@ public class ProcessingSpecConformanceTests {
             .getUndescribed()
             .isEmpty()) {
             problems.add(
-                name + " sets "
+                name + " has no tooltip line for "
                     + entry.spec()
                         .getUndescribed()
-                    + " but its tooltip does not show them; use a term that describes itself,"
-                    + " customTooltip or noTooltip");
+                    + ". Use a Formula term, customTooltip or noTooltip");
         }
+        // a machine that throws is one problem, and the remaining machines are still checked
         try {
             String run = findRunDifference(entry);
             if (run != null) problems.add(name + " runs a recipe differently from its spec: " + run);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException e) { // noqa: NAR142
             problems.add(name + " cannot be inspected without a world: " + e);
         }
         return problems;
     }
 
     /**
-     * On a copy of the machine with every modifier at the top of its range, in every mode the spec calculates, over
-     * sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
+     * The first difference between the machine's run and the spec's, or null. The machine is a copy with every modifier
+     * at the top of its range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn}, over sampled
+     * recipes and energy hatches. Machines without processing logic are only checked to evaluate.
      */
     @Nullable
     private static String findRunDifference(Entry entry) {

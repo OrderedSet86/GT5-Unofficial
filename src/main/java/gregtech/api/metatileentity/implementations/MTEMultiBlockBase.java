@@ -2162,9 +2162,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The machine's modes, in mode button order. The recipe map, mode count, names and icons are read from this list. A
-     * machine with a {@link ProcessingSpec} declares its modes there. Any other machine overrides this with a static
-     * constant. The mode getters call this on each use.
+     * The machine's modes, in mode button order. The recipe map, mode count, names and icons are read from this list.
+     * With a {@link ProcessingSpec}, the modes are the spec's. Without one, override this to return a static constant.
+     * The mode getters call this on each use.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
@@ -2254,8 +2254,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For the conformance check, on a {@link #newMetaEntity} copy: the recipe through the machine's own processing
-     * logic at these inputs, which should match {@link ProcessingSpec#calculate}.
+     * For the conformance test, on a {@link #newMetaEntity} copy: the recipe through the machine's processing logic at
+     * these inputs. The result should match {@link ProcessingSpec#calculate}.
      *
      * @return null if the machine has no spec or no processing logic
      */
@@ -2276,9 +2276,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     protected void prepareForInspection() {}
 
     /**
-     * Where the machine keeps the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the
-     * conformance check sets them on a {@link #newMetaEntity} copy. Planners read the kinds from
-     * {@link ProcessingSpec#getModifiers} instead.
+     * The machine's fields for the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the
+     * conformance test writes them on a {@link #newMetaEntity} copy. Planners read the kinds from
+     * {@link ProcessingSpec#getModifiers}.
      */
     @Nonnull
     public List<Modifier> getSpecModifiers() {
