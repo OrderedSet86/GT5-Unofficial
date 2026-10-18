@@ -10,13 +10,12 @@ import gregtech.api.util.GTUtility;
 
 /**
  * One number of a {@link ProcessingSpec}, in a form planners and tooltips can read: the kinds it reads, and a shape
- * for the tooltip line. Speed formulas return speeds: 2.5 is 250%.
+ * for the tooltip line.
  */
 public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 
-    /** The kinds the formula reads. The caller of a {@link Custom} formula passes the kinds. */
     @Nonnull
     Set<ModifierKind> reads();
 
@@ -34,7 +33,6 @@ public sealed interface Formula {
         }
     }
 
-    /** Read on every use, such as a config value. */
     record Supplied(@Nonnull DoubleSupplier value) implements Formula {
 
         @Override

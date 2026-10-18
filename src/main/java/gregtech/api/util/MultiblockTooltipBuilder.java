@@ -429,7 +429,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the spec's lines for one machine mode, for that mode's section of the tooltip. */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec, MachineMode mode) {
         spec.describeMode(this, mode);
         return this;
