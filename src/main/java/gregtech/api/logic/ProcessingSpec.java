@@ -161,7 +161,7 @@ public final class ProcessingSpec {
     private record Described(boolean readsRecipe, List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
     private final List<ParallelTerm> parallel;
-    /** The quantities with a single formula: the speed and the two EU modifiers. */
+    /** The quantities with a single formula: the speed, the two EU modifiers and the recipe EU/t multiplier. */
     private final EnumMap<Quantity, Term> scalars;
     @Nullable
     private final OverclockRule overclock;
