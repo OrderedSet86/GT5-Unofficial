@@ -62,13 +62,13 @@ class ModifierTest {
     @Test
     void thePipeCasingRangeIsTheCasingList() {
         assertEquals(
-            new ModifierRange(ModifierKind.PIPE_CASING, 1, GTStructureUtility.PIPE_CASING_TIERS),
+            new ModifierKind.Range(1, GTStructureUtility.PIPE_CASING_TIERS),
             ModifierKind.PIPE_CASING.getRange());
     }
 
     @Test
     void theItemPipeRangeIsTheCasingList() {
-        ModifierRange range = ModifierKind.ITEM_PIPE_CASING.getRange();
+        ModifierKind.Range range = ModifierKind.ITEM_PIPE_CASING.getRange();
 
         assertEquals(1, range.min());
         assertEquals(GTStructureUtility.ITEM_PIPE_CASING_TIERS, range.max());
@@ -123,7 +123,9 @@ class ModifierTest {
 
     @Test
     void kindsAreRegisteredOnceById() {
-        assertSame(PRESSURE, ModifierKind.byId("test:pressure"));
+        assertTrue(
+            ModifierKind.all()
+                .contains(PRESSURE));
         assertTrue(
             ModifierKind.all()
                 .contains(ModifierKind.COIL));

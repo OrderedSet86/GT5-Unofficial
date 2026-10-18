@@ -50,6 +50,18 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         }
     }
 
+    /** The values a machine takes for a kind, both ends included. */
+    public record Range(long min, long max) {
+
+        public Range {
+            if (min > max) throw new IllegalArgumentException("min " + min + " > max " + max);
+        }
+
+        public boolean contains(long value) {
+            return value >= min && value <= max;
+        }
+    }
+
     private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
 
     /** Read from the energy hatches, so never given as a value. */
@@ -95,7 +107,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     /** A higher value makes the better machine, so a planner may start at the highest. */
     public final boolean ordered;
     @Nullable
-    private final ModifierRange range;
+    private final Range range;
     @Nullable
     private final LongFunction<String> labels;
     final int tierOffset;
@@ -105,14 +117,14 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         this.nameKey = builder.nameKey;
         this.source = builder.source;
         this.ordered = builder.ordered;
-        this.range = builder.hasRange ? new ModifierRange(this, builder.min, builder.max) : null;
+        this.range = builder.hasRange ? new Range(builder.min, builder.max) : null;
         this.labels = builder.labels;
         this.tierOffset = builder.tierOffset;
     }
 
     /** The values machines of this kind take, unless a spec sets a range. Null for kinds each machine ranges. */
     @Nullable
-    public ModifierRange getRange() {
+    public Range getRange() {
         return range;
     }
 
@@ -142,11 +154,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
-    }
-
-    @Nullable
-    public static ModifierKind byId(@Nonnull String id) {
-        return REGISTRY.get(id);
     }
 
     /** @param id Namespaced by mod, such as {@code "gregtech:coil"} */

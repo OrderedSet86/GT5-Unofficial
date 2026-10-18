@@ -2,12 +2,17 @@ package gregtech.api.logic;
 
 import static gregtech.api.logic.TestRecipes.recipe;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+import java.math.BigInteger;
 
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
+import gregtech.api.util.ParallelHelper;
 
 class ProcessingLogicTest {
 
@@ -28,6 +33,32 @@ class ProcessingLogicTest {
             .inspect(recipe);
 
         assertEquals(SPEC.calculate(recipe, LUV), machine);
+    }
+
+    /** The conformance check compares inspect() with the spec, so a hook that changes a number shows. */
+    @Test
+    void aHookThatChangesANumberMakesTheRunDiffer() {
+        GTRecipe recipe = recipe(30, 200, 0);
+        ProcessingLogic halved = new ProcessingLogic() {
+
+            @Override
+            protected double calculateDuration(GTRecipe run, ParallelHelper helper, OverclockCalculator calculator) {
+                return super.calculateDuration(run, helper, calculator) / 2;
+            }
+        };
+
+        assertNotEquals(
+            SPEC.calculate(recipe, LUV),
+            halved.setSpec(SPEC, LUV)
+                .inspect(recipe));
+    }
+
+    /** Fusion's start-up failure is a new result on each side of the conformance check. */
+    @Test
+    void twoFailuresForTheSameStartupCostAreTheSameRun() {
+        assertEquals(
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)),
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)));
     }
 
     /** As the scanner prints it. */
