@@ -21,8 +21,9 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * The getter and setter of one machine's value for a {@link ModifierKind}. The machine's spec inputs read the value,
- * and the conformance test writes it on a copy of the machine. Planners read the kinds and ranges from
+ * The getter and setter of one machine's value for a {@link ModifierKind}.
+ * {@link MTEMultiBlockBase#getCurrentProcessingSpecInputs} calls the getter, and the conformance test calls the setter
+ * on a copy of the machine. Planners read the kinds and ranges from
  * {@link ProcessingSpec#getModifiers()}. An {@link Of} constant is also the structure element that writes the value:
  * {@code .addElement('C', COIL)}.
  */
@@ -66,7 +67,7 @@ public final class Modifier {
         return getter.getAsLong();
     }
 
-    /** Writes the value in place of the structure check. Machine code must not call this. */
+    /** Sets the value without a structure check. Machine code must not call this. */
     public void set(long value) {
         setter.accept(value);
     }
@@ -85,7 +86,7 @@ public final class Modifier {
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
 
-    /** -1 until a structure check writes it. */
+    /** The getter returns -1 before the first structure check. */
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {

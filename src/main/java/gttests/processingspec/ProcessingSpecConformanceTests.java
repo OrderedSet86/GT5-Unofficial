@@ -107,7 +107,8 @@ public class ProcessingSpecConformanceTests {
             if (modes > 1) machine.setMachineMode(mode);
             for (GTRecipe recipe : sample(machine.getRecipeMap())) {
                 for (List<ProcessingInputs.EnergyHatch> hatches : energySamples()) {
-                    // as a planner does, from the declared kinds alone: throws if a function reads another
+                    // planner-style inputs from the declared kinds alone. calculate() throws if a function reads an
+                    // undeclared kind
                     spec.calculate(
                         recipe,
                         spec.bestInputs()

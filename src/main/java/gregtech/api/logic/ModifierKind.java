@@ -44,7 +44,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
             super(builder);
         }
 
-        /** The tier as per-tier terms and their tooltips count it. */
+        /** The tier that per-tier terms and their tooltips use: {@code value} plus the kind's tier offset. */
         public int countedTier(int value) {
             return value + super.tierOffset;
         }
@@ -73,7 +73,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     // register() adds kinds while the machine classes load
     private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
 
-    /** Its value is the energy hatches' voltage tier. {@link ProcessingInputs} takes no value for it. */
+    /** The voltage tier of the energy hatches. {@link ProcessingInputs.Builder#value} rejects this kind. */
     public static final IntKind VOLTAGE = ofInt("gregtech:voltage").name("GT5U.MBTT.Tiers.Voltage")
         .source(Source.ENERGY)
         .ordered()
@@ -113,7 +113,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     public final String nameKey;
     @Nonnull
     public final Source source;
-    /** The machine is better at a higher value, so a planner may start at the highest. */
+    /** Machines are better at higher values. A planner may start at the highest. */
     public final boolean ordered;
     @Nullable
     private final Range range;
@@ -132,7 +132,8 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     }
 
     /**
-     * The values machines of this kind take, where the spec has no range for it. Null for a kind ranged per machine.
+     * The values machines of this kind take, or null for a kind ranged per machine. A spec's
+     * {@link ProcessingSpec.Builder#range} replaces this range.
      */
     @Nullable
     public Range getRange() {

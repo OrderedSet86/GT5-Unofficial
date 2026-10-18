@@ -240,7 +240,7 @@ class ProcessingSpecTest {
         assertEquals(32, spec.getMaxParallel(best));
     }
 
-    /** As a planner picks the coil for an EBF recipe. */
+    /** A planner picking the coil for an EBF recipe. */
     @Test
     void theLowestPassingValueMeetsTheRequirements() {
         ProcessingSpec spec = ProcessingSpec.builder()
@@ -311,7 +311,7 @@ class ProcessingSpecTest {
                 .variesByMode());
     }
 
-    /** As the steam multiblocks run. */
+    /** Modelled on the steam multiblocks. */
     @Test
     void noOverclockRunsAtTheRecipesOwnVoltageWithItsCost() {
         OverclockCalculator planned = ProcessingSpec.builder()
@@ -329,7 +329,7 @@ class ProcessingSpecTest {
         assertEquals(16 * 2.5 * 8, planned.getConsumption());
     }
 
-    /** As PlanNH's manual rows: a planner changes one calculator setting and keeps the rest of the spec. */
+    /** Modelled on PlanNH's manual rows: a planner changes one calculator setting and keeps the rest of the spec. */
     @Test
     void aPlannerCanChangeOneCalculatorSetting() {
         ResolvedRecipe resolved = ProcessingSpec.builder()
@@ -876,7 +876,7 @@ class ProcessingSpecTest {
                 .inMode(DISTILLERY, mode -> mode.maxTierSkips(2)));
     }
 
-    /** As the steam multiblocks: nothing to say about no overclocks and no tier skips. */
+    /** Modelled on the steam multiblocks: no overclocks and no tier skips, and no tooltip line for either. */
     @Test
     void defaultsNeedNoTooltip() {
         ProcessingSpec spec = ProcessingSpec.builder()
@@ -913,7 +913,7 @@ class ProcessingSpecTest {
         assertEquals(2, lines(capped).size());
     }
 
-    /** As the EBF. */
+    /** Modelled on the EBF. */
     @Test
     void coilHeatWritesItsVoltageBonusAndItsRules() {
         ProcessingSpec spec = ProcessingSpec.builder()
@@ -936,7 +936,7 @@ class ProcessingSpecTest {
         assertEquals(4, lines(spec).size(), "the coils, the voltage bonus, the discount and the overclock");
     }
 
-    /** As the Multi Smelter and the Arc Furnace's blast mode. */
+    /** Modelled on the Multi Smelter and the Arc Furnace's blast mode. */
     @Test
     void recipeCostTermsWriteALine() {
         ProcessingSpec spec = ProcessingSpec.builder()
@@ -967,7 +967,7 @@ class ProcessingSpecTest {
         assertEquals(List.of("block"), lines(spec));
     }
 
-    /** As the Centrifuge's momentum. */
+    /** Modelled on the Centrifuge's momentum. */
     @Test
     void risingTermsSpanTheirRange() {
         ProcessingSpec spec = ProcessingSpec.builder()
@@ -991,7 +991,7 @@ class ProcessingSpecTest {
             .build();
     }
 
-    /** {@code ProcessingSpec.sets()}, which is private. */
+    /** Calls the private {@code ProcessingSpec.sets()}. */
     private static boolean sets(ProcessingSpec spec, ProcessingSpec.Quantity quantity)
         throws ReflectiveOperationException {
         Method sets = ProcessingSpec.class.getDeclaredMethod("sets", ProcessingSpec.Quantity.class);

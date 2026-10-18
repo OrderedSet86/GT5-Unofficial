@@ -302,7 +302,7 @@ public class ProcessingLogic {
 
     /**
      * Runs every recipe through the spec at these inputs, in place of the power, parallel, speed, EU and overclock
-     * setters. Call it at every recipe check. The setters, and fields the hooks change, are then ignored.
+     * setters. Call this at every recipe check. The setters, and fields the hooks change, are then ignored.
      */
     public ProcessingLogic setSpec(@Nonnull ProcessingSpec spec, @Nonnull ProcessingInputs inputs) {
         this.spec = spec;
@@ -591,8 +591,9 @@ public class ProcessingLogic {
     }
 
     /**
-     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' as they are now. A
-     * hook such as {@link #validateRecipe} may have just written to the setters' fields.
+     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' current values. A
+     * hook
+     * such as {@link #validateRecipe} may have just changed those values.
      */
     @Nonnull
     protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {

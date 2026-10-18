@@ -2137,7 +2137,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The mode the machine is in, or null where {@link #getMachineModes} is empty. For a saved index out of range, this
+     * The mode the machine is in, or null if {@link #getMachineModes} is empty. For a saved index out of range, this
      * returns the first mode.
      */
     @Nullable
@@ -2148,7 +2148,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return modes.get(index >= 0 && index < modes.size() ? index : 0);
     }
 
-    /** The index of the mode with {@code recipeMap}, or -1 where no mode or several modes have it. */
+    /** The index of the only mode with {@code recipeMap}, or -1 if there is none or more than one. */
     public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
         int found = -1;
@@ -2193,7 +2193,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Return a static constant, so planners can read it from the prototype.
+     * Return a static constant. Planners read the spec from the prototype.
      *
      * @return null if the machine computes its numbers in code
      */
@@ -2276,9 +2276,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     protected void prepareForInspection() {}
 
     /**
-     * The machine's fields for the values its spec reads. {@link #getCurrentProcessingSpecInputs} reads them, and the
-     * conformance test writes them on a {@link #newMetaEntity} copy. Planners read the kinds from
-     * {@link ProcessingSpec#getModifiers}.
+     * The getters and setters of the values the machine's spec reads. {@link #getCurrentProcessingSpecInputs} calls the
+     * getters, and the conformance test calls the setters on a {@link #newMetaEntity} copy. Planners read the kinds
+     * from {@link ProcessingSpec#getModifiers}.
      */
     @Nonnull
     public List<Modifier> getSpecModifiers() {

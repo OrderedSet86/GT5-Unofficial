@@ -20,7 +20,7 @@ import gregtech.api.util.GTUtility;
 public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mode,
     @Nonnull Map<ModifierKind, Long> values) {
 
-    /** One energy hatch, as the machine's power getters read it. */
+    /** One energy hatch, with the numbers the machine's power getters read. */
     public record EnergyHatch(long voltage, long amperage, boolean exotic) {
 
         /** An invalid hatch: the average voltage counts it, the amperage and EU sums do not. */
@@ -75,7 +75,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of {@link #maxInputVoltage()}, as parallels per voltage tier read it. */
+    /** The tier of {@link #maxInputVoltage()}. Parallels per voltage tier read this tier. */
     public int voltageTier() {
         return GTUtility.getTier(maxInputVoltage());
     }
@@ -85,7 +85,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return energyHatches.isEmpty() ? 0 : maxInputVoltage() / energyHatches.size();
     }
 
-    /** The hatch voltages summed, as {@code MTEMultiBlockBase.getMaxInputVoltage()} sums them. */
+    /** The sum of the hatch voltages. {@code MTEMultiBlockBase.getMaxInputVoltage()} returns the same sum. */
     public long maxInputVoltage() {
         long voltage = 0;
         for (EnergyHatch hatch : energyHatches) voltage += hatch.voltage;
@@ -106,7 +106,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return eu;
     }
 
-    /** A standard multiblock uses 1 A of such a hatch's 2 A. */
+    /** A standard multiblock uses 1 A of a lone regular hatch's 2 A. */
     public boolean isSingleRegularHatch() {
         return energyHatches.size() == 1 && !energyHatches.get(0).exotic;
     }
@@ -154,10 +154,14 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        /** @throws IllegalArgumentException for {@link ModifierKind#VOLTAGE}. Add energy hatches for it */
+        /**
+         * @throws IllegalArgumentException for {@link ModifierKind#VOLTAGE}. The voltage tier is read from the energy
+         *                                  hatches
+         */
         public Builder value(@Nonnull ModifierKind.IntKind kind, int value) {
             if (kind == ModifierKind.VOLTAGE) {
-                throw new IllegalArgumentException("no value for the voltage tier. Add energy hatches");
+                throw new IllegalArgumentException(
+                    "the voltage tier is read from the energy hatches. Add them with energyHatch()");
             }
             this.values.put(kind, (long) value);
             return this;
