@@ -20,7 +20,7 @@ import gregtech.api.util.tooltip.TooltipHelper;
 
 /**
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
- * constants here. A kind only one machine has is registered in its class.
+ * constants here. A kind only one machine has is registered in that machine's class.
  * <p>
  * The class is sealed over the value type. A consumer's switch over the kinds with no default arm then stops compiling
  * when a new value type is added.
@@ -154,7 +154,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         return id;
     }
 
-    /** Complete only once the machine classes are loaded. A kind only one machine uses is registered in its class. */
+    /** Complete only after every machine class has loaded and registered its kinds. */
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
@@ -211,7 +211,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
             return this;
         }
 
-        /** Added to a value where per-tier terms count tiers: 1 for coils, whose tier 0 is Cupronickel. */
+        /** Added to a value in per-tier terms: 1 for coils, whose tier 0 is Cupronickel. */
         private Builder<K> tierOffset(int tierOffset) {
             this.tierOffset = tierOffset;
             return this;

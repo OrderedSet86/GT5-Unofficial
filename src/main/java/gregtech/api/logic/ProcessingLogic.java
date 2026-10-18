@@ -592,8 +592,7 @@ public class ProcessingLogic {
 
     /**
      * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' current values. A
-     * hook
-     * such as {@link #validateRecipe} may have just changed those values.
+     * hook such as {@link #validateRecipe} may have just changed those values.
      */
     @Nonnull
     protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {

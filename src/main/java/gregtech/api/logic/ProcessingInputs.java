@@ -69,7 +69,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of {@link #maxInputVoltage()}. Parallels per voltage tier read this tier. */
+    /** The tier of {@link #maxInputVoltage()}. The per-voltage-tier parallel formulas take this tier. */
     public int voltageTier() {
         return GTUtility.getTier(maxInputVoltage());
     }

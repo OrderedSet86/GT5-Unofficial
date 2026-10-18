@@ -21,9 +21,8 @@ import gregtech.common.misc.GTStructureChannels;
 /**
  * The getter and setter of one machine's value for a {@link ModifierKind}.
  * {@link MTEMultiBlockBase#getCurrentProcessingSpecInputs} calls the getter, and the conformance test calls the setter
- * on a copy of the machine. Planners read the kinds and ranges from
- * {@link ProcessingSpec#getModifiers()}. An {@link Of} constant is also the structure element that writes the value:
- * {@code .addElement('C', COIL)}.
+ * on a copy of the machine. Planners read the kinds and ranges from {@link ProcessingSpec#getModifiers()}. An
+ * {@link Of} constant is also the structure element that writes the value: {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 

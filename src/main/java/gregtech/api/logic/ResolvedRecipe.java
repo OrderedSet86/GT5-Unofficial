@@ -14,7 +14,7 @@ import gregtech.api.util.ParallelHelper;
 
 /**
  * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks. Machines and planners both
- * calculate from it. Their results then match.
+ * calculate from these numbers. A planner then gets the machine's results.
  * <p>
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
@@ -90,7 +90,10 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return calculator;
     }
 
-    /** A helper with the energy, parallel and EU/t numbers set. Add the machine's inputs and void protection to it. */
+    /**
+     * A helper with the energy, parallel and EU/t numbers set. Add the machine's inputs and void protection to the
+     * helper.
+     */
     @Nonnull
     public ParallelHelper parallelHelper(@Nonnull GTRecipe recipe) {
         return new ParallelHelper().setRecipe(recipe)
