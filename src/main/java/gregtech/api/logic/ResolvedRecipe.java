@@ -155,6 +155,6 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             helper.getCurrentParallel(),
             calculator.getPerformedOverclocks(),
             (int) runTicks,
-            Math.min(power.maxEuPerTick(), calculator.getConsumption()));
+            Math.min(power.euPerTickCap(), calculator.getConsumption()));
     }
 }

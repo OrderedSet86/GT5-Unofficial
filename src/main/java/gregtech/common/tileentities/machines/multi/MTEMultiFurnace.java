@@ -71,7 +71,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         .recipeOverride(4, 128)
         .power(in -> GTUtility.roundUpVoltage(in.maxInputVoltage()), in -> 1)
         .noAmperageOverclock()
-        .maxEuPerTick(in -> VP[GTUtility.getTier(in.averageVoltage())])
+        .euPerTickCap(in -> VP[GTUtility.getTier(in.averageVoltage())])
         .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
     private static final Modifier.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
@@ -273,7 +273,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         this.mMaxProgresstime = (int) (calculator.getDuration() * batchMultiplierMax);
         this.lEUt = Math.min(
             smelting.power()
-                .maxEuPerTick(),
+                .euPerTickCap(),
             calculator.getConsumption());
         if (this.lEUt > 0) {
             this.lEUt = -this.lEUt;
