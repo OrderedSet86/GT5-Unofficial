@@ -316,7 +316,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
-        // saves from before the base class kept the mode have it here, beside a stale "machineMode" of 0
+        // older saves have the mode index in "mode", and "machineMode" as 0
         if (aNBT.hasKey("mode")) machineMode = aNBT.getInteger("mode");
         phase = ArcFurnacePhase.values[aNBT.getInteger("phase")];
         lastCompletedStartupTick = aNBT.hasKey("lastCompletedStartupTick") ? aNBT.getLong("lastCompletedStartupTick")

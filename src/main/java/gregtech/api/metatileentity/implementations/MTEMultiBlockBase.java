@@ -2136,31 +2136,35 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return mode == null ? null : mode.recipeMap();
     }
 
-    /** The mode the machine is in, or null without {@link #getMachineModes}. */
+    /**
+     * The mode the machine is in, or null where {@link #getMachineModes} is empty. For a saved index out of range, this
+     * returns the first mode.
+     */
     @Nullable
     public final MachineMode getCurrentMachineMode() {
         List<MachineMode> modes = getMachineModes();
         if (modes.isEmpty()) return null;
-        int mode = getMachineMode();
-        return modes.get(mode >= 0 && mode < modes.size() ? mode : 0);
+        int index = getMachineMode();
+        return modes.get(index >= 0 && index < modes.size() ? index : 0);
     }
 
-    /** The mode that runs {@code recipeMap}, or -1 where no mode or several modes run it. */
+    /** The index of the mode with {@code recipeMap}, or -1 where no mode or several modes have it. */
     public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
         int found = -1;
-        for (int mode = 0; mode < modes.size(); mode++) {
-            if (modes.get(mode)
+        for (int index = 0; index < modes.size(); index++) {
+            if (modes.get(index)
                 .recipeMap() != recipeMap) continue;
             if (found != -1) return -1;
-            found = mode;
+            found = index;
         }
         return found;
     }
 
     /**
-     * In mode button order. The recipe map, mode count, names and icons follow from it. A machine with a
-     * {@link ProcessingSpec} declares its modes there, else it overrides this with a static constant.
+     * The machine's modes, in mode button order. The recipe map, mode count, names and icons are read from this list. A
+     * machine with a {@link ProcessingSpec} declares its modes there. Any other machine overrides this with a static
+     * constant. The mode getters call this on each use.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
