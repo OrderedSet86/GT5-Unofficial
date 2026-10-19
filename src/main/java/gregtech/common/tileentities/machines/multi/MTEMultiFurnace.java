@@ -72,9 +72,9 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelCompoundPerTier(4, 2, ModifierKind.COIL)
         .recipeOverride(RECIPE_EUT, RECIPE_DURATION)
-        .power(in -> GTUtility.roundUpVoltage(in.maxInputVoltage()), in -> 1)
+        .power(inputs -> GTUtility.roundUpVoltage(inputs.maxInputVoltage()), inputs -> 1)
         .noAmperageOverclock()
-        .euPerTickCap(in -> VP[GTUtility.getTier(in.averageVoltage())])
+        .euPerTickCap(inputs -> VP[GTUtility.getTier(inputs.averageVoltage())])
         .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
     private static final Modifier.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
