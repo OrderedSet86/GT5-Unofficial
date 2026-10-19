@@ -120,11 +120,17 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     }
 
     /**
-     * The values every machine takes for this kind, or null for a kind ranged per machine. For such a kind, the range
-     * is set per spec with {@link ProcessingSpec.Builder#range}.
+     * The values every machine takes for this kind, or null for a kind ranged per machine. The range of a kind ranged
+     * per machine is set in each machine's spec, with {@link ProcessingSpec.Builder#range}.
      */
     @Nullable
     public Range getRange() {
+        return range;
+    }
+
+    @Nonnull
+    public Range requireRange() {
+        if (range == null) throw new IllegalArgumentException(this + " has no range on the kind");
         return range;
     }
 

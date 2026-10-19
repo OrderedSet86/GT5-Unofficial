@@ -959,7 +959,7 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void aKindWithItsOwnRangeTakesNoSpecRange() {
+    void aKindWithARangeTakesNoSpecRange() {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
@@ -967,7 +967,7 @@ class ProcessingSpecTest {
     }
 
     @Test
-    void aRisingTermNeedsAKindWithItsOwnRange() {
+    void aRisingTermNeedsAKindWithARange() {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
