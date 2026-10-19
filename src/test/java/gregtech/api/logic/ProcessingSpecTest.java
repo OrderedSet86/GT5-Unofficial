@@ -958,6 +958,27 @@ class ProcessingSpecTest {
         assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
     }
 
+    @Test
+    void aKindWithItsOwnRangeTakesNoSpecRange() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .range(MOMENTUM, 0, 50));
+    }
+
+    @Test
+    void aRisingTermNeedsAKindWithItsOwnRange() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .speedRising(2, 3, ModifierKind.LENGTH));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .parallelPerVoltageTierRising(4, 8, ModifierKind.LENGTH));
+        assertThrows(IllegalArgumentException.class, () -> new Formula.Rising(2, 3, ModifierKind.LENGTH));
+    }
+
     private static ProcessingInputs atMomentum(int momentum) {
         return ProcessingInputs.builder()
             .energyHatches(VoltageIndex.EV, 1)
