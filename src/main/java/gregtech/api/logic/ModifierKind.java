@@ -182,13 +182,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         return new Builder<>(id, LongKind::new);
     }
 
-    /** Numbered by ordinal, labelled by constant name, ranging over the constants. -1 means none. */
-    @Nonnull
-    public static <E extends Enum<E>> Builder<IntKind> ofEnum(@Nonnull String id, @Nonnull E[] values) {
-        return ofInt(id).range(0, values.length - 1)
-            .labels(index -> index >= 0 && index < values.length ? values[(int) index].name() : "None");
-    }
-
     public static final class Builder<K extends ModifierKind> {
 
         private final String id;

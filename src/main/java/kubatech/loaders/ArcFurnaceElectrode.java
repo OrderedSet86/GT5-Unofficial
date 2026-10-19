@@ -201,11 +201,14 @@ public enum ArcFurnaceElectrode {
     }
 
     private long getStartupAmperage() {
-        return Math.max(1L, (long) Math.ceil(startupEuPerTick(1, Math.max(1, this.parallelLimit))));
+        return Math.max(1L, (long) Math.ceil(computeStartupEuPerTick(1, Math.max(1, this.parallelLimit))));
     }
 
-    /** Of an ignition at this voltage, before the start-up events change it. */
-    public double startupEuPerTick(long voltage, int parallel) {
+    /**
+     * The ignition EU/t at {@code voltage}, before an {@link ArcFurnaceProcessingEvent.EventStartIgnition} handler
+     * changes the EU/t.
+     */
+    public double computeStartupEuPerTick(long voltage, int parallel) {
         return voltage * 30d / 32d * parallel * (this.startupPenalty + 1d) * this.euModifier;
     }
 

@@ -18,12 +18,12 @@ import gregtech.api.util.ParallelHelper;
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
  *
- * @param recipe       The recipe the machine runs: a copy at the spec's fixed cost or with its EU/t multiplied, else
- *                     the recipe itself
+ * @param recipe       The recipe the machine runs: a copy at the spec's fixed cost or at a multiplied EU/t, else the
+ *                     recipe itself
  * @param duration     In ticks before overclocks
  * @param check        The first requirement the recipe fails, else success
- * @param checkToStart The first requirement to start from idle it fails, else success. Machines check these where they
- *                     start. {@link #calculate} checks them, since a planner starts from idle.
+ * @param checkToStart The first requirement to start from idle that the recipe fails, else success.
+ *                     {@link #calculate} checks both this and {@code check}.
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,

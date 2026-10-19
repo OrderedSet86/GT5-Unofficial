@@ -40,7 +40,7 @@ class ProcessingLogicTest {
         assertEquals(SPEC.calculate(recipe, LUV), machine);
     }
 
-    /** The Arc Furnace's ore mode still runs the recipe that starts it through the spec. */
+    /** Modelled on the Arc Furnace's ore mode. A fake recipe starts that mode. */
     @Test
     void aMachineRunsItsRecipeInAModeTheSpecDoesNotCalculate() {
         MachineMode normal = new MachineMode(mock(RecipeMap.class), "Normal", null);
@@ -82,7 +82,7 @@ class ProcessingLogicTest {
                 .inspect(recipe));
     }
 
-    /** Fusion's start-up failure is a new result on each side of the conformance check. */
+    /** insufficientStartupPower() returns a new result on each call. */
     @Test
     void twoFailuresForTheSameStartupCostAreTheSameRun() {
         assertEquals(

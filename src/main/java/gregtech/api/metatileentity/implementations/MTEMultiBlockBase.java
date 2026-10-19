@@ -2269,10 +2269,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return processingLogic.inspect(recipe);
     }
 
-    /**
-     * For the conformance check, on a {@link #newMetaEntity} copy: put the machine in the state it runs recipes in,
-     * such as past a start-up phase its spec models as a requirement.
-     */
+    /** Moves the machine past any start-up phase. */
     protected void prepareForInspection() {}
 
     /** One {@link Modifier} per kind the machine's spec reads. */

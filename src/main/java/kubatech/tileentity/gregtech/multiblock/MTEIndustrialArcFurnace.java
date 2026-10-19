@@ -124,13 +124,18 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int ARC_SURGE_CHANCE_PERCENT = 5;
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
+    private static final List<ArcFurnaceElectrode> ELECTRODES = List.of(ArcFurnaceElectrode.values());
     /** Not ordered: no electrode is best at everything. */
-    private static final ModifierKind.IntKind ELECTRODE = ModifierKind
-        .ofEnum("kubatech:electrode", ArcFurnaceElectrode.values())
+    private static final ModifierKind.IntKind ELECTRODE = ModifierKind.ofInt("kubatech:electrode")
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
+        .range(0, ELECTRODES.size() - 1)
+        .labels(
+            index -> index < 0 ? "GT5U.MBTT.Tiers.NoElectrode"
+                : ELECTRODES.get((int) index)
+                    .getUnlocalizedName() + ".name")
         .register();
-    /** The Infinity electrode's parallel, which doubles with every run from 1. */
+    /** The Infinity electrode's parallel. The parallel doubles after every run, from 1. */
     private static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
         .name("GT5U.MBTT.Tiers.InfinityParallel")
         .source(ModifierKind.Source.RUNTIME)
@@ -152,17 +157,18 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final List<MachineMode> MODES = List.of(NORMAL, BLAST, ORE);
     private static final ProcessingSpec SPEC = createProcessingSpec();
 
+    /** Reads the parallel, speed, EU modifier and overclock ratio from the electrode. */
     private static ProcessingSpec createProcessingSpec() {
         ProcessingSpec.Builder spec = ProcessingSpec.builder()
             .modes(MODES)
             .reads(ELECTRODE)
-            .parallel(MTEIndustrialArcFurnace::electrodeParallel, ELECTRODE, INFINITY_PARALLEL)
+            .parallel(MTEIndustrialArcFurnace::getElectrodeParallel, ELECTRODE, INFINITY_PARALLEL)
             .speed(in -> {
-                ArcFurnaceElectrode electrode = electrode(in);
+                ArcFurnaceElectrode electrode = getElectrode(in);
                 return electrode == null ? 1 : electrode.speedModifier;
             }, ELECTRODE)
             .euModifier(in -> {
-                ArcFurnaceElectrode electrode = electrode(in);
+                ArcFurnaceElectrode electrode = getElectrode(in);
                 return electrode == null ? 1 : electrode.euModifier;
             }, ELECTRODE)
             .maxOverclocksPerRecipe(
@@ -172,19 +178,20 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             // ore mode smelts ore by ore in runMachine, not as recipes
             .notCalculatedIn(ORE)
             .allAmps()
-            .unlimitedEnergy(in -> electrode(in) == ArcFurnaceElectrode.InfinityElectrode)
+            .unlimitedEnergy(in -> getElectrode(in) == ArcFurnaceElectrode.InfinityElectrode)
             .requires(
-                (in, recipe) -> electrode(in) != null,
+                (in, recipe) -> getElectrode(in) != null,
                 (in, recipe) -> SimpleCheckRecipeResult.ofFailure("no_electrode"))
             .requires(
                 (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
                 (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
-            .startupEuPerRecipe((in, recipe) -> ignitionEuPerTick(in) * STARTUP_DURATION_TICKS)
+            .startupEuPerRecipe((in, recipe) -> computeIgnitionEuPerTick(in) * STARTUP_DURATION_TICKS)
             .requiresToStart(
-                (in, recipe) -> in.totalEu() >= ignitionEuPerTick(in),
-                (in, recipe) -> CheckRecipeResultRegistry
-                    .insufficientStartupPower((int) ignitionEuPerTick(in), GTUtility.getTier(in.averageVoltage())))
-            // the markdown tooltip and the electrodes' own tooltips state these
+                (in, recipe) -> in.totalEu() >= computeIgnitionEuPerTick(in),
+                (in, recipe) -> CheckRecipeResultRegistry.insufficientStartupPower(
+                    (int) computeIgnitionEuPerTick(in),
+                    GTUtility.getTier(in.averageVoltage())))
+            // the markdown and the electrode items' tooltips state these numbers
             .customTooltip(
                 EnumSet.of(
                     ProcessingSpec.Quantity.PARALLEL,
@@ -206,7 +213,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                         ORE_MODE_STARTUP_TICKS / 20,
                         "ore_idle_ticks",
                         ORE_MODE_IDLE_FINISH_TICKS)));
-        for (ArcFurnaceElectrode electrode : ArcFurnaceElectrode.values()) {
+        for (ArcFurnaceElectrode electrode : ELECTRODES) {
             spec.whenTier(
                 ELECTRODE,
                 electrode.ordinal(),
@@ -365,7 +372,10 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     @Nonnull
     public List<Modifier> getSpecModifiers() {
         return List.of(
-            Modifier.ofEnum(ELECTRODE, ArcFurnaceElectrode.values(), () -> electrode, value -> electrode = value),
+            Modifier.of(
+                ELECTRODE,
+                () -> electrode == null ? -1 : electrode.ordinal(),
+                index -> electrode = ELECTRODES.get(index)),
             Modifier.of(
                 INFINITY_PARALLEL,
                 () -> ArcFurnaceElectrode.getInfinityTargetParallel(effectState),
@@ -982,7 +992,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                     this.setBatchSize(1);
                     GTRecipe ignitionRecipe = fakeRecipe();
                     // we set here to generate insufficient power error
-                    ignitionRecipe.mEUt = (int) ignitionEuPerTick(specInputs);
+                    ignitionRecipe.mEUt = (int) computeIgnitionEuPerTick(specInputs);
                     ignitionRecipe.mDuration = STARTUP_DURATION_TICKS;
                     ArcFurnaceProcessingEvent.EventStartIgnition event = new ArcFurnaceProcessingEvent.EventStartIgnition(
                         MTEIndustrialArcFurnace.this,
@@ -1016,27 +1026,27 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
     @Override
     protected void prepareForInspection() {
-        // the spec models ignition as a start-up requirement and start-up EU
+        // SPEC checks ignition with requiresToStart(), so skip the ignition phase
         phase = ArcFurnacePhase.Processing;
     }
 
     @Nullable
-    private static ArcFurnaceElectrode electrode(ProcessingInputs inputs) {
+    private static ArcFurnaceElectrode getElectrode(ProcessingInputs inputs) {
         int index = inputs.value(ELECTRODE);
-        return index < 0 ? null : ArcFurnaceElectrode.values()[index];
+        return index < 0 ? null : ELECTRODES.get(index);
     }
 
-    private static int electrodeParallel(ProcessingInputs inputs) {
-        ArcFurnaceElectrode electrode = electrode(inputs);
+    private static int getElectrodeParallel(ProcessingInputs inputs) {
+        ArcFurnaceElectrode electrode = getElectrode(inputs);
         if (electrode == null) return 1;
         return electrode == ArcFurnaceElectrode.InfinityElectrode ? inputs.value(INFINITY_PARALLEL)
             : electrode.parallelLimit;
     }
 
-    private static long ignitionEuPerTick(ProcessingInputs inputs) {
-        ArcFurnaceElectrode electrode = electrode(inputs);
+    private static long computeIgnitionEuPerTick(ProcessingInputs inputs) {
+        ArcFurnaceElectrode electrode = getElectrode(inputs);
         if (electrode == null) return 0;
-        long use = (long) electrode.startupEuPerTick(inputs.averageVoltage(), electrodeParallel(inputs));
+        long use = (long) electrode.computeStartupEuPerTick(inputs.averageVoltage(), getElectrodeParallel(inputs));
         return Math.min(use, Integer.MAX_VALUE);
     }
 
