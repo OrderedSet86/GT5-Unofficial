@@ -89,12 +89,19 @@ public sealed interface Formula {
         }
     }
 
-    /** From {@code min} to {@code max} as {@code kind} rises from 0 to {@code kindMax}. */
-    record Rising(double min, double max, @Nonnull ModifierKind.IntKind kind, int kindMax) implements Formula {
+    /** From {@code min} to {@code max} as {@code kind} rises from 0 to the max of {@code kind}'s range. */
+    record Rising(double min, double max, @Nonnull ModifierKind.IntKind kind) implements Formula {
+
+        public Rising {
+            if (kind.getRange() == null)
+                throw new IllegalArgumentException(kind + " has no range. A Rising term needs a range");
+        }
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
-            return min + (max - min) * inputs.value(kind) / kindMax;
+            return min + (max - min) * inputs.value(kind)
+                / kind.getRange()
+                    .max();
         }
 
         @Nonnull
@@ -105,13 +112,21 @@ public sealed interface Formula {
     }
 
     /**
-     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to {@code kindMax}.
+     * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to the max of {@code kind}'s range.
      */
-    record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind, int kindMax) implements Formula {
+    record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind) implements Formula {
+
+        public RisingPerVoltageTier {
+            if (kind.getRange() == null)
+                throw new IllegalArgumentException(kind + " has no range. A Rising term needs a range");
+        }
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
-            return (int) ((min + (max - min) * inputs.value(kind) / (double) kindMax) * inputs.voltageTier());
+            double rise = (max - min) * inputs.value(kind)
+                / (double) kind.getRange()
+                    .max();
+            return (int) ((min + rise) * inputs.voltageTier());
         }
 
         @Nonnull
