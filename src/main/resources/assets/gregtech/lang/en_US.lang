@@ -2019,6 +2019,7 @@ GT5U.MBTT.Tiers.SteamPressure=Steam Pressure
 GT5U.MBTT.Tiers.MacerationUpgradeChip=Maceration Upgrade Chip
 GT5U.MBTT.Tiers.Momentum=Momentum
 GT5U.MBTT.Tiers.Electrode=Electrode
+GT5U.MBTT.Tiers.NoElectrode=No Electrode
 GT5U.MBTT.Tiers.InfinityParallel=Infinity Electrode Parallel
 GT5U.MBTT.Steam.Speed=%s faster than using single block steam machines of the same pressure
 GT5U.MBTT.Steam.Eff=Only consumes steam at %s of the steam flowrate normally required

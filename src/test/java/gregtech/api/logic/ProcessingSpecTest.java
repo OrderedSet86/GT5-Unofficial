@@ -469,6 +469,14 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void aModeIsListedOnce() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .modes(List.of(TOWER, TOWER)));
+    }
+
+    @Test
     void requirementsDecideWhetherARecipeRuns() {
         ProcessingSpec spec = ProcessingSpec.builder()
             // Cupronickel coils: 1801K
@@ -541,16 +549,16 @@ class ProcessingSpecTest {
             .build();
         long luv = GTValues.V[VoltageIndex.LuV];
 
-        assertEquals(new ProcessingSpec.Power(luv, 1, true, false), spec.getPower(inputs(VoltageIndex.LuV, 0)));
+        assertEquals(new ProcessingSpec.Power(luv, 1, true), spec.getPower(inputs(VoltageIndex.LuV, 0)));
         assertEquals(
-            new ProcessingSpec.Power(luv, 4, true, false),
+            new ProcessingSpec.Power(luv, 4, true),
             spec.getPower(
                 ProcessingInputs.builder()
                     .energyHatches(VoltageIndex.LuV, 2)
                     .build()),
             "with two regular hatches, all four amps are used");
         assertEquals(
-            new ProcessingSpec.Power(luv, 16, true, false),
+            new ProcessingSpec.Power(luv, 16, true),
             spec.getPower(
                 ProcessingInputs.builder()
                     .energyHatch(ProcessingInputs.EnergyHatch.exotic(VoltageIndex.LuV, 16))
@@ -566,19 +574,19 @@ class ProcessingSpecTest {
         ProcessingSpec atOneAmp = ProcessingSpec.builder()
             .powerAtOneAmp()
             .build();
-        assertEquals(new ProcessingSpec.Power(2 * luv, 1, true, false), atOneAmp.getPower(oneHatch));
+        assertEquals(new ProcessingSpec.Power(2 * luv, 1, true), atOneAmp.getPower(oneHatch));
         assertTrue(sets(atOneAmp, ProcessingSpec.Quantity.POWER));
 
         ProcessingSpec allAmps = ProcessingSpec.builder()
             .allAmps()
             .build();
-        assertEquals(new ProcessingSpec.Power(luv, 2, true, false), allAmps.getPower(oneHatch));
+        assertEquals(new ProcessingSpec.Power(luv, 2, true), allAmps.getPower(oneHatch));
 
         ProcessingSpec fixed = ProcessingSpec.builder()
             .power(in -> 32, in -> 8)
             .noAmperageOverclock()
             .build();
-        assertEquals(new ProcessingSpec.Power(32, 8, false, false), fixed.getPower(oneHatch));
+        assertEquals(new ProcessingSpec.Power(32, 8, false), fixed.getPower(oneHatch));
     }
 
     @Test
@@ -693,22 +701,14 @@ class ProcessingSpecTest {
             .notCalculatedIn(ORE)
             .build();
 
-        assertTrue(spec.calculates(0));
-        assertFalse(spec.calculates(2));
+        assertTrue(spec.canCalculate(0));
+        assertFalse(spec.canCalculate(2));
         assertTrue(
             spec.calculate(recipe(30, 100, 0), inMode(0))
                 .result()
                 .wasSuccessful());
         assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
         assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 100, 0), inMode(2)));
-    }
-
-    @Test
-    void aModeIsListedOnce() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> ProcessingSpec.builder()
-                .modes(List.of(TOWER, TOWER)));
     }
 
     @Test

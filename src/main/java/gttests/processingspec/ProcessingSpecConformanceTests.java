@@ -103,7 +103,7 @@ public class ProcessingSpecConformanceTests {
         int modes = machine.getMachineModes()
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
-            if (!spec.calculates(mode)) continue;
+            if (!spec.canCalculate(mode)) continue;
             if (modes > 1) machine.setMachineMode(mode);
             for (GTRecipe recipe : sampleRecipes(machine.getRecipeMap())) {
                 for (List<ProcessingInputs.EnergyHatch> hatches : listEnergySamples()) {

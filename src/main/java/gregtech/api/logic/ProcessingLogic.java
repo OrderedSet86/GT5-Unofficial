@@ -601,7 +601,7 @@ public class ProcessingLogic {
         return new ResolvedRecipe(
             recipe,
             recipe.mDuration,
-            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC, false),
+            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC),
             maxParallel,
             speedBoost,
             euModifier,

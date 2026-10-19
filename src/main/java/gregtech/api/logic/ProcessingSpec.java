@@ -62,8 +62,8 @@ public final class ProcessingSpec {
      */
     public record Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited, long euPerTickCap) {
 
-        public Power(long voltage, long amperage, boolean amperageOverclock, boolean unlimited) {
-            this(voltage, amperage, amperageOverclock, unlimited, Long.MAX_VALUE);
+        public Power(long voltage, long amperage, boolean amperageOverclock) {
+            this(voltage, amperage, amperageOverclock, false, Long.MAX_VALUE);
         }
 
         public long availableEuPerTick() {
@@ -112,7 +112,7 @@ public final class ProcessingSpec {
         DURATION(true),
         EU_MODIFIER(true),
         EU_MODIFIER_NOT_LIMITING_PARALLEL(true),
-        /** Multiplies the recipe's EU/t, before overclocks and before its voltage is checked. */
+        /** Multiplies the recipe's EU/t, before overclocks and before the recipe's voltage check. */
         RECIPE_EU_MULTIPLIER(true),
         OVERCLOCK(true),
         TIER_SKIPS(false),
@@ -277,11 +277,6 @@ public final class ProcessingSpec {
         return modes;
     }
 
-    /** False in a mode the machine runs outside recipe processing. {@link #resolve} throws there. */
-    public boolean calculates(int mode) {
-        return !notCalculatedModes.contains(mode);
-    }
-
     /**
      * The lowest value of an ordered {@code kind} that passes the recipe's requirements, such as the lowest coil tier
      * hot enough for the recipe. The search is binary. A higher value of an ordered kind never fails a requirement that
@@ -298,7 +293,7 @@ public final class ProcessingSpec {
             ProcessingInputs candidate = inputs.toBuilder()
                 .value(kind, (int) value)
                 .build();
-            return check(applyRecipeOverride(recipe, candidate), candidate).wasSuccessful();
+            return check(applyRecipeCost(recipe, candidate), candidate).wasSuccessful();
         };
         if (!passes.test(range.max())) return OptionalInt.empty();
 
@@ -313,24 +308,33 @@ public final class ProcessingSpec {
     }
 
     /**
-     * @throws IllegalArgumentException if {@link #calculates} is false for the mode, or if the inputs lack a kind the
-     *                                  spec reads
+     * @throws IllegalArgumentException if {@link #canCalculate} is false for the mode, or if the inputs lack a kind
+     *                                  the spec reads
      */
     @Nonnull
     public ResolvedRecipe resolve(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
-        if (!calculates(inputs.mode())) {
+        if (!canCalculate(inputs.mode())) {
             throw new IllegalArgumentException("the spec does not calculate mode " + inputs.mode());
         }
         return resolveInAnyMode(recipe, inputs);
     }
 
-    /** As {@link #resolve}, also in a mode the spec does not calculate, for the recipe a machine runs there. */
+    /** False in the modes set with {@link Builder#notCalculatedIn}. */
+    public boolean canCalculate(int mode) {
+        return !notCalculatedModes.contains(mode);
+    }
+
+    /**
+     * {@link #resolve}, in every mode, including the modes set with {@link Builder#notCalculatedIn}.
+     *
+     * @throws IllegalArgumentException if the inputs lack a kind the spec reads
+     */
     @Nonnull
-    ResolvedRecipe resolveInAnyMode(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+    public ResolvedRecipe resolveInAnyMode(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         for (ModifierKind kind : modifiers.keySet()) {
             if (!inputs.has(kind)) throw new IllegalArgumentException("no " + kind + " value given");
         }
-        GTRecipe run = applyRecipeOverride(recipe, inputs);
+        GTRecipe run = applyRecipeCost(recipe, inputs);
         return new ResolvedRecipe(
             run,
             run.mDuration,
@@ -396,10 +400,6 @@ public final class ProcessingSpec {
         return computeScalar(inputs, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL);
     }
 
-    private double getRecipeEuMultiplier(ProcessingInputs inputs) {
-        return computeScalar(inputs, Quantity.RECIPE_EU_MULTIPLIER);
-    }
-
     /** {@link OverclockRule.Ratio#STANDARD} where neither the spec nor a matching variant sets a ratio. */
     @Nonnull
     public OverclockRule getOverclock(@Nonnull ProcessingInputs inputs) {
@@ -455,8 +455,8 @@ public final class ProcessingSpec {
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
-    private GTRecipe applyRecipeOverride(GTRecipe recipe, ProcessingInputs inputs) {
-        double euMultiplier = getRecipeEuMultiplier(inputs);
+    private GTRecipe applyRecipeCost(GTRecipe recipe, ProcessingInputs inputs) {
+        double euMultiplier = computeScalar(inputs, Quantity.RECIPE_EU_MULTIPLIER);
         if (recipeOverride == null && euMultiplier == 1) return recipe;
         GTRecipe copy = recipe.copy();
         // a cached copy would be multiplied again at the next check
@@ -465,7 +465,7 @@ public final class ProcessingSpec {
             copy.mEUt = GTUtility.safeInt(recipeOverride.eut(), 0);
             copy.mDuration = recipeOverride.duration();
         }
-        if (euMultiplier != 1) copy.mEUt = (int) Math.min((long) (copy.mEUt * euMultiplier), Integer.MAX_VALUE);
+        if (euMultiplier != 1) copy.mEUt = GTUtility.safeInt((long) (copy.mEUt * euMultiplier), 0);
         return copy;
     }
 
@@ -658,7 +658,7 @@ public final class ProcessingSpec {
 
         private Builder() {}
 
-        /** For kinds that plain functions read. {@link #addReadsOf} adds a {@link Formula}'s kinds. */
+        /** Adds kinds the spec reads, for terms and requirements without a {@code reads} argument. */
         public Builder reads(@Nonnull ModifierKind... kinds) {
             return reads(List.of(kinds));
         }
@@ -789,7 +789,7 @@ public final class ProcessingSpec {
             return scalar(Quantity.EU_MODIFIER, new Formula.Custom(euModifier, Set.of(reads)), null);
         }
 
-        /** Multiplies the recipe's EU/t, up to {@link Integer#MAX_VALUE}, as if the recipe were costlier. */
+        /** Sets {@link Quantity#RECIPE_EU_MULTIPLIER}. The EU/t stops at {@link Integer#MAX_VALUE}. */
         public Builder recipeEuMultiplier(double multiplier) {
             return scalar(
                 Quantity.RECIPE_EU_MULTIPLIER,
@@ -940,9 +940,8 @@ public final class ProcessingSpec {
         }
 
         /**
-         * A mode the machine runs outside recipe processing, such as the Arc Furnace's ore smelting. Planners cannot
-         * take numbers from the spec there: {@link ProcessingSpec#calculates} is false and
-         * {@link ProcessingSpec#resolve} throws. The machine's own recipe checks still run through the spec.
+         * A mode whose runs the spec doesn't model. In that mode, {@link ProcessingSpec#canCalculate} is false and
+         * {@link ProcessingSpec#resolve} throws.
          */
         public Builder notCalculatedIn(@Nonnull MachineMode mode) {
             this.notCalculatedModes.add(indexOf(mode));

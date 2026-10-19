@@ -85,7 +85,8 @@ public class MultiblockTooltipBuilder {
     private final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock"); // noqa: NAR130
     private final String TT_OverclockRatio = StatCollector // noqa: NAR130
         .translateToLocal("GT5U.MBTT.Overclock.Ratio");
-    private final String TT_RecipeEuMultiplier = StatCollector.translateToLocal("GT5U.MBTT.RecipeEuMultiplier");
+    private final String TT_RecipeEuMultiplier = StatCollector // noqa: NAR130
+        .translateToLocal("GT5U.MBTT.RecipeEuMultiplier");
     private final String TT_RecipeOverride = StatCollector.translateToLocal("GT5U.MBTT.RecipeOverride"); // noqa: NAR130
     private final String TT_RisingParallelPerVoltageTier = StatCollector // noqa: NAR130
         .translateToLocal("GT5U.MBTT.Parallel.RisingPerVoltageTier");

@@ -40,7 +40,7 @@ class ProcessingLogicTest {
         assertEquals(SPEC.calculate(recipe, LUV), machine);
     }
 
-    /** The Arc Furnace's ore mode still runs the recipe that starts it through the spec. */
+    /** Modelled on the Arc Furnace's ore mode. A fake recipe starts that mode. */
     @Test
     void aMachineRunsItsRecipeInAModeTheSpecDoesNotCalculate() {
         MachineMode normal = new MachineMode(mock(RecipeMap.class), "Normal", null);
