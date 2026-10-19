@@ -607,7 +607,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addCasing("6", "Steel Pipe Casing", false)
             .addStructureInfo("")
             .addSubChannel(GTStructureChannels.STRUCTURE_HEIGHT)
-            .addStructureAuthors(EnumChatFormatting.GOLD + "Mallady")
             .toolTipFinisher();
         // spotless:on
         return tt;
