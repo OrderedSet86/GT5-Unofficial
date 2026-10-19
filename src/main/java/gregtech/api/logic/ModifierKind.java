@@ -46,7 +46,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         }
     }
 
-    /** Amounts that outgrow an int, such as stored fluid. */
+    /** A kind whose values can exceed {@link Integer#MAX_VALUE}, such as litres of stored fluid. */
     public static final class LongKind extends ModifierKind {
 
         private LongKind(Builder<LongKind> builder) {

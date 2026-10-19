@@ -105,7 +105,9 @@ public class EyeOfHarmonyRecipeStorage {
         }
     };
 
-    /** The recipe map's entry for the recipe, whose special item is the recipe. */
+    private final Map<EyeOfHarmonyRecipe, GTRecipe> recipeMapEntries = new IdentityHashMap<>();
+
+    /** The recipe map's entry for {@code recipe}. The entry's special item is {@code recipe}. */
     public GTRecipe recipeMapEntry(final EyeOfHarmonyRecipe recipe) {
         return recipeMapEntries.get(recipe);
     }
@@ -114,8 +116,6 @@ public class EyeOfHarmonyRecipeStorage {
         String dimAbbreviation = blocksMapInverted.get(Block.getBlockFromItem(aStack.getItem()));
         return recipeHashMap.get(dimAbbreviation);
     }
-
-    private final Map<EyeOfHarmonyRecipe, GTRecipe> recipeMapEntries = new IdentityHashMap<>();
 
     public EyeOfHarmonyRecipeStorage() {
 

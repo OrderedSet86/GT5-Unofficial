@@ -139,13 +139,13 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     // Exact value to get 2^21 parallels.
     private static final long ASTRAL_ARRAY_LIMIT = 8637;
 
-    private static final ModifierKind.IntKind SPACETIME_COMPRESSION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind SPACETIME_COMPRESSION_FIELD = registerFieldKind(
         "tectech:spacetime_compression_field",
         "GT5U.MBTT.Tiers.SpacetimeCompressionField");
-    private static final ModifierKind.IntKind TIME_DILATION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind TIME_DILATION_FIELD = registerFieldKind(
         "tectech:time_dilation_field",
         "GT5U.MBTT.Tiers.TimeDilationField");
-    private static final ModifierKind.IntKind STABILISATION_FIELD = fieldKind(
+    private static final ModifierKind.IntKind STABILISATION_FIELD = registerFieldKind(
         "tectech:stabilisation_field",
         "GT5U.MBTT.Tiers.StabilisationField");
     private static final ModifierKind.IntKind ASTRAL_ARRAYS = ModifierKind.ofInt("tectech:astral_arrays")
@@ -154,21 +154,22 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .ordered()
         .range(0, ASTRAL_ARRAY_LIMIT)
         .register();
-    /** The programmed circuit, 0 to 24: each step is half the time at 4x the start-up EU. */
+    /** The programmed circuit. With each step, the time is halved and the EU per run is multiplied by 4. */
     private static final ModifierKind.IntKind CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
         .range(0, 24)
         .register();
-    // Litres drained from the input hatches beyond what the recipe requires, which lowers its chance and yield. Counted
-    // from the requirement so that 0, a planner's default, is both enough and the best.
-    private static final ModifierKind.LongKind EXCESS_HYDROGEN = excessKind(
+    // Litres drained from the input hatches beyond the recipe's requirement. The run's chance and yield fall as the
+    // excess grows. The value counts from the requirement, so a planner's default of 0 is both enough and the best
+    // value.
+    private static final ModifierKind.LongKind EXCESS_HYDROGEN = registerExcessKind(
         "tectech:eoh_excess_hydrogen",
         "GT5U.MBTT.Tiers.ExcessHydrogen");
-    private static final ModifierKind.LongKind EXCESS_HELIUM = excessKind(
+    private static final ModifierKind.LongKind EXCESS_HELIUM = registerExcessKind(
         "tectech:eoh_excess_helium",
         "GT5U.MBTT.Tiers.ExcessHelium");
-    private static final ModifierKind.LongKind EXCESS_STAR_MATTER = excessKind(
+    private static final ModifierKind.LongKind EXCESS_STAR_MATTER = registerExcessKind(
         "tectech:eoh_excess_star_matter",
         "GT5U.MBTT.Tiers.ExcessStarMatter");
     /** 1 when a single run succeeds for certain after repeated failures, before fluid overflow. */
@@ -190,32 +191,29 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             EXCESS_HELIUM,
             EXCESS_STAR_MATTER,
             PITY)
-        .parallel(in -> (int) parallel(in))
-        .durationPerRecipe(
-            (in, recipe) -> recipeTicks(
-                recipe.mDuration,
-                requiredSpacetimeTier(recipe),
-                in.value(SPACETIME_COMPRESSION_FIELD),
-                in.value(TIME_DILATION_FIELD),
-                in.value(CIRCUIT)))
+        .parallel(in -> (int) computeParallel(in))
+        .durationPerRecipe(MTEEyeOfHarmony::computeRecipeTicks)
         .noOverclock()
         // parallel runs take star matter, a single run hydrogen and helium
         .requires(
-            (in, recipe) -> parallel(in) == 1 || enough(in, EXCESS_STAR_MATTER, starMatterRequired(eoh(recipe), in)),
+            (in, recipe) -> computeParallel(in) == 1
+                || hasEnough(in, EXCESS_STAR_MATTER, computeStarMatterRequired(getEohRecipe(recipe), in)),
             (in, recipe) -> SimpleCheckRecipeResult.ofFailure("no_stellar_plasma"))
         .requires(
-            (in, recipe) -> parallel(in) > 1 || enough(in, EXCESS_HYDROGEN, eoh(recipe).getHydrogenRequirement()),
+            (in, recipe) -> computeParallel(in) > 1
+                || hasEnough(in, EXCESS_HYDROGEN, getEohRecipe(recipe).getHydrogenRequirement()),
             (in, recipe) -> SimpleCheckRecipeResult.ofFailure("no_hydrogen"))
         .requires(
-            (in, recipe) -> parallel(in) > 1 || enough(in, EXCESS_HELIUM, eoh(recipe).getHeliumRequirement()),
+            (in, recipe) -> computeParallel(in) > 1
+                || hasEnough(in, EXCESS_HELIUM, getEohRecipe(recipe).getHeliumRequirement()),
             (in, recipe) -> SimpleCheckRecipeResult.ofFailure("no_helium"))
         .requires(
-            (in, recipe) -> in.value(SPACETIME_COMPRESSION_FIELD) >= requiredSpacetimeTier(recipe),
-            (in, recipe) -> CheckRecipeResultRegistry.insufficientMachineTier((int) requiredSpacetimeTier(recipe)))
-        .euPerRunPerRecipe(MTEEyeOfHarmony::euPerRun)
-        .euGeneratedPerRecipe(MTEEyeOfHarmony::euGenerated)
-        .successChancePerRecipe(MTEEyeOfHarmony::successChance)
-        .outputYieldPerRecipe(MTEEyeOfHarmony::outputYield)
+            (in, recipe) -> in.value(SPACETIME_COMPRESSION_FIELD) >= getRequiredSpacetimeTier(recipe),
+            (in, recipe) -> CheckRecipeResultRegistry.insufficientMachineTier((int) getRequiredSpacetimeTier(recipe)))
+        .euPerRunPerRecipe(MTEEyeOfHarmony::computeEuPerRun)
+        .euGeneratedPerRecipe(MTEEyeOfHarmony::computeEuGenerated)
+        .successChancePerRecipe(MTEEyeOfHarmony::computeSuccessChance)
+        .outputYieldPerRecipe(MTEEyeOfHarmony::computeOutputYield)
         .customTooltip(
             EnumSet.of(
                 ProcessingSpec.Quantity.PARALLEL,
@@ -225,98 +223,104 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             tt -> tt.addMarkdown(new ResourceLocation("gregtech", "eye-of-harmony")))
         .build();
 
-    private static EyeOfHarmonyRecipe eoh(GTRecipe recipe) {
+    private static EyeOfHarmonyRecipe getEohRecipe(GTRecipe recipe) {
         return (EyeOfHarmonyRecipe) recipe.mSpecialItems;
     }
 
-    private static long parallel(ProcessingInputs in) {
-        return parallel(in.value(ASTRAL_ARRAYS));
+    private static long computeParallel(ProcessingInputs in) {
+        return computeParallel(in.value(ASTRAL_ARRAYS));
     }
 
-    private static long parallel(long astralArrays) {
-        return astralArrays == 0 ? 1 : (long) GTUtility.powInt(2, parallelExponent(astralArrays));
+    private static long computeParallel(long astralArrays) {
+        return astralArrays == 0 ? 1 : (long) GTUtility.powInt(2, computeParallelExponent(astralArrays));
     }
 
-    private static double starMatterRequired(EyeOfHarmonyRecipe recipe, ProcessingInputs in) {
-        return starMatterRequired(recipe, parallel(in));
+    private static double computeStarMatterRequired(EyeOfHarmonyRecipe recipe, ProcessingInputs in) {
+        return computeStarMatterRequired(recipe, computeParallel(in));
     }
 
-    private static double starMatterRequired(EyeOfHarmonyRecipe recipe, long parallel) {
+    private static double computeStarMatterRequired(EyeOfHarmonyRecipe recipe, long parallel) {
         return recipe.getHeliumRequirement() * (12.4 / 1_000_000f) * parallel;
     }
 
-    /** The litres stored, given the litres beyond the requirement. */
-    private static long stored(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
-        return in.value(excess) + (long) Math.ceil(required);
-    }
-
     /** Debug mode requires 100 L instead. */
-    private static boolean enough(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
-        long stored = stored(in, excess, required);
+    private static boolean hasEnough(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
+        long stored = computeStored(in, excess, required);
         return EOH_DEBUG_MODE ? stored >= 100 : stored >= required;
     }
 
-    /** 0 at the required amount, rising towards 1 as the stored fluid exceeds it. */
-    private static double overflowPenalty(long stored, double required) {
+    /** The litres stored, given the litres beyond the requirement. */
+    private static long computeStored(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
+        return in.value(excess) + (long) Math.ceil(required);
+    }
+
+    private static double computeSuccessChance(ProcessingInputs in, GTRecipe recipe) {
+        if (EOH_DEBUG_MODE) return 1;
+        double chance = computeBaseSuccessChance(
+            getEohRecipe(recipe),
+            in.value(TIME_DILATION_FIELD),
+            in.value(STABILISATION_FIELD));
+        if (computeParallel(in) == 1 && in.value(PITY) == 1) chance = 1;
+        return MathHelper.clamp_double(chance - computeOverflowPenalty(in, getEohRecipe(recipe)), 0.0, 1.0);
+    }
+
+    /** The chance before the fluid overflow penalty. */
+    private static double computeBaseSuccessChance(EyeOfHarmonyRecipe recipe, int timeDilationTier,
+        int stabilisationTier) {
+        return recipe.getBaseRecipeSuccessChance() - timeDilationTier * TIME_ACCEL_DECREASE_CHANCE_PER_TIER
+            + stabilisationTier * STABILITY_INCREASE_PROBABILITY_DECREASE_YIELD_PER_TIER;
+    }
+
+    private static double computeOverflowPenalty(ProcessingInputs in, EyeOfHarmonyRecipe recipe) {
+        if (computeParallel(in) > 1)
+            return computeOverflowPenalty(in, EXCESS_STAR_MATTER, computeStarMatterRequired(recipe, in));
+        return computeOverflowPenalty(in, EXCESS_HYDROGEN, recipe.getHydrogenRequirement())
+            + computeOverflowPenalty(in, EXCESS_HELIUM, recipe.getHeliumRequirement());
+    }
+
+    private static double computeOverflowPenalty(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
+        return computeOverflowPenalty(computeStored(in, excess, required), required);
+    }
+
+    /** 0 at the required amount. The penalty rises towards 1 as {@code stored} grows past {@code required}. */
+    private static double computeOverflowPenalty(long stored, double required) {
         if (EOH_DEBUG_MODE) return 0;
         double excess = stored / required - 1;
         return 1 - exp(-GTUtility.powInt(30 * excess, 2));
     }
 
-    private static double overflowPenalty(ProcessingInputs in, EyeOfHarmonyRecipe recipe) {
-        if (parallel(in) > 1) return overflowPenalty(in, EXCESS_STAR_MATTER, starMatterRequired(recipe, in));
-        return overflowPenalty(in, EXCESS_HYDROGEN, recipe.getHydrogenRequirement())
-            + overflowPenalty(in, EXCESS_HELIUM, recipe.getHeliumRequirement());
-    }
-
-    private static double overflowPenalty(ProcessingInputs in, ModifierKind.LongKind excess, double required) {
-        return overflowPenalty(stored(in, excess, required), required);
-    }
-
-    /** Before fluid overflow. */
-    private static double baseSuccessChance(EyeOfHarmonyRecipe recipe, int timeDilationTier, int stabilisationTier) {
-        return recipe.getBaseRecipeSuccessChance() - timeDilationTier * TIME_ACCEL_DECREASE_CHANCE_PER_TIER
-            + stabilisationTier * STABILITY_INCREASE_PROBABILITY_DECREASE_YIELD_PER_TIER;
-    }
-
-    private static double successChance(ProcessingInputs in, GTRecipe recipe) {
-        if (EOH_DEBUG_MODE) return 1;
-        double chance = baseSuccessChance(eoh(recipe), in.value(TIME_DILATION_FIELD), in.value(STABILISATION_FIELD));
-        if (parallel(in) == 1 && in.value(PITY) == 1) chance = 1;
-        return MathHelper.clamp_double(chance - overflowPenalty(in, eoh(recipe)), 0.0, 1.0);
-    }
-
-    private static double outputYield(ProcessingInputs in, GTRecipe recipe) {
+    private static double computeOutputYield(ProcessingInputs in, GTRecipe recipe) {
         double yield = 1.0 - in.value(STABILISATION_FIELD) * STABILITY_INCREASE_PROBABILITY_DECREASE_YIELD_PER_TIER;
-        return MathHelper.clamp_double(yield - overflowPenalty(in, eoh(recipe)), 0.0, 1.0);
+        return MathHelper.clamp_double(yield - computeOverflowPenalty(in, getEohRecipe(recipe)), 0.0, 1.0);
     }
 
     /** The start cost, taken from the wireless network. */
-    private static BigInteger euPerRun(ProcessingInputs in, GTRecipe recipe) {
-        BigInteger eu = BigInteger.valueOf(eoh(recipe).getEUStartCost())
+    private static BigInteger computeEuPerRun(ProcessingInputs in, GTRecipe recipe) {
+        BigInteger eu = BigInteger.valueOf(getEohRecipe(recipe).getEUStartCost())
             .multiply(BigInteger.valueOf((long) GTUtility.powInt(4, in.value(CIRCUIT))));
-        if (parallel(in) == 1) return eu;
+        if (computeParallel(in) == 1) return eu;
         return eu
             .multiply(
-                BigInteger.valueOf((long) (powerMultiplier(in) * PARALLEL_MULTIPLIER_CONSTANT * PRECISION_MULTIPLIER)))
+                BigInteger
+                    .valueOf((long) (computePowerMultiplier(in) * PARALLEL_MULTIPLIER_CONSTANT * PRECISION_MULTIPLIER)))
             .divide(BigInteger.valueOf((long) (PRECISION_MULTIPLIER * POWER_DIVISION_CONSTANT)));
     }
 
-    /** Given to the wireless network. Lower stabilisation fields keep less of it. */
-    private static BigInteger euGenerated(ProcessingInputs in, GTRecipe recipe) {
+    /** EU given to the wireless network. Less EU is given at a lower stabilisation field tier. */
+    private static BigInteger computeEuGenerated(ProcessingInputs in, GTRecipe recipe) {
         double penalty = (TOTAL_CASING_TIERS_WITH_POWER_PENALTY - in.value(STABILISATION_FIELD))
             * STABILITY_INCREASE_PROBABILITY_DECREASE_YIELD_PER_TIER;
-        BigInteger eu = BigInteger.valueOf((long) (eoh(recipe).getEUOutput() * (1 - penalty)));
-        if (parallel(in) == 1) return eu;
-        return eu.multiply(BigInteger.valueOf((long) (powerMultiplier(in) * PRECISION_MULTIPLIER)))
+        BigInteger eu = BigInteger.valueOf((long) (getEohRecipe(recipe).getEUOutput() * (1 - penalty)));
+        if (computeParallel(in) == 1) return eu;
+        return eu.multiply(BigInteger.valueOf((long) (computePowerMultiplier(in) * PRECISION_MULTIPLIER)))
             .divide(BigInteger.valueOf((long) (PRECISION_MULTIPLIER * POWER_DIVISION_CONSTANT)));
     }
 
-    private static double powerMultiplier(ProcessingInputs in) {
-        return Math.max(1, GTUtility.powInt(POWER_INCREASE_CONSTANT, parallelExponent(in.value(ASTRAL_ARRAYS))));
+    private static double computePowerMultiplier(ProcessingInputs in) {
+        return Math.max(1, GTUtility.powInt(POWER_INCREASE_CONSTANT, computeParallelExponent(in.value(ASTRAL_ARRAYS))));
     }
 
-    private static ModifierKind.LongKind excessKind(String id, String nameKey) {
+    private static ModifierKind.LongKind registerExcessKind(String id, String nameKey) {
         return ModifierKind.ofLong(id)
             .name(nameKey)
             .source(ModifierKind.Source.RUNTIME)
@@ -324,11 +328,11 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             .register();
     }
 
-    private static long requiredSpacetimeTier(GTRecipe recipe) {
+    private static long getRequiredSpacetimeTier(GTRecipe recipe) {
         return recipe.mSpecialItems instanceof EyeOfHarmonyRecipe eoh ? eoh.getSpacetimeCasingTierRequired() : 0;
     }
 
-    private static ModifierKind.IntKind fieldKind(String id, String nameKey) {
+    private static ModifierKind.IntKind registerFieldKind(String id, String nameKey) {
         return ModifierKind.ofInt(id)
             .name(nameKey)
             .ordered()
@@ -338,7 +342,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     }
 
     /** 1 without astral arrays. */
-    private static long parallelExponent(long astralArrays) {
+    private static long computeParallelExponent(long astralArrays) {
         if (astralArrays == 0) return 1;
         return (long) Math.floor(
             Math.log(PARALLEL_FOR_FIRST_ASTRAL_ARRAY * Math.min(astralArrays, ASTRAL_ARRAY_LIMIT)) / LOG_CONSTANT);
@@ -995,8 +999,10 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     private List<ItemStackLong> outputItems = new ArrayList<>();
     private List<FluidStackLong> outputFluids = new ArrayList<>();
 
-    private static int recipeTicks(long recipeTime, long recipeSpacetimeCasingRequired, long spacetimeTier,
-        long timeDilationTier, long circuit) {
+    private static int computeRecipeTicks(ProcessingInputs in, GTRecipe recipe) {
+        long spacetimeTier = in.value(SPACETIME_COMPRESSION_FIELD);
+        long timeDilationTier = in.value(TIME_DILATION_FIELD);
+        long circuit = in.value(CIRCUIT);
 
         // Tier 1 recipe.
         // Tier 2 spacetime blocks.
@@ -1006,8 +1012,8 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         // Tier 3 spacetime blocks.
         // = 3%*3% = 5.91% discount.
 
-        final long spacetimeCasingDifference = (recipeSpacetimeCasingRequired - spacetimeTier);
-        final double recipeTimeDiscounted = recipeTime * GTUtility.powInt(2.0, -timeDilationTier)
+        final long spacetimeCasingDifference = (getRequiredSpacetimeTier(recipe) - spacetimeTier);
+        final double recipeTimeDiscounted = recipe.mDuration * GTUtility.powInt(2.0, -timeDilationTier)
             * GTUtility.powInt(1 - SPACETIME_CASING_DIFFERENCE_DISCOUNT_PERCENTAGE, -spacetimeCasingDifference)
             * Math.min(1, GTUtility.powInt(2, -circuit));
         return (int) Math.max(recipeTimeDiscounted, 1.0);
@@ -1039,24 +1045,25 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
                 .of(STABILISATION_FIELD, () -> stabilisationFieldMetadata, value -> stabilisationFieldMetadata = value),
             Modifier.of(ASTRAL_ARRAYS, () -> (int) astralArrayAmount, value -> astralArrayAmount = value),
             Modifier.of(CIRCUIT, () -> (int) currentCircuitMultiplier, value -> currentCircuitMultiplier = value),
-            excess(EXCESS_HYDROGEN, Materials.Hydrogen.mGas, EyeOfHarmonyRecipe::getHydrogenRequirement),
-            excess(EXCESS_HELIUM, Materials.Helium.mGas, EyeOfHarmonyRecipe::getHeliumRequirement),
-            excess(
+            createExcessModifier(EXCESS_HYDROGEN, Materials.Hydrogen.mGas, EyeOfHarmonyRecipe::getHydrogenRequirement),
+            createExcessModifier(EXCESS_HELIUM, Materials.Helium.mGas, EyeOfHarmonyRecipe::getHeliumRequirement),
+            createExcessModifier(
                 EXCESS_STAR_MATTER,
                 Materials.RawStarMatter.mFluid,
-                recipe -> starMatterRequired(recipe, parallel(astralArrayAmount))),
+                recipe -> computeStarMatterRequired(recipe, computeParallel(astralArrayAmount))),
             Modifier.of(PITY, () -> pityGuaranteed ? 1 : 0, value -> pityGuaranteed = value == 1));
     }
 
-    /** Against the recipe being started. With none, the excess is everything stored. */
-    private Modifier excess(ModifierKind.LongKind kind, Fluid fluid, ToDoubleFunction<EyeOfHarmonyRecipe> required) {
+    /** The excess counts from {@link #currentRecipe}'s requirement, or from 0 while there is no current recipe. */
+    private Modifier createExcessModifier(ModifierKind.LongKind kind, Fluid fluid,
+        ToDoubleFunction<EyeOfHarmonyRecipe> required) {
         return Modifier.of(
             kind,
-            () -> validFluidMap.get(fluid) - requiredLitres(required),
-            excess -> validFluidMap.put(fluid, excess + requiredLitres(required)));
+            () -> validFluidMap.get(fluid) - computeRequiredLitres(required),
+            excess -> validFluidMap.put(fluid, excess + computeRequiredLitres(required)));
     }
 
-    private long requiredLitres(ToDoubleFunction<EyeOfHarmonyRecipe> required) {
+    private long computeRequiredLitres(ToDoubleFunction<EyeOfHarmonyRecipe> required) {
         return currentRecipe == null ? 0 : (long) Math.ceil(required.applyAsDouble(currentRecipe));
     }
 
@@ -1329,7 +1336,10 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             }
         }
 
-        double baseChance = baseSuccessChance(recipeObject, timeAccelerationFieldMetadata, stabilisationFieldMetadata);
+        double baseChance = computeBaseSuccessChance(
+            recipeObject,
+            timeAccelerationFieldMetadata,
+            stabilisationFieldMetadata);
         double pityChanceForRecipe = pityChance == Double.MIN_VALUE ? baseChance : pityChance;
         // Intentional: pity compares the base recipe chance before overflow penalties are applied.
         pityGuaranteed = baseChance == successChance && pityChanceForRecipe >= 1;
