@@ -166,7 +166,9 @@ public final class ProcessingSpec {
     private final List<Variant> variants;
     private final List<MachineMode> modes;
 
-    /** @param modifiers The kinds the spec reads, each at the spec's range for the kind, else the kind's range */
+    /**
+     * @param modifiers The kinds the spec reads, each at the kind's range, or the spec's for a kind ranged per machine
+     */
     private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierKind.Range> modifiers) {
         this.parallel = List.copyOf(builder.parallel);
         this.scalars = new EnumMap<>(builder.scalars);
@@ -562,8 +564,14 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** Reads the kind, at a range for this machine. */
+        /**
+         * Reads a kind ranged per machine, at this machine's range.
+         *
+         * @throws IllegalArgumentException for a kind whose range is set on the kind
+         */
         public Builder range(@Nonnull ModifierKind kind, long min, long max) {
+            if (kind.getRange() != null)
+                throw new IllegalArgumentException(kind + " already has a range, set on the kind");
             this.reads.put(kind, new ModifierKind.Range(min, max));
             return this;
         }
@@ -608,7 +616,7 @@ public final class ProcessingSpec {
          */
         public Builder parallelPerVoltageTierRising(int min, int max, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
-                new Formula.RisingPerVoltageTier(min, max, kind, (int) requireRange(kind).max()),
+                new Formula.RisingPerVoltageTier(min, max, kind),
                 tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
         }
 
@@ -647,15 +655,8 @@ public final class ProcessingSpec {
         public Builder speedRising(double min, double max, @Nonnull ModifierKind.IntKind kind) {
             return scalar(
                 Quantity.DURATION,
-                new Formula.Rising(min, max, kind, (int) requireRange(kind).max()),
+                new Formula.Rising(min, max, kind),
                 tt -> tt.addRisingSpeedInfo((float) min, (float) max, kind));
-        }
-
-        private static ModifierKind.Range requireRange(ModifierKind.IntKind kind) {
-            ModifierKind.Range range = kind.getRange();
-            if (range == null)
-                throw new IllegalArgumentException(kind + " has no range. Give the kind one with range()");
-            return range;
         }
 
         public Builder euModifier(double euModifier) {
@@ -830,7 +831,9 @@ public final class ProcessingSpec {
                 ModifierKind.Range resolved = range != null ? range : kind.getRange();
                 if (resolved != null) modifiers.put(kind, resolved);
                 else if (needsRanges) throw new IllegalStateException(
-                    "the spec reads " + kind + ", which has no range of its own; give one with range()");
+                    "the spec reads " + kind
+                        + " but has no range for the kind. Set one with ModifierKind.Builder.range()"
+                        + " or ProcessingSpec.Builder.range()");
             });
             return new ProcessingSpec(this, Collections.unmodifiableMap(modifiers));
         }
