@@ -52,7 +52,6 @@ import gregtech.api.modularui2.GTGuiThemes;
 import gregtech.api.objects.overclockdescriber.OverclockDescriber;
 import gregtech.api.objects.overclockdescriber.SteamOverclockDescriber;
 import gregtech.api.recipe.RecipeMap;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
@@ -110,21 +109,19 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
         return ProcessingSpec.builder()
             .parallel(STEAM_PARALLEL)
-            .speed(in -> in.value(PRESSURE) / BASIC_DURATION_MULTIPLIER, PRESSURE)
+            .speed(inputs -> inputs.value(PRESSURE) / BASIC_DURATION_MULTIPLIER, PRESSURE)
             .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
-            .euModifierNotLimitingParallel(in -> EU_MODIFIER_PER_PRESSURE * in.value(PRESSURE), PRESSURE)
+            .euModifierNotLimitingParallel(inputs -> EU_MODIFIER_PER_PRESSURE * inputs.value(PRESSURE), PRESSURE)
             .customTooltip(
                 ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
                 tt -> tt.addStaticSteamEffInfo(0.625f))
             .noOverclock()
             .maxTierSkips(0)
             // matches setProcessingLogicPower(): V[tierRecipes] with an amp for every parallel
-            .power(in -> V[tierRecipes], in -> STEAM_PARALLEL)
+            .power(inputs -> V[tierRecipes], inputs -> STEAM_PARALLEL)
             .noAmperageOverclock()
             .noTooltip(ProcessingSpec.Quantity.POWER)
-            .requires(
-                (in, recipe) -> recipe.mEUt <= V[tierRecipes],
-                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt));
+            .requiresRecipeWithinVoltage();
     }
 
     public abstract String getMachineType();

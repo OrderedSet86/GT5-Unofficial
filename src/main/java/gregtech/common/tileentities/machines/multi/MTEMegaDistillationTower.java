@@ -92,7 +92,8 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             mode -> mode
                 // 512 - 1024 parallels min to max height
                 .parallel(
-                    in -> Configuration.Multiblocks.megaMachinesMax * (1 + (in.value(ModifierKind.LENGTH) + 1) / 2),
+                    inputs -> Configuration.Multiblocks.megaMachinesMax
+                        * (1 + (inputs.value(ModifierKind.LENGTH) + 1) / 2),
                     ModifierKind.LENGTH)
                 .customTooltip(
                     ProcessingSpec.Quantity.PARALLEL,
