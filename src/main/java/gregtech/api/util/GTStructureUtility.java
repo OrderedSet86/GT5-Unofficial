@@ -85,6 +85,9 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
 public class GTStructureUtility {
 
+    public static final int ITEM_PIPE_CASING_TIERS = 8;
+    public static final int PIPE_CASING_TIERS = 4;
+
     // private static final Map<Class<?>, String> customNames = new HashMap<>();
     private GTStructureUtility() {
         throw new AssertionError("Not instantiable");
@@ -986,9 +989,6 @@ public class GTStructureUtility {
         if (meta < 0 || meta > 7) return null;
         return meta + 1;
     }
-
-    public static final int ITEM_PIPE_CASING_TIERS = 8;
-    public static final int PIPE_CASING_TIERS = 4;
 
     /** @param tier From 1 to {@link #PIPE_CASING_TIERS} */
     @Nonnull

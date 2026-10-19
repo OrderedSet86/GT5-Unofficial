@@ -80,13 +80,15 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     public static final Casings steelCasing = Casings.SolidSteelMachineCasing;
 
     private static final int STEAM_PARALLEL = 8;
-
-    /** 1 for Basic, 2 for High Pressure. */
+    private static final double BASIC_DURATION_MULTIPLIER = 1.6;
+    private static final double EU_MODIFIER_PER_PRESSURE = 1.25;
+    protected static final int PRESSURE_BASIC = 1;
+    protected static final int PRESSURE_HIGH = 2;
     protected static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
         .name("GT5U.MBTT.Tiers.SteamPressure")
         .ordered()
-        .range(1, 2)
-        .labels(1, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
+        .range(PRESSURE_BASIC, PRESSURE_HIGH)
+        .labels(PRESSURE_BASIC, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
         .register();
 
     public MTESteamMultiBlockBase(String aName) {
@@ -108,9 +110,9 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
         return ProcessingSpec.builder()
             .parallel(STEAM_PARALLEL)
-            .speed(in -> in.value(PRESSURE) / 1.6, PRESSURE)
+            .speed(in -> in.value(PRESSURE) / BASIC_DURATION_MULTIPLIER, PRESSURE)
             .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
-            .euModifierNotLimitingParallel(in -> 1.25 * in.value(PRESSURE), PRESSURE)
+            .euModifierNotLimitingParallel(in -> EU_MODIFIER_PER_PRESSURE * in.value(PRESSURE), PRESSURE)
             .customTooltip(
                 ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
                 tt -> tt.addStaticSteamEffInfo(0.625f))

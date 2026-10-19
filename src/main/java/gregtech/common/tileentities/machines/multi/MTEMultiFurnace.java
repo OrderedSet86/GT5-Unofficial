@@ -55,6 +55,7 @@ import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
 import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTRecipe;
+import gregtech.api.util.GTRecipeBuilder;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.MultiblockTooltipBuilder;
@@ -66,9 +67,11 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
 
     private int mLevel = 0;
 
+    private static final long RECIPE_EUT = 4;
+    private static final int RECIPE_DURATION = 128;
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .parallelCompoundPerTier(4, 2, ModifierKind.COIL)
-        .recipeOverride(4, 128)
+        .recipeOverride(RECIPE_EUT, RECIPE_DURATION)
         .power(in -> GTUtility.roundUpVoltage(in.maxInputVoltage()), in -> 1)
         .noAmperageOverclock()
         .euPerTickCap(in -> VP[GTUtility.getTier(in.averageVoltage())])
@@ -317,25 +320,14 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     }
 
     /**
-     * A placeholder smelting recipe, run at the fixed cost of {@link ProcessingSpec.Builder#recipeOverride}. Built on
-     * first use, once the game has loaded.
+     * A placeholder smelting recipe, run at the fixed cost of {@link ProcessingSpec.Builder#recipeOverride}. The JVM
+     * builds {@code RECIPE} on the first use of this class, once the game has loaded.
      */
     private static final class Smelting {
 
-        private static final GTRecipe RECIPE = new GTRecipe(
-            false,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            0,
-            0,
-            0);
+        private static final GTRecipe RECIPE = GTRecipeBuilder.empty()
+            .build()
+            .orElseThrow();
     }
 
     @Override

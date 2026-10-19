@@ -233,12 +233,12 @@ public class MultiblockTooltipBuilder {
         return addDynamicParallelInfo(parallels, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tier) {
+    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tierText) {
         iLines.add(
             String.format(
                 parallels == 1 ? TT_SingularParallel : TT_DynamicParallels,
                 TooltipHelper.parallelText(parallels),
-                tier));
+                tierText));
         return this;
     }
 
@@ -269,8 +269,8 @@ public class MultiblockTooltipBuilder {
         return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tier) {
-        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tier));
+    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tierText) {
+        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tierText));
         return this;
     }
 
@@ -386,7 +386,8 @@ public class MultiblockTooltipBuilder {
             String.format(
                 TT_RecipeOverride,
                 TooltipHelper.euRateText(eut),
-                EnumChatFormatting.WHITE + formatNumber(ticks / 20.0) + "s" + EnumChatFormatting.GRAY));
+                TooltipHelper
+                    .coloredText(formatNumber(ticks / (double) GTRecipeBuilder.SECONDS), EnumChatFormatting.WHITE)));
         return this;
     }
 
@@ -397,7 +398,7 @@ public class MultiblockTooltipBuilder {
                 TT_RisingParallelPerVoltageTier,
                 TooltipHelper.parallelText(min),
                 TooltipHelper.parallelText(max),
-                TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR),
+                TooltipHelper.tierText(TooltipTier.VOLTAGE),
                 kind.getTierText()));
         return this;
     }
@@ -423,7 +424,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the lines of {@link ProcessingSpec#describe}: all but the per-mode ones. */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
         spec.describe(this);
         return this;
