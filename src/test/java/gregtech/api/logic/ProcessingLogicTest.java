@@ -82,7 +82,7 @@ class ProcessingLogicTest {
                 .inspect(recipe));
     }
 
-    /** Fusion's start-up failure is a new result on each side of the conformance check. */
+    /** insufficientStartupPower() returns a new result on each call. */
     @Test
     void twoFailuresForTheSameStartupCostAreTheSameRun() {
         assertEquals(
