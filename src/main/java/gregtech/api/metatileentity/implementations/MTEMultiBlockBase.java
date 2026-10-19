@@ -2163,9 +2163,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * The machine's modes, in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode count and
-     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's modes.
-     * Without a spec, override this method to return a static constant: the mode methods of this class call this method
-     * on each use.
+     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's modes. Without
+     * a spec, override this method to return a static constant: a machine's modes don't change while the game runs.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
