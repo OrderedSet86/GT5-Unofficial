@@ -2128,7 +2128,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * The mode the machine is in, or null if {@link #getMachineModes} is empty. For a {@code machineMode} out of
-     * range, this returns the first mode.
+     * range, this method returns the first mode.
      */
     @Nullable
     public final MachineMode getCurrentMachineMode() {
@@ -2138,7 +2138,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return modes.get(index >= 0 && index < modes.size() ? index : 0);
     }
 
-    /** The index of the only mode with {@code recipeMap}, or -1 if there is none or more than one. */
+    /** The index of the mode with {@code recipeMap}, or -1 if no mode or several modes have {@code recipeMap}. */
     public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
         int found = -1;
@@ -2153,8 +2153,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * The machine's modes, in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode count and
-     * the mode button icons come from this list. Return a static constant: the mode methods of this class call this on
-     * each use.
+     * the mode button icons come from this list. Return a static constant: the mode methods of this class call this
+     * method on each use.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
@@ -3379,9 +3379,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Override
     public void setMachineMode(int index) {
         // MTEMultiBlockBaseGui passes the mode index a client sends to setMachineMode(), unchecked.
-        // Ignore an index out of range
+        // Ignore an index out of range or of an unavailable mode
         List<MachineMode> modes = getMachineModes();
-        if (!modes.isEmpty() && (index < 0 || index >= modes.size())) return;
+        if (!modes.isEmpty() && (index < 0 || index >= modes.size() || !isMachineModeAvailable(index))) return;
         machineMode = index;
         // The machine is likely using a different recipemap now
         // Clear the cached recipe
@@ -3392,9 +3392,24 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Override
     public int nextMachineMode() {
         List<MachineMode> modes = getMachineModes();
-        if (!modes.isEmpty()) return (getMachineMode() + 1) % modes.size();
+        if (!modes.isEmpty()) {
+            for (int step = 1; step < modes.size(); step++) {
+                int index = (getMachineMode() + step) % modes.size();
+                if (isMachineModeAvailable(index)) return index;
+            }
+            return getMachineMode();
+        }
         if (machineMode == 0) return 1;
         else return 0;
+    }
+
+    /**
+     * Whether mode {@code index} of {@link #getMachineModes} can be selected now. {@code index} is always in range.
+     * {@link #nextMachineMode} and {@link #setMachineMode} never select an unavailable mode. When the current mode
+     * becomes unavailable, the machine stays in the current mode.
+     */
+    public boolean isMachineModeAvailable(int index) {
+        return true;
     }
 
     @Override

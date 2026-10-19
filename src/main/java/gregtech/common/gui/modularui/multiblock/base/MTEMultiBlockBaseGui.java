@@ -103,10 +103,12 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
     public MTEMultiBlockBaseGui(T multiblock) {
         this.multiblock = multiblock;
         this.baseMetaTileEntity = multiblock.getBaseMetaTileEntity();
-        for (MachineMode mode : multiblock.getMachineModes()) {
-            // the mode button has one state per machineModeIcons entry, in mode order.
-            // Keep a null entry for a mode with no icon
-            this.machineModeIcons.add(mode.guiIcon());
+        if (multiblock.supportsMachineModeSwitch()) {
+            for (MachineMode mode : multiblock.getMachineModes()) {
+                // the mode button has one state per machineModeIcons entry, in mode order.
+                // Keep a null entry for a mode with no icon
+                this.machineModeIcons.add(mode.guiIcon());
+            }
         }
         initCustomIcons();
         initShutdownMaps();
@@ -1304,7 +1306,7 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
             multiblock::setBatchMode).allowC2S();
         syncManager.syncValue("batchMode", batchModeSyncer);
 
-        IntSyncValue machineModeSyncer = new IntSyncValue(multiblock::getMachineMode, multiblock::setMachineMode)
+        IntSyncValue machineModeSyncer = new IntSyncValue(multiblock::getMachineMode, this::selectMachineMode)
             .allowC2S();
         syncManager.syncValue("machineMode", machineModeSyncer);
 
@@ -1334,6 +1336,13 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
 
         BooleanSyncValue mufflerSyncer = new BooleanSyncValue(multiblock::isMuffled, multiblock::setMuffled).allowC2S();
         syncManager.syncValue("mufflerSyncer", mufflerSyncer);
+    }
+
+    private void selectMachineMode(int index) {
+        multiblock.setMachineMode(index);
+        // the client adds one to the index on each mode button press, without calling isMachineModeAvailable().
+        // setMachineMode() ignores an unavailable mode. Go on to the next available mode
+        if (multiblock.getMachineMode() != index) multiblock.setMachineMode(multiblock.nextMachineMode());
     }
 
     protected void setMachineModeIcons() {}
