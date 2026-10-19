@@ -27,8 +27,8 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
 /**
- * Checks every registered multiblock with a {@link ProcessingSpec}: its tooltip has a line for each number of the spec,
- * and its recipe runs match {@link ProcessingSpec#calculate}.
+ * Checks every registered multiblock with a {@link ProcessingSpec}: the multiblock's tooltip has a line for each number
+ * of the spec, and the multiblock's recipe runs match {@link ProcessingSpec#calculate}.
  */
 @GameTestHolder(Mods.ModIDs.GREG_TECH)
 public class ProcessingSpecConformanceTests {
@@ -87,8 +87,8 @@ public class ProcessingSpecConformanceTests {
 
     /**
      * The first difference between the machine's run and the spec's, or null. The machine is a copy with every modifier
-     * at the top of its range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn}, over sampled
-     * recipes and energy hatches. Machines without processing logic are only checked to evaluate.
+     * at the top of the modifier's range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn},
+     * over sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
      */
     @Nullable
     private static String findRunDifference(Entry entry) {

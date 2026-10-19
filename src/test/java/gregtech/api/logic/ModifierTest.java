@@ -111,7 +111,10 @@ class ModifierTest {
         assertEquals(ModifierKind.Source.ITEM, BLADE.source);
     }
 
-    /** No default arm: a new kind of value stops this compiling until it is handled. */
+    /**
+     * No default arm: after a new {@link ModifierKind}, this test compiles only once the switch has a case for the new
+     * kind.
+     */
     @Test
     void aPlannerHandlesEachKindOfValue() {
         ModifierKind kind = ModifierKind.COIL;
