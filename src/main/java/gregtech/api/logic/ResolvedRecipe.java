@@ -12,8 +12,7 @@ import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 
 /**
- * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks. Machines and planners both
- * calculate from these numbers. A planner then gets the machine's results.
+ * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks.
  * <p>
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
@@ -133,7 +132,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     }
 
     /**
-     * The run, given the built helper and its calculated overclocks: the helper's failure or an overflow if any.
+     * The run from {@code helper} after build() and {@code calculator} after calculate(): the helper's failure, an
+     * overflow, or else the run.
      *
      * @param ticks Read only once nothing has overflowed
      */

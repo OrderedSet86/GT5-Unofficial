@@ -57,7 +57,9 @@ public class ProcessingLogic {
     protected double overClockPowerIncrease = 4.0;
     protected boolean amperageOC = true;
     protected boolean recipeCaching = true;
+    @Nullable
     protected ProcessingSpec spec;
+    @Nullable
     protected ProcessingInputs specInputs;
     /** The power panel's cap on the spec's parallels. */
     protected int parallelLimit = Integer.MAX_VALUE;
@@ -477,7 +479,7 @@ public class ProcessingLogic {
      * Checks if supplied recipe is valid for process. This involves voltage check, output full check. If successful,
      * additionally performs input consumption, output calculation with parallel, and overclock calculation.
      *
-     * @param recipe The recipe which will be checked and processed
+     * @param found The recipe which will be checked and processed
      */
     @Nonnull
     private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe found) {
@@ -589,8 +591,8 @@ public class ProcessingLogic {
     }
 
     /**
-     * The numbers the hooks work from: the spec's for the recipe being checked, else the setters' current values. A
-     * hook such as {@link #validateRecipe} may have just changed those values.
+     * The numbers the hooks work from: the spec's numbers for the recipe being checked, else the setters' current
+     * values. A hook such as {@link #validateRecipe} may have just changed those values.
      */
     @Nonnull
     protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {
@@ -636,24 +638,25 @@ public class ProcessingLogic {
     }
 
     /**
-     * The recipe through the spec and this logic's requirement, parallel, overclock and duration hooks, with unlimited
-     * inputs and output space. For checking that a machine's runs match its spec. {@link #validateRecipe} and
-     * {@link #applyRecipe} are not called, since they may act on the world. With a spec they can only reject a recipe.
+     * The run of {@code found} through the spec and this logic's requirement, parallel, overclock and duration hooks,
+     * with unlimited inputs and output space. This method calls neither {@link #validateRecipe} nor
+     * {@link #applyRecipe}: both may act on the world. With a spec, both can only reject a recipe.
      *
      * @throws IllegalStateException without {@link #setSpec}
      */
     @Nonnull
-    public final ProcessingRun inspect(@Nonnull GTRecipe recipe) {
+    public final ProcessingRun inspect(@Nonnull GTRecipe found) {
         if (spec == null) throw new IllegalStateException("inspect needs a spec");
-        specResolved = resolveSpec(recipe);
-        CheckRecipeResult check = checkSpecRequirements(specResolved);
-        if (!check.wasSuccessful()) return ProcessingRun.failed(check);
-        GTRecipe run = specResolved.recipe();
-        ParallelHelper helper = ResolvedRecipe.forPlanning(createParallelHelper(run));
-        OverclockCalculator calculator = createOverclockCalculator(run);
+        specResolved = resolveSpec(found);
+        CheckRecipeResult specResult = checkSpecRequirements(specResolved);
+        if (!specResult.wasSuccessful()) return ProcessingRun.failed(specResult);
+
+        GTRecipe recipe = specResolved.recipe();
+        ParallelHelper helper = ResolvedRecipe.forPlanning(createParallelHelper(recipe));
+        OverclockCalculator calculator = createOverclockCalculator(recipe);
         helper.setCalculator(calculator)
             .build();
-        return specResolved.toRun(helper, calculator, () -> calculateDuration(run, helper, calculator));
+        return specResolved.toRun(helper, calculator, () -> calculateDuration(recipe, helper, calculator));
     }
 
     /**

@@ -2193,7 +2193,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Return a static constant. Planners read the spec from the prototype.
+     * The prototype must return the same spec as every placed machine.
      *
      * @return null if the machine computes the recipe numbers in code
      */
@@ -2202,7 +2202,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return null;
     }
 
-    /** @throws IllegalStateException if {@link #getSpecModifiers} and the spec name different kinds */
+    /** @throws IllegalStateException if {@link #getSpecModifiers} returns other kinds than the spec reads */
     @Nonnull
     public ProcessingInputs getCurrentProcessingSpecInputs() {
         List<Modifier> modifiers = getSpecModifiers();
@@ -2254,8 +2254,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For the conformance test, on a {@link #newMetaEntity} copy: the recipe through the machine's processing logic at
-     * these inputs. The result should match {@link ProcessingSpec#calculate}.
+     * The run of {@code recipe} through the machine's processing logic at {@code inputs}. Call this on a
+     * {@link #newMetaEntity} copy: the method sets up the processing logic with the spec.
      *
      * @return null if the machine has no spec or no processing logic
      */
@@ -3452,10 +3452,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return machineMode;
     }
 
-    /**
-     * Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. Factory
-     * planners should leave these out.
-     */
+    /** Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. */
     public boolean isStructureDeprecated() {
         return false;
     }

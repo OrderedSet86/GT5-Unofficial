@@ -776,7 +776,7 @@ class GT_OverclockCalculator_UnitTest {
     }
 
     @Test
-    void perfectOverclockQuartersTheDuration() {
+    void theDurationDecreaseReadsThePerfectOverclock() {
         assertEquals(
             4,
             new OverclockCalculator().enablePerfectOC()

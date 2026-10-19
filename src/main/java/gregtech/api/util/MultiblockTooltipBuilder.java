@@ -372,7 +372,8 @@ public class MultiblockTooltipBuilder {
             String.format(
                 TT_RecipeOverride,
                 TooltipHelper.euRateText(eut),
-                EnumChatFormatting.WHITE + formatNumber(ticks / 20.0) + "s" + EnumChatFormatting.GRAY));
+                TooltipHelper
+                    .coloredText(formatNumber(ticks / (double) GTRecipeBuilder.SECONDS), EnumChatFormatting.WHITE)));
         return this;
     }
 
@@ -383,7 +384,7 @@ public class MultiblockTooltipBuilder {
                 TT_RisingParallelPerVoltageTier,
                 TooltipHelper.parallelText(min),
                 TooltipHelper.parallelText(max),
-                TooltipHelper.coloredText("Voltage", TooltipHelper.TIER_COLOR),
+                TooltipHelper.tierText(TooltipTier.VOLTAGE),
                 kind.getTierText()));
         return this;
     }
@@ -409,7 +410,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Adds the lines of {@link ProcessingSpec#describe}: all but the per-mode ones. */
     public MultiblockTooltipBuilder addProcessingSpecInfo(ProcessingSpec spec) {
         spec.describe(this);
         return this;

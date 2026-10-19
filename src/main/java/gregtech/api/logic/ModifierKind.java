@@ -21,9 +21,6 @@ import gregtech.api.util.tooltip.TooltipHelper;
 /**
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
  * constants here. A kind only one machine has is registered in that machine's class.
- * <p>
- * The class is sealed over the value type. A consumer's switch over the kinds with no default arm then stops compiling
- * when a new value type is added.
  */
 public abstract sealed class ModifierKind permits ModifierKind.IntKind {
 
@@ -33,7 +30,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         STRUCTURE,
         /** Such as an upgrade chip. */
         ITEM,
-        /** Built up while running, such as momentum. */
+        /** A value the machine builds up while running, such as momentum. */
         RUNTIME
     }
 
@@ -70,7 +67,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         .ordered()
         .labels(tier -> GTValues.VN[(int) tier])
         .register();
-    /** The coil's heating coil tier: 0 for Cupronickel. */
+    /** The heating coil tier: 0 for Cupronickel. */
     public static final IntKind COIL = ofInt("gregtech:coil").name("GT5U.MBTT.Tiers.Coil")
         .ordered()
         .range(0, HeatingCoilLevel.getMaxTier())
@@ -104,7 +101,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     public final String nameKey;
     @Nonnull
     public final Source source;
-    /** Machines are better at higher values. A planner may start at the highest. */
+    /** Machines are better at higher values. */
     public final boolean ordered;
     @Nullable
     private final Range range;
@@ -117,13 +114,13 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         this.nameKey = builder.nameKey;
         this.source = builder.source;
         this.ordered = builder.ordered;
-        this.range = builder.hasRange ? new Range(builder.min, builder.max) : null;
+        this.range = builder.range;
         this.labels = builder.labels;
         this.tierOffset = builder.tierOffset;
     }
 
     /**
-     * The values machines of this kind take, or null for a kind ranged per machine. A spec's
+     * The values every machine takes for this kind, or null for a kind ranged per machine. A spec's
      * {@link ProcessingSpec.Builder#range} replaces this range.
      */
     @Nullable
@@ -153,7 +150,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         return id;
     }
 
-    /** Complete only after every machine class has loaded and registered its kinds. */
+    /** The list is complete only after every machine class has loaded and registered the class's kinds. */
     @Nonnull
     public static List<ModifierKind> all() {
         return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
@@ -172,9 +169,8 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         private String nameKey;
         private Source source = Source.STRUCTURE;
         private boolean ordered;
-        private boolean hasRange;
-        private long min;
-        private long max;
+        @Nullable
+        private Range range;
         private LongFunction<String> labels;
         private int tierOffset;
 
@@ -200,12 +196,9 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
             return this;
         }
 
-        /** The values every machine of this kind takes. */
+        /** The values every machine takes for this kind. */
         public Builder<K> range(long min, long max) {
-            if (min > max) throw new IllegalArgumentException(id + ": min " + min + " > max " + max);
-            this.hasRange = true;
-            this.min = min;
-            this.max = max;
+            this.range = new Range(min, max);
             return this;
         }
 
