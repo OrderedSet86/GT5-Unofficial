@@ -22,7 +22,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
 
     public record EnergyHatch(long voltage, long amperage, boolean exotic) {
 
-        /** An invalid hatch: the average voltage counts it, the amperage and EU sums do not. */
+        /** An invalid hatch, which the average voltage includes and the amperage and EU sums leave out. */
         @Nonnull
         public static EnergyHatch disconnected(boolean exotic) {
             return new EnergyHatch(0, 0, exotic);
