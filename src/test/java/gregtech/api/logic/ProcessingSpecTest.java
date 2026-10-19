@@ -524,7 +524,7 @@ class ProcessingSpecTest {
                 .maxParallel());
 
         ProcessingSpec timing = ProcessingSpec.builder()
-            .durationPerRecipe((in, recipe) -> 50)
+            .durationPerRecipe((inputs, recipe) -> 50)
             .noTooltip(ProcessingSpec.Quantity.DURATION)
             .maxOverclocksPerRecipe((inputs, recipe) -> 1)
             .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
@@ -775,11 +775,11 @@ class ProcessingSpecTest {
             .build();
         ProcessingSpec spec = ProcessingSpec.builder()
             .euPerRunPerRecipe(
-                (in, recipe) -> BigInteger.valueOf(recipe.mDuration)
+                (inputs, recipe) -> BigInteger.valueOf(recipe.mDuration)
                     .pow(3))
-            .euGeneratedPerRecipe((in, recipe) -> BigInteger.TEN)
-            .successChancePerRecipe((in, recipe) -> 0.25)
-            .outputYieldPerRecipe((in, recipe) -> 0.5)
+            .euGeneratedPerRecipe((inputs, recipe) -> BigInteger.TEN)
+            .successChancePerRecipe((inputs, recipe) -> 0.25)
+            .outputYieldPerRecipe((inputs, recipe) -> 0.5)
             .noTooltip(ProcessingSpec.Quantity.POWER, ProcessingSpec.Quantity.OUTPUT)
             .build();
         ProcessingInputs hv = inputs(VoltageIndex.HV, 0);

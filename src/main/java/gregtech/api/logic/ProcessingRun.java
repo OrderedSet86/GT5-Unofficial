@@ -18,7 +18,7 @@ public record ProcessingRun(@Nonnull CheckRecipeResult result, int parallel, int
     @Nonnull RunEu eu, @Nonnull Output output) {
 
     /**
-     * EU that a run takes in one amount, not every tick like {@code euPerTick}.
+     * EU that a run takes or gives in one amount, not every tick like {@code euPerTick}.
      *
      * @param startup   Taken once when the machine starts from idle
      * @param perRun    Taken when each run starts
