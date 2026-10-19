@@ -101,7 +101,6 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
     public GTRecipe lastRecipe;
     public int para;
     protected OverclockDescriber overclockDescriber;
-    // Built from the tier's constants, like the describer
     private final ProcessingSpec processingSpec;
     private static final ClassValue<IStructureDefinition<MTELargeFusionComputer>> STRUCTURE_DEFINITION = new ClassValue<>() {
 
@@ -216,10 +215,10 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
 
     @Override
     public long maxEUStore() {
-        return maxEuStore(capableStartupCanonical(), this.mEnergyHatches.size() + this.eEnergyMulti.size());
+        return computeMaxEuStore(capableStartupCanonical(), this.mEnergyHatches.size() + this.eEnergyMulti.size());
     }
 
-    private static long maxEuStore(long capableStartup, int energyHatches) {
+    private static long computeMaxEuStore(long capableStartup, int energyHatches) {
         return capableStartup * Math.min(MAX_ENERGY_HATCHES, energyHatches) / MAX_ENERGY_HATCHES;
     }
 
@@ -488,7 +487,6 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
             @NotNull
             @Override
             protected CheckRecipeResult checkSpecRequirements(@NotNull ResolvedRecipe resolved) {
-                // The running recipe met the spec's requirements when it started
                 return mRunningOnLoad ? CheckRecipeResultRegistry.SUCCESSFUL : super.checkSpecRequirements(resolved);
             }
 
@@ -514,6 +512,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         return processingSpec;
     }
 
+    /** The spec of this MK, from the MK's tier, parallel and start-up capacity. */
     private ProcessingSpec createProcessingSpec() {
         FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
         int maxParallel = getMaxPara();
@@ -521,7 +520,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         long amperage = getSingleHatchPower() * MAX_ENERGY_HATCHES / voltage;
         long capableStartup = capableStartupCanonical();
         return ProcessingSpec.builder()
-            .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(startupEU(recipe)))
+            .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(getStartupEu(recipe)))
             .overclock(describer.getDurationDecreasePerOC(), describer.getEUtIncreasePerOC())
             .maxOverclocksPerRecipe(
                 (in, recipe) -> describer.maxOverclocks(recipe),
@@ -529,17 +528,17 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
             .unlimitedTierSkips()
             .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
             .requires(
-                (in, recipe) -> startupEU(recipe) <= maxEuStore(
+                (in, recipe) -> getStartupEu(recipe) <= computeMaxEuStore(
                     capableStartup,
                     in.energyHatches()
                         .size()),
                 (in, recipe) -> CheckRecipeResultRegistry
-                    .insufficientStartupPower(BigInteger.valueOf(startupEU(recipe))))
+                    .insufficientStartupPower(BigInteger.valueOf(getStartupEu(recipe))))
             .requires(
                 (in, recipe) -> recipe.mEUt <= voltage,
                 (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
             .power(in -> voltage, in -> amperage)
-            .startupEuPerRecipe((in, recipe) -> startupEU(recipe))
+            .startupEuPerRecipe((in, recipe) -> getStartupEu(recipe))
             .customTooltip(
                 EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.POWER),
                 tt -> tt.addMarkdown(
@@ -554,7 +553,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
             .build();
     }
 
-    private static long startupEU(GTRecipe recipe) {
+    private static long getStartupEu(GTRecipe recipe) {
         return recipe.getMetadataOrDefault(FUSION_THRESHOLD, 0L);
     }
 

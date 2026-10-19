@@ -511,8 +511,11 @@ class ProcessingSpecTest {
             .build();
         ProcessingInputs iv = inputs(VoltageIndex.IV, 0);
 
-        assertEquals(2, parallel.getMaxParallel(iv), "a display without a recipe leaves them out");
-        assertEquals(6, parallel.getMaxParallel(iv, recipe(30, 400, 0)));
+        assertEquals(2, parallel.getMaxParallel(iv), "without a recipe, the per-recipe term is left out");
+        assertEquals(
+            6,
+            parallel.resolve(recipe(30, 400, 0), iv)
+                .maxParallel());
 
         ProcessingSpec timing = ProcessingSpec.builder()
             .maxOverclocksPerRecipe((in, recipe) -> 1)
@@ -768,17 +771,17 @@ class ProcessingSpecTest {
         assertTrue(lines(spec).isEmpty());
     }
 
-    /** As fusion MK1 to MK3. */
+    /** Modelled on fusion MK1 to MK3. */
     @Test
     void aNonStandardOverclockRatioWritesALine() {
         ProcessingSpec ratio = ProcessingSpec.builder()
             .overclock(2, 2)
             .build();
-        ProcessingSpec uncappedTooltip = ProcessingSpec.builder()
+        ProcessingSpec undescribedCap = ProcessingSpec.builder()
             .overclock(2, 2)
             .maxOverclocksPerRecipe((in, recipe) -> 1)
             .build();
-        ProcessingSpec capped = ProcessingSpec.builder()
+        ProcessingSpec describedCap = ProcessingSpec.builder()
             .overclock(2, 2)
             .maxOverclocksPerRecipe((in, recipe) -> 1, tt -> tt.addInfo("cap"))
             .build();
@@ -787,8 +790,8 @@ class ProcessingSpecTest {
             ratio.getUndescribed()
                 .isEmpty());
         assertEquals(1, lines(ratio).size());
-        assertEquals(EnumSet.of(ProcessingSpec.Quantity.OVERCLOCK), uncappedTooltip.getUndescribed());
-        assertEquals(2, lines(capped).size());
+        assertEquals(EnumSet.of(ProcessingSpec.Quantity.OVERCLOCK), undescribedCap.getUndescribed());
+        assertEquals(2, lines(describedCap).size());
     }
 
     /** Modelled on the EBF. */
@@ -823,7 +826,7 @@ class ProcessingSpecTest {
         assertEquals(1, lines(spec).size());
     }
 
-    /** As the Arc Furnace and the Eye of Harmony, whose markdown states several numbers. */
+    /** Modelled on fusion. The fusion markdown has the parallel and the power lines. */
     @Test
     void oneCustomTooltipCanCoverSeveralQuantities() {
         ProcessingSpec spec = ProcessingSpec.builder()
