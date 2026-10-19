@@ -59,8 +59,8 @@ public class OverclockCalculator {
     protected boolean heatOC;
     /** Whether to enable heat discounts every HEAT_DISCOUNT_THRESHOLD heat difference */
     protected boolean heatDiscount;
-    /** The value used for discount final eut per HEAT_DISCOUNT_THRESHOLD heat */
-    protected double heatDiscountExponent = DEFAULT_HEAT_DISCOUNT_MULTIPLIER;
+    /** Multiplies the final EU/t once per {@link #HEAT_DISCOUNT_THRESHOLD} of heat surplus. */
+    protected double heatDiscountMultiplier = DEFAULT_HEAT_DISCOUNT_MULTIPLIER;
 
     // Results
     /** variable to check whether the overclocks have been calculated */
@@ -208,8 +208,8 @@ public class OverclockCalculator {
      * Discount
      */
     @Nonnull
-    public OverclockCalculator setHeatDiscountMultiplier(double heatDiscountExponent) {
-        this.heatDiscountExponent = heatDiscountExponent;
+    public OverclockCalculator setHeatDiscountMultiplier(double heatDiscountMultiplier) {
+        this.heatDiscountMultiplier = heatDiscountMultiplier;
         return this;
     }
 
@@ -337,6 +337,8 @@ public class OverclockCalculator {
         return durationUnderOneTickSupplier.get();
     }
 
+    // Planners read these settings, and change them with the setters above, without reflection
+
     /** @return The recipe's duration before overclocking. {@link #getDuration()} is the result after. */
     public int getRecipeDuration() {
         return duration;
@@ -400,7 +402,7 @@ public class OverclockCalculator {
     }
 
     public double getHeatDiscountMultiplier() {
-        return heatDiscountExponent;
+        return heatDiscountMultiplier;
     }
 
     /** Call this when all values have been put it. */
@@ -421,7 +423,7 @@ public class OverclockCalculator {
 
     public double calculateHeatDiscountMultiplier() {
         int heatDiscounts = heatDiscount ? getHeatSurplus() / HEAT_DISCOUNT_THRESHOLD : 0;
-        return GTUtility.powInt(heatDiscountExponent, heatDiscounts);
+        return GTUtility.powInt(heatDiscountMultiplier, heatDiscounts);
     }
 
     private ResultLaserOCs calculateLaserOCs(double recipePower, double machinePower) {

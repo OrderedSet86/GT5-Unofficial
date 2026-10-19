@@ -163,34 +163,32 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             .modes(MODES)
             .reads(ELECTRODE)
             .parallel(MTEIndustrialArcFurnace::getElectrodeParallel, ELECTRODE, INFINITY_PARALLEL)
-            .speed(in -> {
-                ArcFurnaceElectrode electrode = getElectrode(in);
+            .speed(inputs -> {
+                ArcFurnaceElectrode electrode = getElectrode(inputs);
                 return electrode == null ? 1 : electrode.speedModifier;
             }, ELECTRODE)
-            .euModifier(in -> {
-                ArcFurnaceElectrode electrode = getElectrode(in);
+            .euModifier(inputs -> {
+                ArcFurnaceElectrode electrode = getElectrode(inputs);
                 return electrode == null ? 1 : electrode.euModifier;
             }, ELECTRODE)
             .maxOverclocksPerRecipe(
-                (in, recipe) -> (int) GTUtility.log4(in.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
+                (inputs, recipe) -> (int) GTUtility.log4(inputs.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
             .maxTierSkips(0)
             .inMode(BLAST, mode -> mode.recipeEuMultiplier(BLAST_MODE_POWER_MULTIPLIER))
             // ore mode smelts ore by ore in runMachine, not as recipes
             .notCalculatedIn(ORE)
             .allAmps()
-            .unlimitedEnergy(in -> getElectrode(in) == ArcFurnaceElectrode.InfinityElectrode)
+            .unlimitedEnergy(inputs -> getElectrode(inputs) == ArcFurnaceElectrode.InfinityElectrode)
             .requires(
-                (in, recipe) -> getElectrode(in) != null,
-                (in, recipe) -> SimpleCheckRecipeResult.ofFailure("no_electrode"))
-            .requires(
-                (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
-                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
-            .startupEuPerRecipe((in, recipe) -> computeIgnitionEuPerTick(in) * STARTUP_DURATION_TICKS)
+                (inputs, recipe) -> getElectrode(inputs) != null,
+                (inputs, recipe) -> SimpleCheckRecipeResult.ofFailure("no_electrode"))
+            .requiresRecipeWithinVoltage()
+            .startupEuPerRecipe((inputs, recipe) -> computeIgnitionEuPerTick(inputs) * STARTUP_DURATION_TICKS)
             .requiresToStart(
-                (in, recipe) -> in.totalEu() >= computeIgnitionEuPerTick(in),
-                (in, recipe) -> CheckRecipeResultRegistry.insufficientStartupPower(
-                    (int) computeIgnitionEuPerTick(in),
-                    GTUtility.getTier(in.averageVoltage())))
+                (inputs, recipe) -> inputs.totalEu() >= computeIgnitionEuPerTick(inputs),
+                (inputs, recipe) -> CheckRecipeResultRegistry.insufficientStartupPower(
+                    (int) computeIgnitionEuPerTick(inputs),
+                    GTUtility.getTier(inputs.averageVoltage())))
             // the markdown and the electrode items' tooltips state these numbers
             .customTooltip(
                 EnumSet.of(

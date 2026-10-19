@@ -228,14 +228,14 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicParallelInfo(Integer parallels, TooltipTier tier) {
-        return addDynamicParallelInfo(parallels, tier.getValue());
+        return addDynamicParallelLine(parallels, tier.getValue());
     }
 
     public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
-        return addDynamicParallelInfo(parallels, kind.getTierText());
+        return addDynamicParallelLine(parallels, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tierText) {
+    private MultiblockTooltipBuilder addDynamicParallelLine(int parallels, String tierText) {
         iLines.add(
             String.format(
                 parallels == 1 ? TT_SingularParallel : TT_DynamicParallels,
@@ -264,14 +264,14 @@ public class MultiblockTooltipBuilder {
      * @return Instance this method was called on.
      */
     public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(Integer factor, TooltipTier tier) {
-        return addDynamicMultiplicativeParallelInfo(factor, tier.getValue());
+        return addDynamicMultiplicativeParallelLine(factor, tier.getValue());
     }
 
     public MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, ModifierKind kind) {
-        return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
+        return addDynamicMultiplicativeParallelLine(factor, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tierText) {
+    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelLine(int factor, String tierText) {
         iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tierText));
         return this;
     }
@@ -370,9 +370,9 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** "Performs 2/2 overclock": speed, then EU/t, per overclock */
-    public MultiblockTooltipBuilder addOverclockRatioInfo(double durationDivisor, double euMultiplier) {
-        iLines.add(String.format(TT_OverclockRatio, formatNumber(durationDivisor), formatNumber(euMultiplier)));
+    /** Writes the EU/t multiplier and the duration divisor of each overclock, in that order. */
+    public MultiblockTooltipBuilder addOverclockRatioInfo(double euMultiplier, double durationDivisor) {
+        iLines.add(String.format(TT_OverclockRatio, formatNumber(euMultiplier), formatNumber(durationDivisor)));
         return this;
     }
 
