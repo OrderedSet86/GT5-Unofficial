@@ -141,7 +141,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             .setInputConsumer((recipe, amount, fluids, items) -> {});
     }
 
-    /** The recipe's time after its overclocks and batch. */
+    /** The recipe's time after overclocks and batch. */
     public static double ticks(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator) {
         return calculator.getDuration() * helper.getDurationMultiplierDouble();
     }
