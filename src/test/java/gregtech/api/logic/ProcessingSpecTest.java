@@ -676,8 +676,8 @@ class ProcessingSpecTest {
             .modes(TOWER_AND_DISTILLERY)
             .inMode(DISTILLERY, mode -> mode.recipeEuMultiplier(16))
             .requires(
-                (in, recipe) -> recipe.mEUt <= in.averageVoltage(),
-                (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+                (inputs, recipe) -> recipe.mEUt <= inputs.averageVoltage(),
+                (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .noTooltip(ProcessingSpec.Quantity.RECIPE_EU_MULTIPLIER)
             .build();
         GTRecipe recipe = recipe(30, 400, 0);
@@ -703,8 +703,8 @@ class ProcessingSpecTest {
     void unlimitedEnergyLimitsNeitherParallelsNorOverclocks() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(256)
-            .maxOverclocksPerRecipe((in, recipe) -> 2)
-            .unlimitedEnergy(in -> in.value(ModifierKind.COIL) == 1)
+            .maxOverclocksPerRecipe((inputs, recipe) -> 2)
+            .unlimitedEnergy(inputs -> inputs.value(ModifierKind.COIL) == 1)
             .noTooltip(ProcessingSpec.Quantity.OVERCLOCK, ProcessingSpec.Quantity.POWER)
             .build();
         GTRecipe recipe = recipe(480, 400, 0);
@@ -726,8 +726,8 @@ class ProcessingSpecTest {
     void aRequirementToStartIsLeftToTheMachineButPlannersCheckIt() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .requiresToStart(
-                (in, recipe) -> in.totalEu() >= 10_000,
-                (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+                (inputs, recipe) -> inputs.totalEu() >= 10_000,
+                (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
         GTRecipe recipe = recipe(30, 100, 0);
