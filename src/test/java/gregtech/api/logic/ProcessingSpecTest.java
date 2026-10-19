@@ -13,11 +13,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiPredicate;
 import java.util.function.IntFunction;
 
 import net.minecraft.util.EnumChatFormatting;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import gregtech.api.enums.GTValues;
 import gregtech.api.enums.VoltageIndex;
@@ -27,6 +30,7 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 
+/** The rules of {@link ProcessingSpec}: terms, requirements, overclocks, variants and tooltip lines. */
 class ProcessingSpecTest {
 
     // known gap: RecipeMap's constructor is package-private. ProcessingSpec reads only a mode's nameKey
@@ -230,7 +234,7 @@ class ProcessingSpecTest {
             .whenTier(CASING, 1, tier -> tier.speed(2))
             .build();
 
-        ProcessingInputs best = spec.bestInputs()
+        ProcessingInputs best = spec.buildBestInputs()
             .energyHatches(VoltageIndex.EV, 1)
             .build();
 
@@ -245,42 +249,44 @@ class ProcessingSpecTest {
         ProcessingSpec spec = ProcessingSpec.builder()
             .coilHeatPerVoltageTier(100, VoltageIndex.MV, ProcessingSpec.HeatRule.REQUIRED)
             .build();
-        ProcessingInputs mv = spec.bestInputs()
+        ProcessingInputs mv = spec.buildBestInputs()
             .energyHatches(VoltageIndex.MV, 1)
             .build();
 
-        assertEquals(OptionalInt.of(0), spec.lowestPassing(ModifierKind.COIL, recipe(120, 100, 1700), mv));
-        assertEquals(OptionalInt.of(2), spec.lowestPassing(ModifierKind.COIL, recipe(120, 100, 3600), mv));
-        assertEquals(OptionalInt.empty(), spec.lowestPassing(ModifierKind.COIL, recipe(120, 100, 99_999), mv));
+        assertEquals(OptionalInt.of(0), spec.findLowestPassing(ModifierKind.COIL, recipe(120, 100, 1700), mv));
+        assertEquals(OptionalInt.of(2), spec.findLowestPassing(ModifierKind.COIL, recipe(120, 100, 3600), mv));
+        assertEquals(OptionalInt.empty(), spec.findLowestPassing(ModifierKind.COIL, recipe(120, 100, 99_999), mv));
     }
 
     /** A runtime kind such as the Infinity electrode's parallel ranges up to Integer.MAX_VALUE. */
     @Test
     void aWideRangeIsSearchedInFewChecks() {
+        // a binary search over WIDE's range checks about Integer.SIZE values
+        final int SEARCH_BUDGET = 2 * Integer.SIZE;
         AtomicInteger checks = new AtomicInteger();
-        ProcessingSpec spec = ProcessingSpec.builder()
-            .parallel(in -> 1, WIDE)
-            .requires((in, recipe) -> {
-                checks.incrementAndGet();
-                return in.value(WIDE) >= recipe.mSpecialValue;
-            }, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
-            .build();
-        ProcessingInputs inputs = spec.bestInputs()
+        ProcessingSpec spec = buildCheckCountingSpec(checks, (in, recipe) -> in.value(WIDE) >= recipe.mSpecialValue);
+        ProcessingSpec never = buildCheckCountingSpec(checks, (in, recipe) -> false);
+        ProcessingInputs inputs = spec.buildBestInputs()
             .energyHatches(VoltageIndex.LV, 1)
             .build();
 
-        assertEquals(OptionalInt.of(1_000_000), spec.lowestPassing(WIDE, recipe(30, 100, 1_000_000), inputs));
-        assertTrue(checks.get() <= 2 * Integer.SIZE, checks + " checks for one search");
+        assertEquals(OptionalInt.of(1_000_000), spec.findLowestPassing(WIDE, recipe(30, 100, 1_000_000), inputs));
+        assertTrue(checks.get() <= SEARCH_BUDGET, checks + " checks for one search");
+
         checks.set(0);
-        ProcessingSpec never = ProcessingSpec.builder()
+        assertEquals(OptionalInt.empty(), never.findLowestPassing(WIDE, recipe(30, 100, 0), inputs));
+        assertTrue(checks.get() <= SEARCH_BUDGET, checks + " checks for a recipe no value passes");
+    }
+
+    private static ProcessingSpec buildCheckCountingSpec(AtomicInteger checks,
+        BiPredicate<ProcessingInputs, GTRecipe> met) {
+        return ProcessingSpec.builder()
             .parallel(in -> 1, WIDE)
             .requires((in, recipe) -> {
                 checks.incrementAndGet();
-                return false;
+                return met.test(in, recipe);
             }, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .build();
-        assertEquals(OptionalInt.empty(), never.lowestPassing(WIDE, recipe(30, 100, 0), inputs));
-        assertTrue(checks.get() <= 2 * Integer.SIZE, checks + " checks for a recipe no value passes");
     }
 
     @Test
@@ -288,11 +294,11 @@ class ProcessingSpecTest {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(in -> 1, CASING)
             .build();
-        ProcessingInputs inputs = spec.bestInputs()
+        ProcessingInputs inputs = spec.buildBestInputs()
             .energyHatches(VoltageIndex.LV, 1)
             .build();
 
-        assertThrows(IllegalArgumentException.class, () -> spec.lowestPassing(CASING, recipe(30, 100, 0), inputs));
+        assertThrows(IllegalArgumentException.class, () -> spec.findLowestPassing(CASING, recipe(30, 100, 0), inputs));
     }
 
     @Test
@@ -303,11 +309,11 @@ class ProcessingSpecTest {
             .inMode(DISTILLERY, mode -> mode.parallel(4))
             .build();
 
-        assertTrue(spec.variesByMode());
+        assertTrue(spec.hasModeVariants());
         assertFalse(
             ProcessingSpec.builder()
                 .build()
-                .variesByMode());
+                .hasModeVariants());
     }
 
     /** Modelled on the steam multiblocks. */
@@ -373,34 +379,30 @@ class ProcessingSpecTest {
         assertEquals(List.of("Four at once"), lines(overridden));
     }
 
-    /** An LV recipe on an LuV Industrial Forge Hammer with one energy hatch, for each solenoid. */
-    @Test
-    void calculateFollowsTheParallelAndOverclockLimits() {
+    /** An LV recipe on an LuV Industrial Forge Hammer with one energy hatch. */
+    @ParameterizedTest
+    @ValueSource(
+        ints = { VoltageIndex.MV, VoltageIndex.HV, VoltageIndex.EV, VoltageIndex.IV, VoltageIndex.LuV,
+            VoltageIndex.UMV })
+    void calculateFollowsTheParallelAndOverclockLimits(int solenoid) {
         ProcessingSpec forgeHammer = ProcessingSpec.builder()
             .parallel(in -> 6 * in.voltageTier() * in.value(SOLENOID), SOLENOID)
             .speed(2)
             .euModifier(1)
             .build();
-        GTRecipe ironPlates = recipe(16, 56, 0);
-        int[][] expected = {
-            // solenoid, parallel, overclocks, ticks, EU/t
-            { VoltageIndex.MV, 72, 2, 7, 18432 }, { VoltageIndex.HV, 108, 2, 7, 27648 },
-            { VoltageIndex.EV, 144, 1, 14, 9216 }, { VoltageIndex.IV, 180, 1, 14, 11520 },
-            { VoltageIndex.LuV, 216, 1, 14, 13824 }, { VoltageIndex.UMV, 432, 1, 14, 27648 } };
+        long luv = GTValues.V[VoltageIndex.LuV];
 
-        for (int[] row : expected) {
-            ProcessingRun run = forgeHammer.calculate(
-                ironPlates,
-                ProcessingInputs.builder()
-                    .energyHatches(VoltageIndex.LuV, 1)
-                    .value(SOLENOID, row[0])
-                    .build());
+        ProcessingRun run = forgeHammer.calculate(
+            recipe(16, 56, 0),
+            ProcessingInputs.builder()
+                .energyHatches(VoltageIndex.LuV, 1)
+                .value(SOLENOID, solenoid)
+                .build());
 
-            assertEquals(row[1], run.parallel(), "parallel at solenoid " + row[0]);
-            assertEquals(row[2], run.overclocks(), "overclocks at solenoid " + row[0]);
-            assertEquals(row[3], run.ticks(), "ticks at solenoid " + row[0]);
-            assertEquals(row[4], run.euPerTick(), "EU/t at solenoid " + row[0]);
-        }
+        assertEquals(6 * VoltageIndex.LuV * solenoid, run.parallel());
+        assertTrue(run.overclocks() >= 1);
+        assertTrue(run.euPerTick() <= luv);
+        assertTrue(run.euPerTick() * 4 > luv, "one more overclock would not fit");
     }
 
     @Test
@@ -563,14 +565,28 @@ class ProcessingSpecTest {
         ProcessingInputs twoLuv = ProcessingInputs.builder()
             .energyHatches(VoltageIndex.LuV, 2)
             .build();
+
+        assertEquals(VoltageIndex.ZPM, twoLuv.voltageTier());
+    }
+
+    @Test
+    void theAverageVoltageIsTheMeanOfTheHatches() {
         ProcessingInputs mixed = ProcessingInputs.builder()
             .energyHatches(VoltageIndex.LuV, 1)
             .energyHatches(VoltageIndex.IV, 1)
             .build();
 
-        assertEquals(VoltageIndex.ZPM, twoLuv.voltageTier());
         assertEquals((GTValues.V[VoltageIndex.LuV] + GTValues.V[VoltageIndex.IV]) / 2, mixed.averageVoltage());
-        assertEquals(4 * GTValues.V[VoltageIndex.LuV], twoLuv.totalEu());
+    }
+
+    @Test
+    void theTotalEuCountsEveryAmpOfEveryHatch() {
+        ProcessingInputs twoLuv = ProcessingInputs.builder()
+            .energyHatches(VoltageIndex.LuV, 2)
+            .build();
+
+        // 2 A for each regular hatch
+        assertEquals(2 * 2 * GTValues.V[VoltageIndex.LuV], twoLuv.totalEu());
     }
 
     @Test

@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTStructureUtility;
 
+/** {@link Modifier} getters and setters, and the {@link ModifierKind} constants and registry. */
 class ModifierTest {
 
     private static final class Machine {

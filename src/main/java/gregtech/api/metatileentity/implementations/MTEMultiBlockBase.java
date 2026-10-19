@@ -1163,7 +1163,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
             logic.setSpec(spec, getCurrentProcessingSpecInputs())
-                .setParallelLimit(alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel);
+                .setParallelLimit(getPowerPanelParallelLimit());
         }
     }
 
@@ -3396,9 +3396,11 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      *         least 1.
      */
     public final int getTrueParallel() {
-        return Math.max(
-            1,
-            alwaysMaxParallel ? getMaxParallelRecipes() : Math.min(getMaxParallelRecipes(), powerPanelMaxParallel));
+        return Math.max(1, Math.min(getMaxParallelRecipes(), getPowerPanelParallelLimit()));
+    }
+
+    private int getPowerPanelParallelLimit() {
+        return alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel;
     }
 
     public int getmStartUpCheck() {

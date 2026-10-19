@@ -110,7 +110,7 @@ public class ProcessingSpecConformanceTests {
                     // undeclared kind
                     spec.calculate(
                         recipe,
-                        spec.bestInputs()
+                        spec.buildBestInputs()
                             .energyHatches(hatches)
                             .mode(mode)
                             .build());

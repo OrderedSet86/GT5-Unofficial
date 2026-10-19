@@ -522,7 +522,7 @@ public class ProcessingLogic {
         }
         calculatedParallels = helper.getCurrentParallel();
 
-        ProcessingRun run = resolved(recipe)
+        ProcessingRun run = getResolvedRecipe(recipe)
             .toRun(helper, calculator, () -> calculateDuration(recipe, helper, calculator));
         if (!run.result()
             .wasSuccessful()) {
@@ -547,7 +547,7 @@ public class ProcessingLogic {
      */
     protected double calculateDuration(@Nonnull GTRecipe recipe, @Nonnull ParallelHelper helper,
         @Nonnull OverclockCalculator calculator) {
-        return ResolvedRecipe.ticks(helper, calculator);
+        return ResolvedRecipe.calculateDuration(helper, calculator);
     }
 
     /**
@@ -595,7 +595,7 @@ public class ProcessingLogic {
      * values. A hook such as {@link #validateRecipe} may have just changed those values.
      */
     @Nonnull
-    protected final ResolvedRecipe resolved(@Nonnull GTRecipe recipe) {
+    protected final ResolvedRecipe getResolvedRecipe(@Nonnull GTRecipe recipe) {
         if (specResolved != null) return specResolved;
         return new ResolvedRecipe(
             recipe,
@@ -617,7 +617,7 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected ParallelHelper createParallelHelper(@Nonnull GTRecipe recipe) {
-        return resolved(recipe).parallelHelper(recipe)
+        return getResolvedRecipe(recipe).createParallelHelper(recipe)
             .setItemInputs(inputItems)
             .setFluidInputs(inputFluids)
             .setMachine(machine, protectItems, protectFluids)
@@ -632,7 +632,7 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-        ResolvedRecipe resolved = resolved(recipe);
+        ResolvedRecipe resolved = getResolvedRecipe(recipe);
         return recipe == resolved.recipe() ? resolved.toCalculator()
             : resolved.toCalculator(recipe.mEUt, recipe.mDuration);
     }
@@ -652,7 +652,7 @@ public class ProcessingLogic {
         if (!specResult.wasSuccessful()) return ProcessingRun.failed(specResult);
 
         GTRecipe recipe = specResolved.recipe();
-        ParallelHelper helper = ResolvedRecipe.forPlanning(createParallelHelper(recipe));
+        ParallelHelper helper = ResolvedRecipe.configureForPlanning(createParallelHelper(recipe));
         OverclockCalculator calculator = createOverclockCalculator(recipe);
         helper.setCalculator(calculator)
             .build();

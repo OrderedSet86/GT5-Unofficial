@@ -1,6 +1,7 @@
 package gregtech.api.logic;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -138,7 +139,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        public Builder energyHatches(@Nonnull List<EnergyHatch> hatches) {
+        public Builder energyHatches(@Nonnull Collection<EnergyHatch> hatches) {
             this.energyHatches.addAll(hatches);
             return this;
         }
@@ -168,7 +169,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             };
         }
 
-        public Builder modifiers(@Nonnull List<Modifier> modifiers) {
+        public Builder modifiers(@Nonnull Iterable<Modifier> modifiers) {
             for (Modifier modifier : modifiers) this.values.put(modifier.kind, modifier.get());
             return this;
         }

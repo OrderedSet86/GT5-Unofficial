@@ -231,12 +231,12 @@ public class MultiblockTooltipBuilder {
         return addDynamicParallelInfo(parallels, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tier) {
+    private MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, String tierText) {
         iLines.add(
             String.format(
                 parallels == 1 ? TT_SingularParallel : TT_DynamicParallels,
                 TooltipHelper.parallelText(parallels),
-                tier));
+                tierText));
         return this;
     }
 
@@ -267,8 +267,8 @@ public class MultiblockTooltipBuilder {
         return addDynamicMultiplicativeParallelInfo(factor, kind.getTierText());
     }
 
-    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tier) {
-        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tier));
+    private MultiblockTooltipBuilder addDynamicMultiplicativeParallelInfo(int factor, String tierText) {
+        iLines.add(String.format(TT_DynamicParallels, TooltipHelper.parallelText(factor + "x"), tierText));
         return this;
     }
 
