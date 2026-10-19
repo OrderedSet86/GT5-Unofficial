@@ -33,8 +33,8 @@ class ProcessingLogicTest {
     }
 
     /**
-     * The conformance test compares inspect() with the spec. A hook that changes a number then shows up as a
-     * difference.
+     * The conformance test compares inspect() with ProcessingSpec.calculate(). A ProcessingLogic override that changes
+     * a number makes inspect() differ from ProcessingSpec.calculate().
      */
     @Test
     void aHookThatChangesANumberMakesTheRunDiffer() {

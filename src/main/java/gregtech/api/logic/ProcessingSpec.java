@@ -38,12 +38,14 @@ import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
 
 /**
- * How a multiblock runs its recipes, as a function of its energy hatches, mode and {@link ModifierKind} values.
+ * How a multiblock runs recipes, as a function of the multiblock's energy hatches, mode and {@link ModifierKind}
+ * values.
  * {@link MTEMultiBlockBase} runs a machine's recipes through the spec and writes the machine's tooltip from the spec.
  * Planners evaluate a spec without a world: {@link #getModifiers} returns the kinds the spec reads, {@link #resolve}
  * returns every number for one recipe, and {@link #calculate} runs the recipe.
  * <p>
- * Keep one per machine class in a static field, or one per instance for a machine whose constants depend on its tier.
+ * Keep one spec per machine class in a static field, or one spec per instance for a machine whose constants depend on
+ * the machine's tier.
  * Every number in a spec must reach the tooltip: every term built from a {@link Formula} has a tooltip line, and a
  * plain function requires {@link Builder#customTooltip} or {@link Builder#noTooltip}.
  */
@@ -52,7 +54,7 @@ public final class ProcessingSpec {
     /**
      * The energy a machine's recipes see.
      *
-     * @param euPerTickCap The most EU/t a run draws, whatever its overclocks cost
+     * @param euPerTickCap The most EU/t a run draws, whatever the overclocks cost
      */
     public record Power(long voltage, long amperage, boolean amperageOverclock, long euPerTickCap) {
 
@@ -450,7 +452,10 @@ public final class ProcessingSpec {
         return quantityDescribed == null || quantityDescribed.complete;
     }
 
-    /** Writes the lines in {@link Quantity} order, then each {@link Builder#whenTier} variant's under its label. */
+    /**
+     * Writes the lines in {@link Quantity} order, then the lines of each {@link Builder#whenTier} variant under the
+     * variant's label.
+     */
     public void describe(@Nonnull MultiblockTooltipBuilder tt) {
         writeLines(tt, EnumSet.noneOf(Quantity.class));
         for (Variant variant : variants) if (variant.mode == null) writeHeaded(tt, variant);
@@ -613,7 +618,10 @@ public final class ProcessingSpec {
                     .addDynamicMultiplicativeParallelInfo(factor, kind));
         }
 
-        /** From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to its range's max. */
+        /**
+         * From {@code min} to {@code max} per voltage tier as {@code kind} rises from 0 to the max of {@code kind}'s
+         * range.
+         */
         public Builder parallelPerVoltageTierRising(int min, int max, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
                 new Formula.RisingPerVoltageTier(min, max, kind, (int) rangeOf(kind).max()),
@@ -651,7 +659,7 @@ public final class ProcessingSpec {
                 tt -> tt.addSpeedPerTierInfo((float) base, (float) perTier, kind));
         }
 
-        /** From {@code min} to {@code max} speed as {@code kind} rises from 0 to its range's max. */
+        /** From {@code min} to {@code max} speed as {@code kind} rises from 0 to the max of {@code kind}'s range. */
         public Builder speedRising(double min, double max, @Nonnull ModifierKind.IntKind kind) {
             return scalar(
                 Quantity.DURATION,
@@ -750,7 +758,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The most EU/t a run draws, whatever its overclocks cost. */
+        /** The most EU/t a run draws, whatever the overclocks cost. */
         public Builder euPerTickCap(@Nonnull ToLongFunction<ProcessingInputs> euPerTickCap) {
             this.euPerTickCap = euPerTickCap;
             return this;

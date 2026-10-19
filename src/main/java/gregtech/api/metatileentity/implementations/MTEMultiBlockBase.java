@@ -2196,7 +2196,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     /**
      * Return a static constant. Planners read the spec from the prototype.
      *
-     * @return null if the machine computes its numbers in code
+     * @return null if the machine computes the recipe numbers in code
      */
     @Nullable
     public ProcessingSpec getProcessingSpec() {
