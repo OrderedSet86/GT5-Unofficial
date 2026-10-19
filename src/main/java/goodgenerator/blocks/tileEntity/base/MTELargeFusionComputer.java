@@ -520,25 +520,23 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         long amperage = getSingleHatchPower() * MAX_ENERGY_HATCHES / voltage;
         long capableStartup = capableStartupCanonical();
         return ProcessingSpec.builder()
-            .parallelPerRecipe((in, recipe) -> maxParallel * extraPara(getStartupEu(recipe)))
+            .parallelPerRecipe((inputs, recipe) -> maxParallel * extraPara(getStartupEu(recipe)))
             .overclock(describer.getDurationDecreasePerOC(), describer.getEUtIncreasePerOC())
             .maxOverclocksPerRecipe(
-                (in, recipe) -> describer.maxOverclocks(recipe),
+                (inputs, recipe) -> describer.maxOverclocks(recipe),
                 tt -> tt.addInfo(translateToLocal("gt.mbtt.fusion.max_overclocks")))
             .unlimitedTierSkips()
             .noTooltip(ProcessingSpec.Quantity.TIER_SKIPS)
             .requires(
-                (in, recipe) -> getStartupEu(recipe) <= computeMaxEuStore(
+                (inputs, recipe) -> getStartupEu(recipe) <= computeMaxEuStore(
                     capableStartup,
-                    in.energyHatches()
+                    inputs.energyHatches()
                         .size()),
-                (in, recipe) -> CheckRecipeResultRegistry
+                (inputs, recipe) -> CheckRecipeResultRegistry
                     .insufficientStartupPower(BigInteger.valueOf(getStartupEu(recipe))))
-            .requires(
-                (in, recipe) -> recipe.mEUt <= voltage,
-                (in, recipe) -> CheckRecipeResultRegistry.insufficientPower(recipe.mEUt))
-            .power(in -> voltage, in -> amperage)
-            .startupEuPerRecipe((in, recipe) -> getStartupEu(recipe))
+            .requiresRecipeWithinVoltage()
+            .power(inputs -> voltage, inputs -> amperage)
+            .startupEuPerRecipe((inputs, recipe) -> getStartupEu(recipe))
             .customTooltip(
                 EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.POWER),
                 tt -> tt.addMarkdown(

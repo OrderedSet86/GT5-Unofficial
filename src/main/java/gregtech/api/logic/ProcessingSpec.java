@@ -551,7 +551,7 @@ public final class ProcessingSpec {
         if (builder.overclock != null || builder.maxOverclocks != null) {
             List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
             if (builder.overclock instanceof OverclockRule.Ratio ratio && !ratio.equals(OverclockRule.Ratio.STANDARD)) {
-                lines.add(tt -> tt.addOverclockRatioInfo(ratio.durationDivisor(), ratio.euMultiplier()));
+                lines.add(tt -> tt.addOverclockRatioInfo(ratio.euMultiplier(), ratio.durationDivisor()));
             }
             if (builder.maxOverclocksTooltip != null) lines.add(builder.maxOverclocksTooltip);
             described.put(

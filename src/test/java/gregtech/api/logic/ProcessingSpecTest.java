@@ -512,7 +512,7 @@ class ProcessingSpecTest {
     void termsThatReadTheRecipeApplyOnceItIsKnown() {
         ProcessingSpec parallel = ProcessingSpec.builder()
             .parallel(2)
-            .parallelPerRecipe((in, recipe) -> recipe.mDuration / 100)
+            .parallelPerRecipe((inputs, recipe) -> recipe.mDuration / 100)
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
         ProcessingInputs iv = inputs(VoltageIndex.IV, 0);
@@ -524,7 +524,7 @@ class ProcessingSpecTest {
                 .maxParallel());
 
         ProcessingSpec timing = ProcessingSpec.builder()
-            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .maxOverclocksPerRecipe((inputs, recipe) -> 1)
             .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
             .build();
         ProcessingRun run = timing.calculate(recipe(30, 400, 0), iv);
@@ -591,12 +591,12 @@ class ProcessingSpecTest {
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .modes(TOWER_AND_DISTILLERY)
-                .inMode(TOWER, mode -> mode.parallelPerRecipe((in, recipe) -> 4)));
+                .inMode(TOWER, mode -> mode.parallelPerRecipe((inputs, recipe) -> 4)));
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .modes(TOWER_AND_DISTILLERY)
-                .inMode(TOWER, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
+                .inMode(TOWER, mode -> mode.requires((inputs, recipe) -> true, (inputs, recipe) -> null)));
     }
 
     @Test
@@ -711,8 +711,8 @@ class ProcessingSpecTest {
     @Test
     void theRunCarriesTheStartupEu() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .startupEuPerRecipe((in, recipe) -> 1000L * recipe.mEUt)
-            .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .startupEuPerRecipe((inputs, recipe) -> 1000L * recipe.mEUt)
+            .requires((inputs, recipe) -> recipe.mEUt <= 30, (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
         ProcessingInputs iv = inputs(VoltageIndex.IV, 0);
@@ -835,11 +835,11 @@ class ProcessingSpecTest {
             .build();
         ProcessingSpec undescribedCap = ProcessingSpec.builder()
             .overclock(2, 2)
-            .maxOverclocksPerRecipe((in, recipe) -> 1)
+            .maxOverclocksPerRecipe((inputs, recipe) -> 1)
             .build();
         ProcessingSpec describedCap = ProcessingSpec.builder()
             .overclock(2, 2)
-            .maxOverclocksPerRecipe((in, recipe) -> 1, tt -> tt.addInfo("cap"))
+            .maxOverclocksPerRecipe((inputs, recipe) -> 1, tt -> tt.addInfo("cap"))
             .build();
 
         assertTrue(
@@ -886,8 +886,8 @@ class ProcessingSpecTest {
     @Test
     void oneCustomTooltipCanCoverSeveralQuantities() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallel(in -> 4)
-            .speed(in -> 2)
+            .parallel(inputs -> 4)
+            .speed(inputs -> 2)
             .customTooltip(
                 EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.DURATION),
                 tt -> tt.addInfo("block"))

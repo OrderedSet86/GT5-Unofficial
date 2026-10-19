@@ -368,9 +368,9 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** "Performs 2/2 overclock": speed, then EU/t, per overclock */
-    public MultiblockTooltipBuilder addOverclockRatioInfo(double durationDivisor, double euMultiplier) {
-        iLines.add(String.format(TT_OverclockRatio, formatNumber(durationDivisor), formatNumber(euMultiplier)));
+    /** Writes the EU/t multiplier and the duration divisor of each overclock, in that order. */
+    public MultiblockTooltipBuilder addOverclockRatioInfo(double euMultiplier, double durationDivisor) {
+        iLines.add(String.format(TT_OverclockRatio, formatNumber(euMultiplier), formatNumber(durationDivisor)));
         return this;
     }
 
