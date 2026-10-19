@@ -223,10 +223,10 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     @Override
     public void construct(ItemStack stackSize, boolean hintsOnly) {
         int tier = getTierFromHint(stackSize);
-        String piece = tier == 2 ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
-        int offX = tier == 2 ? OFFSET_X_T2 : OFFSET_X_T1;
-        int offY = tier == 2 ? OFFSET_Y_T2 : OFFSET_Y_T1;
-        int offZ = tier == 2 ? OFFSET_Z_T2 : OFFSET_Z_T1;
+        String piece = tier == TIER_UPGRADED ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
+        int offX = tier == TIER_UPGRADED ? OFFSET_X_T2 : OFFSET_X_T1;
+        int offY = tier == TIER_UPGRADED ? OFFSET_Y_T2 : OFFSET_Y_T1;
+        int offZ = tier == TIER_UPGRADED ? OFFSET_Z_T2 : OFFSET_Z_T1;
         this.buildPiece(piece, stackSize, hintsOnly, offX, offY, offZ);
     }
 
@@ -234,10 +234,10 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     public int survivalConstruct(ItemStack stackSize, int elementBudget, ISurvivalBuildEnvironment env) {
         if (this.mMachine) return -1;
         int tier = getTierFromHint(stackSize);
-        String piece = tier == 2 ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
-        int offX = tier == 2 ? OFFSET_X_T2 : OFFSET_X_T1;
-        int offY = tier == 2 ? OFFSET_Y_T2 : OFFSET_Y_T1;
-        int offZ = tier == 2 ? OFFSET_Z_T2 : OFFSET_Z_T1;
+        String piece = tier == TIER_UPGRADED ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
+        int offX = tier == TIER_UPGRADED ? OFFSET_X_T2 : OFFSET_X_T1;
+        int offY = tier == TIER_UPGRADED ? OFFSET_Y_T2 : OFFSET_Y_T1;
+        int offZ = tier == TIER_UPGRADED ? OFFSET_Z_T2 : OFFSET_Z_T1;
         return survivalBuildPiece(piece, stackSize, offX, offY, offZ, elementBudget, env, false, true);
     }
 
@@ -248,7 +248,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
         if (!checkPiece(getActiveStructurePiece(), getActiveOffsetX(), getActiveOffsetY(), getActiveOffsetZ(), errors))
             return;
         structureTier = controllerTier == TIER_UPGRADED ? TIER_UPGRADED : TIER_BASE;
-        int minCasings = structureTier == 2 ? 69 : 26;
+        int minCasings = structureTier == TIER_UPGRADED ? 69 : 26;
         checkCasingMin(errors, casingAmount, minCasings);
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);
@@ -265,7 +265,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     }
 
     protected void updateHatchTexture() {
-        int textureID = structureTier == 2 ? Casings.MacerationStackCasing.textureId
+        int textureID = structureTier == TIER_UPGRADED ? Casings.MacerationStackCasing.textureId
             : Casings.StableTitaniumMachineCasing.textureId;
         for (MTEHatch h : mInputBusses) h.updateTexture(textureID);
         for (IDualInputHatch h : mDualInputHatches) h.updateTexture(textureID);
@@ -291,7 +291,7 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
 
     @Override
     public ITexture getCasingTexture() {
-        return structureTier == 2 ? Casings.MacerationStackCasing.getCasingTexture()
+        return structureTier == TIER_UPGRADED ? Casings.MacerationStackCasing.getCasingTexture()
             : Casings.StableTitaniumMachineCasing.getCasingTexture();
     }
 
@@ -474,19 +474,19 @@ public class MTEIndustrialMacerator extends MTEExtendedPowerMultiBlockBase<MTEIn
     }
 
     private String getActiveStructurePiece() {
-        return controllerTier == 2 ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
+        return controllerTier == TIER_UPGRADED ? STRUCTURE_PIECE_MAIN_T2 : STRUCTURE_PIECE_MAIN_T1;
     }
 
     private int getActiveOffsetX() {
-        return controllerTier == 2 ? OFFSET_X_T2 : OFFSET_X_T1;
+        return controllerTier == TIER_UPGRADED ? OFFSET_X_T2 : OFFSET_X_T1;
     }
 
     private int getActiveOffsetY() {
-        return controllerTier == 2 ? OFFSET_Y_T2 : OFFSET_Y_T1;
+        return controllerTier == TIER_UPGRADED ? OFFSET_Y_T2 : OFFSET_Y_T1;
     }
 
     private int getActiveOffsetZ() {
-        return controllerTier == 2 ? OFFSET_Z_T2 : OFFSET_Z_T1;
+        return controllerTier == TIER_UPGRADED ? OFFSET_Z_T2 : OFFSET_Z_T1;
     }
 
     private int getTierFromHint(ItemStack stackSize) {

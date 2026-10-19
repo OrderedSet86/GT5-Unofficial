@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import gregtech.api.util.GTRecipe;
 
+/** Recipes for the logic tests. */
 final class TestRecipes {
 
     private TestRecipes() {}

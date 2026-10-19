@@ -1163,7 +1163,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
             logic.setSpec(spec, getCurrentProcessingSpecInputs())
-                .setParallelLimit(alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel);
+                .setParallelLimit(getPowerPanelParallelLimit());
         }
     }
 
@@ -2163,9 +2163,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * The machine's modes, in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode count and
-     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's modes.
-     * Without a spec, override this method to return a static constant: the mode methods of this class call this method
-     * on each use.
+     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's modes. Without
+     * a spec, override this method to return a static constant: a machine's modes don't change while the game runs.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
@@ -2194,7 +2193,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Return a static constant. Planners read the spec from the prototype.
+     * The prototype must return the same spec as every placed machine.
      *
      * @return null if the machine computes the recipe numbers in code
      */
@@ -2203,7 +2202,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return null;
     }
 
-    /** @throws IllegalStateException if {@link #getSpecModifiers} and the spec name different kinds */
+    /** @throws IllegalStateException if {@link #getSpecModifiers} returns other kinds than the spec reads */
     @Nonnull
     public ProcessingInputs getCurrentProcessingSpecInputs() {
         List<Modifier> modifiers = getSpecModifiers();
@@ -2255,8 +2254,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * For the conformance test, on a {@link #newMetaEntity} copy: the recipe through the machine's processing logic at
-     * these inputs. The result should match {@link ProcessingSpec#calculate}.
+     * The run of {@code recipe} through the machine's processing logic at {@code inputs}. Call this on a
+     * {@link #newMetaEntity} copy: the method sets up the processing logic with the spec.
      *
      * @return null if the machine has no spec or no processing logic
      */
@@ -3397,9 +3396,11 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      *         least 1.
      */
     public final int getTrueParallel() {
-        return Math.max(
-            1,
-            alwaysMaxParallel ? getMaxParallelRecipes() : Math.min(getMaxParallelRecipes(), powerPanelMaxParallel));
+        return Math.max(1, Math.min(getMaxParallelRecipes(), getPowerPanelParallelLimit()));
+    }
+
+    private int getPowerPanelParallelLimit() {
+        return alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel;
     }
 
     public int getmStartUpCheck() {
@@ -3453,10 +3454,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return machineMode;
     }
 
-    /**
-     * Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. Factory
-     * planners should leave these out.
-     */
+    /** Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. */
     public boolean isStructureDeprecated() {
         return false;
     }

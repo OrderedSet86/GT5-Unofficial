@@ -14,6 +14,7 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 
+/** Runs of {@link ProcessingLogic} with a spec follow the spec's numbers. */
 class ProcessingLogicTest {
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()

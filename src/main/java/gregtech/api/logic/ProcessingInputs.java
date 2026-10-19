@@ -1,7 +1,7 @@
 package gregtech.api.logic;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +19,11 @@ import gregtech.api.util.GTUtility;
  */
 public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mode,
     @Nonnull Map<ModifierKind, Long> values) {
+
+    public ProcessingInputs {
+        energyHatches = List.copyOf(energyHatches);
+        values = Map.copyOf(values);
+    }
 
     public record EnergyHatch(long voltage, long amperage, boolean exotic) {
 
@@ -42,7 +47,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
     }
 
     /**
-     * {@link ModifierKind#VOLTAGE} reads {@link #voltageTier}.
+     * For {@link ModifierKind#VOLTAGE}, the value is {@link #voltageTier}.
      *
      * @throws IllegalArgumentException if no value was given for the kind
      */
@@ -77,7 +82,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return energyHatches.isEmpty() ? 0 : maxInputVoltage() / energyHatches.size();
     }
 
-    /** The sum of the hatch voltages. {@code MTEMultiBlockBase.getMaxInputVoltage()} returns the same sum. */
+    /** The sum of the hatch voltages. */
     public long maxInputVoltage() {
         long voltage = 0;
         for (EnergyHatch hatch : energyHatches) voltage += hatch.voltage;
@@ -134,7 +139,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
-        public Builder energyHatches(@Nonnull List<EnergyHatch> hatches) {
+        public Builder energyHatches(@Nonnull Collection<EnergyHatch> hatches) {
             this.energyHatches.addAll(hatches);
             return this;
         }
@@ -164,17 +169,14 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             };
         }
 
-        public Builder modifiers(@Nonnull List<Modifier> modifiers) {
+        public Builder modifiers(@Nonnull Iterable<Modifier> modifiers) {
             for (Modifier modifier : modifiers) this.values.put(modifier.kind, modifier.get());
             return this;
         }
 
         @Nonnull
         public ProcessingInputs build() {
-            return new ProcessingInputs(
-                Collections.unmodifiableList(new ArrayList<>(energyHatches)),
-                mode,
-                Collections.unmodifiableMap(new HashMap<>(values)));
+            return new ProcessingInputs(energyHatches, mode, values);
         }
     }
 }

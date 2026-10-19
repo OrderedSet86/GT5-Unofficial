@@ -43,15 +43,14 @@ import gregtech.api.util.OverclockCalculator;
 
 /**
  * How a multiblock runs recipes, as a function of the multiblock's energy hatches, mode and {@link ModifierKind}
- * values.
- * {@link MTEMultiBlockBase} runs a machine's recipes through the spec and writes the machine's tooltip from the spec.
- * Planners evaluate a spec without a world: {@link #getModifiers} returns the kinds the spec reads, {@link #resolve}
- * returns every number for one recipe, and {@link #calculate} runs the recipe.
+ * values. Return the spec from {@link MTEMultiBlockBase#getProcessingSpec}: the machine's recipes then run through the
+ * spec, and the machine's tooltip comes from the spec. {@link #getModifiers}, {@link #resolve} and {@link #calculate}
+ * run without a world. {@link #getModifiers} returns the kinds the spec reads, {@link #resolve} returns every number
+ * for one recipe, and {@link #calculate} runs the recipe.
  * <p>
  * Keep one spec per machine class in a static field, or one spec per instance for a machine whose constants depend on
- * the machine's tier.
- * Every number in a spec must reach the tooltip: every term built from a {@link Formula} has a tooltip line, and a
- * plain function requires {@link Builder#customTooltip} or {@link Builder#noTooltip}.
+ * the machine's tier. Every number in a spec must reach the tooltip: every term built from a {@link Formula} has a
+ * tooltip line, and a plain function requires {@link Builder#customTooltip} or {@link Builder#noTooltip}.
  */
 public final class ProcessingSpec {
 
@@ -124,15 +123,7 @@ public final class ProcessingSpec {
         Quantity(boolean settableInVariant) {
             this.settableInVariant = settableInVariant;
         }
-
-        private boolean isSettableInVariant() {
-            return settableInVariant;
-        }
     }
-
-    private static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
-        .getFromTier((byte) in.value(ModifierKind.COIL))
-        .getHeat();
 
     private static final ToLongFunction<ProcessingInputs> STANDARD_VOLTAGE = ProcessingInputs::averageVoltage;
     private static final ToLongFunction<ProcessingInputs> STANDARD_AMPERAGE = in -> in.isSingleRegularHatch() ? 1
@@ -147,7 +138,10 @@ public final class ProcessingSpec {
     private record Requirement(BiPredicate<ProcessingInputs, GTRecipe> met,
         BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {}
 
-    /** @param label Heads a {@link Builder#whenTier} variant's tooltip lines. Null for a mode's. */
+    /**
+     * @param label Heads a {@link Builder#whenTier} variant's tooltip lines. Null for an {@link Builder#inMode}
+     *              variant.
+     */
     private record Variant(Predicate<ProcessingInputs> appliesTo, @Nullable String label, @Nullable Integer mode,
         ProcessingSpec terms) {}
 
@@ -183,7 +177,7 @@ public final class ProcessingSpec {
     private final List<Variant> variants;
     private final List<MachineMode> modes;
 
-    /** The builder's settings. The heat requirement is checked before the builder's requirements. */
+    /** @param modifiers The kinds the spec reads, each at the spec's range for the kind, else the kind's range */
     private ProcessingSpec(Builder builder, Map<ModifierKind, ModifierKind.Range> modifiers) {
         this.parallel = List.copyOf(builder.parallel);
         this.scalars = new EnumMap<>(builder.scalars);
@@ -237,25 +231,25 @@ public final class ProcessingSpec {
     }
 
     /**
-     * The value of {@code kind} at which the machine is best: the max of an {@link ModifierKind#ordered} kind, the min
+     * The value of {@code kind} at which the machine is best: the max of a {@link ModifierKind#ordered} kind, the min
      * of any other.
      *
      * @throws IllegalArgumentException if the spec does not read the kind
      */
-    public long bestValue(@Nonnull ModifierKind kind) {
+    public long getBestValue(@Nonnull ModifierKind kind) {
         ModifierKind.Range range = getRange(kind);
         return kind.ordered ? range.max() : range.min();
     }
 
-    /** Inputs with every kind at its {@link #bestValue}. Add the energy hatches and the mode. */
+    /** Inputs with every kind at its {@link #getBestValue}. Add the energy hatches and the mode. */
     @Nonnull
-    public ProcessingInputs.Builder bestInputs() {
+    public ProcessingInputs.Builder buildBestInputs() {
         ProcessingInputs.Builder inputs = ProcessingInputs.builder();
-        for (ModifierKind kind : modifiers.keySet()) inputs.value(kind, bestValue(kind));
+        for (ModifierKind kind : modifiers.keySet()) inputs.value(kind, getBestValue(kind));
         return inputs;
     }
 
-    public boolean variesByMode() {
+    public boolean hasModeVariants() {
         for (Variant variant : variants) if (variant.mode != null) return true;
         return false;
     }
@@ -273,19 +267,20 @@ public final class ProcessingSpec {
      * @throws IllegalArgumentException if the kind is not {@link ModifierKind#ordered}
      */
     @Nonnull
-    public OptionalInt lowestPassing(@Nonnull ModifierKind.IntKind kind, @Nonnull GTRecipe recipe,
+    public OptionalInt findLowestPassing(@Nonnull ModifierKind.IntKind kind, @Nonnull GTRecipe recipe,
         @Nonnull ProcessingInputs inputs) {
         if (!kind.ordered) throw new IllegalArgumentException(kind + " is not ordered");
         ModifierKind.Range range = getRange(kind);
-        long low = range.min();
-        long high = range.max();
         LongPredicate passes = value -> {
             ProcessingInputs candidate = inputs.toBuilder()
                 .value(kind, (int) value)
                 .build();
-            return check(recipeAsRun(recipe, candidate), candidate).wasSuccessful();
+            return check(applyRecipeOverride(recipe, candidate), candidate).wasSuccessful();
         };
-        if (!passes.test(high)) return OptionalInt.empty();
+        if (!passes.test(range.max())) return OptionalInt.empty();
+
+        long low = range.min();
+        long high = range.max();
         while (low < high) {
             long middle = low + (high - low) / 2;
             if (passes.test(middle)) high = middle;
@@ -300,7 +295,7 @@ public final class ProcessingSpec {
         for (ModifierKind kind : modifiers.keySet()) {
             if (!inputs.has(kind)) throw new IllegalArgumentException("no " + kind + " value given");
         }
-        GTRecipe run = recipeAsRun(recipe, inputs);
+        GTRecipe run = applyRecipeOverride(recipe, inputs);
         return new ResolvedRecipe(
             run,
             run.mDuration,
@@ -347,7 +342,7 @@ public final class ProcessingSpec {
 
     private int maxParallel(ProcessingInputs inputs, @Nullable GTRecipe recipe) {
         int sum = 0;
-        for (ParallelTerm term : resolve(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
+        for (ParallelTerm term : selectSetting(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
             if (term.term != null) sum += (int) term.term.formula.apply(inputs);
             else if (recipe != null) sum += term.perRecipe.applyAsInt(inputs, recipe);
         }
@@ -356,26 +351,26 @@ public final class ProcessingSpec {
 
     /** 0.5 halves recipe time. */
     public double getDurationMultiplier(@Nonnull ProcessingInputs inputs) {
-        return 1 / factor(inputs, Quantity.DURATION);
+        return 1 / computeScalar(inputs, Quantity.DURATION);
     }
 
     public double getEuModifier(@Nonnull ProcessingInputs inputs) {
-        return factor(inputs, Quantity.EU_MODIFIER);
+        return computeScalar(inputs, Quantity.EU_MODIFIER);
     }
 
     public double getEuModifierNotLimitingParallel(@Nonnull ProcessingInputs inputs) {
-        return factor(inputs, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL);
+        return computeScalar(inputs, Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL);
     }
 
-    /** {@link OverclockRule.Ratio#STANDARD} where neither the spec nor a matching variant sets one. */
+    /** {@link OverclockRule.Ratio#STANDARD} where neither the spec nor a matching variant sets a ratio. */
     @Nonnull
     public OverclockRule getOverclock(@Nonnull ProcessingInputs inputs) {
-        OverclockRule rule = resolve(inputs, spec -> spec.overclock, Objects::nonNull);
+        OverclockRule rule = selectSetting(inputs, spec -> spec.overclock, Objects::nonNull);
         return rule == null ? OverclockRule.Ratio.STANDARD : rule;
     }
 
     /** False after {@link Builder#noOverclock}, in every mode and tier. */
-    public boolean overclocks() {
+    public boolean canOverclock() {
         return !(overclock instanceof OverclockRule.None);
     }
 
@@ -405,23 +400,18 @@ public final class ProcessingSpec {
     }
 
     /**
-     * Whether the machine can run the recipe at these inputs: the first requirement the recipe fails, heat first, else
-     * success.
+     * Whether the machine can run the recipe at these inputs: the first requirement the recipe fails, heat first, then
+     * in {@link Builder#requires} order, else success.
      */
     @Nonnull
     public CheckRecipeResult check(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
-        return firstFailing(requirements, recipe, inputs);
-    }
-
-    private static CheckRecipeResult firstFailing(List<Requirement> requirements, GTRecipe recipe,
-        ProcessingInputs inputs) {
         for (Requirement requirement : requirements) {
             if (!requirement.met.test(inputs, recipe)) return requirement.failure.apply(inputs, recipe);
         }
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
-    private GTRecipe recipeAsRun(GTRecipe recipe, ProcessingInputs inputs) {
+    private GTRecipe applyRecipeOverride(GTRecipe recipe, ProcessingInputs inputs) {
         if (recipeOverride == null) return recipe;
         GTRecipe copy = recipe.copy();
         copy.mCanBeBuffered = false;
@@ -430,19 +420,13 @@ public final class ProcessingSpec {
         return copy;
     }
 
-    /** 1 if the spec has no term. */
-    private double factor(ProcessingInputs inputs, Quantity quantity) {
-        Term term = scalar(inputs, quantity);
+    private double computeScalar(ProcessingInputs inputs, Quantity quantity) {
+        Term term = selectSetting(inputs, spec -> spec.scalars.get(quantity), Objects::nonNull);
         return term == null ? 1 : term.formula.apply(inputs);
     }
 
-    @Nullable
-    private Term scalar(ProcessingInputs inputs, Quantity quantity) {
-        return resolve(inputs, spec -> spec.scalars.get(quantity), Objects::nonNull);
-    }
-
-    /** The first matching variant's setting, else the spec's. */
-    private <T> T resolve(ProcessingInputs inputs, Function<ProcessingSpec, T> setting, Predicate<T> isSet) {
+    /** The first matching variant's setting, else the spec's setting. */
+    private <T> T selectSetting(ProcessingInputs inputs, Function<ProcessingSpec, T> setting, Predicate<T> isSet) {
         for (Variant variant : variants) {
             T variantSetting = setting.apply(variant.terms);
             if (isSet.test(variantSetting) && variant.appliesTo.test(inputs)) return variantSetting;
@@ -465,13 +449,13 @@ public final class ProcessingSpec {
     /** The quantities the spec sets with no tooltip line. */
     @Nonnull
     public Set<Quantity> getUndescribed() {
-        Set<Quantity> overridden = overridden();
+        Set<Quantity> overridden = getOverriddenQuantities();
         EnumSet<Quantity> undescribed = EnumSet.noneOf(Quantity.class);
         for (Quantity quantity : Quantity.values()) {
             if (overridden.contains(quantity)) continue;
             if (!isComplete(quantity)) undescribed.add(quantity);
             for (Variant variant : variants) {
-                if (!variant.terms.overridden()
+                if (!variant.terms.getOverriddenQuantities()
                     .contains(quantity) && !variant.terms.isComplete(quantity)) undescribed.add(quantity);
             }
         }
@@ -485,32 +469,32 @@ public final class ProcessingSpec {
 
     /**
      * Writes the lines in {@link Quantity} order, then the lines of each {@link Builder#whenTier} variant under the
-     * variant's label.
+     * variant's label. {@link #describeMode} writes the lines of each mode.
      */
     public void describe(@Nonnull MultiblockTooltipBuilder tt) {
         writeLines(tt, EnumSet.noneOf(Quantity.class));
         for (Variant variant : variants) if (variant.mode == null) writeHeaded(tt, variant);
     }
 
-    /** Writes the {@link Builder#inMode} lines for one mode without its name, for that mode's tooltip section. */
+    /** Writes the {@link Builder#inMode} lines for one mode without the mode's name, for the mode's tooltip section. */
     public void describeMode(@Nonnull MultiblockTooltipBuilder tt, @Nonnull MachineMode mode) {
         int index = modes.indexOf(mode);
         boolean any = false;
         for (Variant variant : variants) {
-            if (variant.mode == null || variant.mode != index) continue;
+            if (!Objects.equals(variant.mode, index)) continue;
             any = true;
-            variant.terms.writeLines(tt, overridden());
+            variant.terms.writeLines(tt, getOverriddenQuantities());
         }
         if (!any) throw new IllegalArgumentException("no inMode terms for " + mode.nameKey());
     }
 
     private void writeHeaded(MultiblockTooltipBuilder tt, Variant variant) {
         MultiblockTooltipBuilder lines = new MultiblockTooltipBuilder();
-        variant.terms.writeLines(lines, overridden());
+        variant.terms.writeLines(lines, getOverriddenQuantities());
         tt.addLinesFrom(EnumChatFormatting.WHITE + variant.label + EnumChatFormatting.GRAY + ": ", lines);
     }
 
-    private EnumSet<Quantity> overridden() {
+    private EnumSet<Quantity> getOverriddenQuantities() {
         EnumSet<Quantity> overridden = EnumSet.copyOf(noTooltip);
         overridden.addAll(customTooltips.keySet());
         return overridden;
@@ -545,10 +529,7 @@ public final class ProcessingSpec {
             }
             described.put(Quantity.PARALLEL, new Described(perRecipe, lines, complete));
         }
-        builder.scalars.forEach(
-            (quantity, term) -> described.put(
-                quantity,
-                new Described(false, term.lines == null ? List.of() : List.of(term.lines), term.lines != null)));
+        builder.scalars.forEach((quantity, term) -> described.put(quantity, describeTerms(List.of(term))));
         if (builder.overclock != null || builder.maxOverclocks != null) {
             List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
             if (builder.overclock instanceof OverclockRule.Ratio ratio && !ratio.equals(OverclockRule.Ratio.STANDARD)) {
@@ -597,6 +578,16 @@ public final class ProcessingSpec {
         return described;
     }
 
+    private static Described describeTerms(List<Term> terms) {
+        List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
+        boolean complete = true;
+        for (Term term : terms) {
+            if (term.lines == null) complete = false;
+            else lines.add(term.lines);
+        }
+        return new Described(false, lines, complete);
+    }
+
     public static final class Builder {
 
         private final List<ParallelTerm> parallel = new ArrayList<>();
@@ -625,7 +616,7 @@ public final class ProcessingSpec {
 
         private Builder() {}
 
-        private Builder reads(@Nonnull ModifierKind... kinds) {
+        private Builder reads(@Nonnull Iterable<ModifierKind> kinds) {
             for (ModifierKind kind : kinds) {
                 if (kind != ModifierKind.VOLTAGE) this.reads.putIfAbsent(kind, null);
             }
@@ -638,10 +629,8 @@ public final class ProcessingSpec {
             return this;
         }
 
-        private Formula reading(Formula formula) {
-            reads(
-                formula.reads()
-                    .toArray(new ModifierKind[0]));
+        private Formula addReadsOf(Formula formula) {
+            reads(formula.reads());
             return formula;
         }
 
@@ -650,7 +639,10 @@ public final class ProcessingSpec {
             return parallelTerm(new Formula.Constant(parallel), tt -> tt.addStaticParallelInfo(parallel));
         }
 
-        /** Read on every use, such as a config value. */
+        /**
+         * The spec calls {@code parallel} on every use. Pass a supplier for a value that can change, such as a config
+         * value.
+         */
         public Builder parallel(@Nonnull IntSupplier parallel) {
             return parallelTerm(
                 new Formula.Supplied(parallel::getAsInt),
@@ -677,7 +669,7 @@ public final class ProcessingSpec {
          */
         public Builder parallelPerVoltageTierRising(int min, int max, @Nonnull ModifierKind.IntKind kind) {
             return parallelTerm(
-                new Formula.RisingPerVoltageTier(min, max, kind, (int) rangeOf(kind).max()),
+                new Formula.RisingPerVoltageTier(min, max, kind, (int) requireRange(kind).max()),
                 tt -> tt.addRisingParallelPerVoltageTierInfo(min, max, kind));
         }
 
@@ -697,7 +689,7 @@ public final class ProcessingSpec {
         }
 
         private Builder parallelTerm(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {
-            this.parallel.add(new ParallelTerm(new Term(reading(formula), lines), null));
+            this.parallel.add(new ParallelTerm(new Term(addReadsOf(formula), lines), null));
             return this;
         }
 
@@ -722,11 +714,11 @@ public final class ProcessingSpec {
         public Builder speedRising(double min, double max, @Nonnull ModifierKind.IntKind kind) {
             return scalar(
                 Quantity.DURATION,
-                new Formula.Rising(min, max, kind, (int) rangeOf(kind).max()),
+                new Formula.Rising(min, max, kind, (int) requireRange(kind).max()),
                 tt -> tt.addRisingSpeedInfo((float) min, (float) max, kind));
         }
 
-        private static ModifierKind.Range rangeOf(ModifierKind.IntKind kind) {
+        private static ModifierKind.Range requireRange(ModifierKind.IntKind kind) {
             ModifierKind.Range range = kind.getRange();
             if (range == null)
                 throw new IllegalArgumentException(kind + " has no range. Give the kind one with range()");
@@ -754,7 +746,7 @@ public final class ProcessingSpec {
         }
 
         private Builder scalar(Quantity quantity, Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {
-            scalars.put(quantity, new Term(reading(formula), lines));
+            scalars.put(quantity, new Term(addReadsOf(formula), lines));
             return this;
         }
 
@@ -790,11 +782,15 @@ public final class ProcessingSpec {
             return maxOverclocksPerRecipe(maxOverclocks);
         }
 
+        private static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
+            .getFromTier((byte) in.value(ModifierKind.COIL))
+            .getHeat();
+
         /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
         public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
             this.heatFunction = in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier);
             Collections.addAll(this.heatRules, rules);
-            reads(ModifierKind.COIL);
+            reads(List.of(ModifierKind.COIL));
             this.heatTooltip = tt -> tt.addHeatPerVoltageTierInfo(heatPerTier, baseVoltageTier);
             return this;
         }
@@ -805,7 +801,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The check returns the first unmet requirement's {@code failure}, in declaration order. */
         public Builder requires(@Nonnull BiPredicate<ProcessingInputs, GTRecipe> met,
             @Nonnull BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {
             this.requirements.add(new Requirement(met, failure));
@@ -834,7 +829,6 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The most EU/t a run draws, whatever the overclocks cost. */
         public Builder euPerTickCap(@Nonnull ToLongFunction<ProcessingInputs> euPerTickCap) {
             this.euPerTickCap = euPerTickCap;
             return this;
@@ -889,7 +883,7 @@ public final class ProcessingSpec {
 
         /** Replaces the spec's terms at one value. The lines are headed by the kind's label for that value. */
         public Builder whenTier(@Nonnull ModifierKind.IntKind kind, int value, @Nonnull Consumer<Builder> terms) {
-            reads(kind);
+            reads(List.of(kind));
             this.variants.add(new Variant(in -> in.value(kind) == value, kind.label(value), null, variantTerms(terms)));
             return this;
         }
@@ -911,7 +905,7 @@ public final class ProcessingSpec {
             // the ranges of the kinds a variant reads are in the parent spec
             ProcessingSpec spec = variant.build(false);
             for (Quantity quantity : Quantity.values()) {
-                if (spec.sets(quantity) && !quantity.isSettableInVariant()) {
+                if (spec.sets(quantity) && !quantity.settableInVariant) {
                     throw new IllegalArgumentException(quantity + " cannot differ by mode or tier");
                 }
             }

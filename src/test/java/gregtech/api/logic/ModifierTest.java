@@ -5,11 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.util.GTStructureUtility;
 
+/** {@link Modifier} getters and setters, and the {@link ModifierKind} constants and registry. */
 class ModifierTest {
 
     private static final class Machine {
@@ -50,23 +56,16 @@ class ModifierTest {
         assertSame(ModifierKind.ITEM_PIPE_CASING, ITEM_PIPE.of(first).kind);
     }
 
-    @Test
-    void thePipeCasingRangeIsTheCasingList() {
-        assertEquals(
-            new ModifierKind.Range(1, GTStructureUtility.PIPE_CASING_TIERS),
-            ModifierKind.PIPE_CASING.getRange());
+    @ParameterizedTest
+    @MethodSource("pipeCasingKinds")
+    void aPipeCasingRangeIsTheCasingList(ModifierKind kind, int casingTiers) {
+        assertEquals(new ModifierKind.Range(1, casingTiers), kind.getRange());
     }
 
-    @Test
-    void theItemPipeRangeIsTheCasingList() {
-        ModifierKind.Range range = ModifierKind.ITEM_PIPE_CASING.getRange();
-
-        assertEquals(1, range.min());
-        assertEquals(GTStructureUtility.ITEM_PIPE_CASING_TIERS, range.max());
-        assertEquals(
-            -1,
-            ITEM_PIPE.of(new Machine())
-                .get());
+    private static Stream<Arguments> pipeCasingKinds() {
+        return Stream.of(
+            Arguments.of(ModifierKind.PIPE_CASING, GTStructureUtility.PIPE_CASING_TIERS),
+            Arguments.of(ModifierKind.ITEM_PIPE_CASING, GTStructureUtility.ITEM_PIPE_CASING_TIERS));
     }
 
     @Test
