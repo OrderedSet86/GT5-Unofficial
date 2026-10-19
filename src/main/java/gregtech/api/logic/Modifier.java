@@ -21,10 +21,8 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * The getter and setter of one machine's value for a {@link ModifierKind}.
- * {@link MTEMultiBlockBase#getCurrentProcessingSpecInputs} calls the getter, and the conformance test calls the setter
- * on a copy of the machine. Planners read the kinds and ranges from {@link ProcessingSpec#getModifiers()}. An
- * {@link Of} constant is also the structure element that writes the value: {@code .addElement('C', COIL)}.
+ * The getter and setter of one machine's value for a {@link ModifierKind}. An {@link Of} constant is also the structure
+ * element that writes the value: {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 
@@ -55,7 +53,7 @@ public final class Modifier {
         }, index -> setter.accept(values[index]));
     }
 
-    /** Outside the spec's range while the structure is unchecked. */
+    /** Before the first structure check, the value can be outside the spec's range. */
     public long get() {
         return getter.getAsLong();
     }
@@ -94,7 +92,7 @@ public final class Modifier {
             GTStructureUtility.chainItemPipeCasings(-1, setter, getter));
     }
 
-    /** Bound to one machine with {@link #of}. */
+    /** A structure element for one kind and machine class. {@link #of} returns the {@code Modifier} of one machine. */
     public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
         private final ModifierKind.IntKind kind;

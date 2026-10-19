@@ -6,10 +6,6 @@ import javax.annotation.Nonnull;
 
 public class OverclockCalculator {
 
-    public static final int DEFAULT_MAX_TIER_SKIPS = 1;
-    /** Per 900K of heat headroom. */
-    public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
-
     // Basic properties
     /** EUt the recipe originally runs at */
     protected long recipeEUt = 0;
@@ -83,6 +79,9 @@ public class OverclockCalculator {
     public static final int HEAT_DISCOUNT_THRESHOLD = 900;
     /** Heat above the recipe heat needed for each heat (perfect) overclock, e.g. in the EBF */
     public static final int HEAT_OVERCLOCK_THRESHOLD = 1800;
+    public static final int DEFAULT_MAX_TIER_SKIPS = 1;
+    /** Per {@link #HEAT_DISCOUNT_THRESHOLD} of heat headroom. */
+    public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
 
     /** Creates calculator that doesn't do OC at all. Will use recipe duration. */
     public static OverclockCalculator ofNoOverclock(@Nonnull GTRecipe recipe) {

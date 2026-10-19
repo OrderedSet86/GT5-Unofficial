@@ -13,8 +13,7 @@ import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 
 /**
- * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks. Machines and planners both
- * calculate from these numbers. A planner then gets the machine's results.
+ * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks.
  * <p>
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
@@ -102,7 +101,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
      * helper.
      */
     @Nonnull
-    public ParallelHelper parallelHelper(@Nonnull GTRecipe recipe) {
+    public ParallelHelper createParallelHelper(@Nonnull GTRecipe recipe) {
         return new ParallelHelper().setRecipe(recipe)
             .setAvailableEUt(power.availableEuPerTick())
             .setMaxParallel(maxParallel)
@@ -120,9 +119,9 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
         if (!checkToStart.wasSuccessful()) return ProcessingRun.failed(checkToStart);
-        ParallelHelper helper = forPlanning(parallelHelper(recipe)).setCalculator(calculator)
+        ParallelHelper helper = configureForPlanning(createParallelHelper(recipe)).setCalculator(calculator)
             .build();
-        return toRun(helper, calculator, () -> ticks(helper, calculator));
+        return toRun(helper, calculator, () -> calculateDuration(helper, calculator));
     }
 
     /**
@@ -130,7 +129,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
      * the machine's settings on the helper.
      */
     @Nonnull
-    public static ParallelHelper forPlanning(@Nonnull ParallelHelper helper) {
+    public static ParallelHelper configureForPlanning(@Nonnull ParallelHelper helper) {
         return helper.setMachine(null, false, false)
             .setRecipeLocked(null, false)
             .enableBatchMode(1)
@@ -141,12 +140,13 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     }
 
     /** The recipe's time after overclocks and batch. */
-    public static double ticks(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator) {
+    public static double calculateDuration(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator) {
         return calculator.getDuration() * helper.getDurationMultiplierDouble();
     }
 
     /**
-     * The run, given the built helper and its calculated overclocks: the helper's failure or an overflow if any.
+     * The run from {@code helper} after build() and {@code calculator} after calculate(): the helper's failure, an
+     * overflow, or else the run.
      *
      * @param ticks Read only once nothing has overflowed
      */

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -41,12 +42,12 @@ public class ProcessingSpecConformanceTests {
     @GameTest(batch = "gt5.spec.checks")
     public static void machinesRunAsTheirSpecsSay(GameTestHelper helper) {
         List<String> problems = new ArrayList<>();
-        all().forEach(entry -> problems.addAll(problems(entry)));
+        findSpecMachines().forEach(entry -> problems.addAll(findProblems(entry)));
         helper.assertTrue(problems.isEmpty(), String.join("\n", problems));
         helper.succeed();
     }
 
-    private static Stream<Entry> all() {
+    private static Stream<Entry> findSpecMachines() {
         return Arrays.stream(GregTechAPI.METATILEENTITIES)
             .filter(MTEMultiBlockBase.class::isInstance)
             .map(MTEMultiBlockBase.class::cast)
@@ -61,26 +62,24 @@ public class ProcessingSpecConformanceTests {
     /**
      * The machine's problems: a number of the spec with no tooltip line, and a recipe run that differs from the spec's.
      */
-    private static List<String> problems(Entry entry) {
+    private static List<String> findProblems(Entry entry) {
         List<String> problems = new ArrayList<>();
         String name = entry.machine()
             .getClass()
             .getSimpleName();
-        if (!entry.spec()
-            .getUndescribed()
-            .isEmpty()) {
+        Set<ProcessingSpec.Quantity> undescribed = entry.spec()
+            .getUndescribed();
+        if (!undescribed.isEmpty()) {
             problems.add(
-                name + " has no tooltip line for "
-                    + entry.spec()
-                        .getUndescribed()
-                    + ". Use a Formula term, customTooltip or noTooltip");
+                name + " has no tooltip line for " + undescribed + ". Use a Formula term, customTooltip or noTooltip");
         }
+
         // a machine that throws is one problem, and the remaining machines are still checked
         try {
-            String run = findRunDifference(entry);
-            if (run != null) problems.add(name + " runs a recipe differently from its spec: " + run);
-        } catch (RuntimeException e) { // noqa: NAR142
-            problems.add(name + " cannot be inspected without a world: " + e);
+            String difference = findRunDifference(entry);
+            if (difference != null) problems.add(name + " runs a recipe differently from its spec: " + difference);
+        } catch (RuntimeException exception) { // noqa: NAR142
+            problems.add(name + " cannot be inspected without a world: " + exception);
         }
         return problems;
     }
@@ -100,18 +99,19 @@ public class ProcessingSpecConformanceTests {
                 spec.getRange(modifier.kind)
                     .max());
         }
+
         int modes = machine.getMachineModes()
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
             if (!spec.calculates(mode)) continue;
             if (modes > 1) machine.setMachineMode(mode);
-            for (GTRecipe recipe : sample(machine.getRecipeMap())) {
-                for (List<ProcessingInputs.EnergyHatch> hatches : energySamples()) {
+            for (GTRecipe recipe : sampleRecipes(machine.getRecipeMap())) {
+                for (List<ProcessingInputs.EnergyHatch> hatches : listEnergySamples()) {
                     // planner-style inputs from the declared kinds alone. calculate() throws if a function reads an
                     // undeclared kind
                     spec.calculate(
                         recipe,
-                        spec.bestInputs()
+                        spec.buildBestInputs()
                             .energyHatches(hatches)
                             .mode(mode)
                             .build());
@@ -131,7 +131,7 @@ public class ProcessingSpecConformanceTests {
         return null;
     }
 
-    private static List<List<ProcessingInputs.EnergyHatch>> energySamples() {
+    private static List<List<ProcessingInputs.EnergyHatch>> listEnergySamples() {
         List<List<ProcessingInputs.EnergyHatch>> samples = new ArrayList<>();
         for (int tier : new int[] { VoltageIndex.HV, VoltageIndex.LuV, VoltageIndex.UHV }) {
             ProcessingInputs.EnergyHatch regular = ProcessingInputs.EnergyHatch.regular(tier);
@@ -143,7 +143,7 @@ public class ProcessingSpecConformanceTests {
     }
 
     /** Spread from the lowest heat and EU/t to the highest. */
-    private static List<GTRecipe> sample(@Nullable RecipeMap<?> map) {
+    private static List<GTRecipe> sampleRecipes(@Nullable RecipeMap<?> map) {
         if (map == null) return Collections.emptyList();
         List<GTRecipe> recipes = new ArrayList<>(map.getAllRecipes());
         recipes.sort(
