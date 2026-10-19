@@ -30,6 +30,7 @@ import net.minecraft.util.EnumChatFormatting;
 
 import gregtech.api.enums.HeatingCoilLevel;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
+import gregtech.api.recipe.RecipeMetadataKey;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
@@ -122,14 +123,21 @@ public final class ProcessingSpec {
     }
 
     private static final ToLongFunction<ProcessingInputs> STANDARD_VOLTAGE = ProcessingInputs::averageVoltage;
-    private static final ToLongFunction<ProcessingInputs> STANDARD_AMPERAGE = in -> in.isSingleRegularHatch() ? 1
-        : in.amperage();
+    private static final ToLongFunction<ProcessingInputs> STANDARD_AMPERAGE = inputs -> inputs.isSingleRegularHatch()
+        ? 1
+        : inputs.amperage();
 
     /** {@code lines} is null for a {@link Formula.Custom} formula. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
 
-    private record Requirement(BiPredicate<ProcessingInputs, GTRecipe> met,
-        BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {}
+    private sealed interface Requirement {
+
+        record Custom(BiPredicate<ProcessingInputs, GTRecipe> met,
+            BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) implements Requirement {}
+
+        /** Checked in {@link ProcessingSpec#check}, against the {@link ProcessingSpec#getPower} of the built spec. */
+        record WithinVoltage() implements Requirement {}
+    }
 
     /**
      * @param label Heads a {@link Builder#whenTier} variant's tooltip lines. Null for an {@link Builder#inMode}
@@ -182,9 +190,9 @@ public final class ProcessingSpec {
         if (heat != null && heat.rules()
             .contains(HeatRule.REQUIRED)) {
             requirements.add(
-                new Requirement(
-                    (in, recipe) -> heat.getRecipeHeat(recipe) <= heat.getMachineHeat(in),
-                    (in, recipe) -> CheckRecipeResultRegistry.insufficientHeat(heat.getRecipeHeat(recipe))));
+                new Requirement.Custom(
+                    (inputs, recipe) -> heat.getRecipeHeat(recipe) <= heat.getMachineHeat(inputs),
+                    (inputs, recipe) -> CheckRecipeResultRegistry.insufficientHeat(heat.getRecipeHeat(recipe))));
         }
         requirements.addAll(builder.requirements);
         this.requirements = List.copyOf(requirements);
@@ -379,12 +387,21 @@ public final class ProcessingSpec {
 
     /**
      * Whether the machine can run the recipe at these inputs: the first requirement the recipe fails, heat first, then
-     * in {@link Builder#requires} order, else success.
+     * in the order the builder added them, else success.
      */
     @Nonnull
     public CheckRecipeResult check(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         for (Requirement requirement : requirements) {
-            if (!requirement.met.test(inputs, recipe)) return requirement.failure.apply(inputs, recipe);
+            CheckRecipeResult result = switch (requirement) {
+                case Requirement.Custom custom -> custom.met()
+                    .test(inputs, recipe) ? CheckRecipeResultRegistry.SUCCESSFUL
+                        : custom.failure()
+                            .apply(inputs, recipe);
+                case Requirement.WithinVoltage _ -> recipe.mEUt <= getPower(inputs).voltage()
+                    ? CheckRecipeResultRegistry.SUCCESSFUL
+                    : CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
+            };
+            if (!result.wasSuccessful()) return result;
         }
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
@@ -706,13 +723,14 @@ public final class ProcessingSpec {
             return maxTierSkips(Integer.MAX_VALUE);
         }
 
-        private static final ToIntFunction<ProcessingInputs> COIL_HEAT = in -> (int) HeatingCoilLevel
-            .getFromTier((byte) in.value(ModifierKind.COIL))
+        private static final ToIntFunction<ProcessingInputs> COIL_HEAT = inputs -> (int) HeatingCoilLevel
+            .getFromTier((byte) inputs.value(ModifierKind.COIL))
             .getHeat();
 
         /** Coil heat, plus {@code heatPerTier} K for every voltage tier past {@code baseVoltageTier}. */
         public Builder coilHeatPerVoltageTier(int heatPerTier, int baseVoltageTier, @Nonnull HeatRule... rules) {
-            this.heatFunction = in -> COIL_HEAT.applyAsInt(in) + heatPerTier * (in.voltageTier() - baseVoltageTier);
+            this.heatFunction = inputs -> COIL_HEAT.applyAsInt(inputs)
+                + heatPerTier * (inputs.voltageTier() - baseVoltageTier);
             Collections.addAll(this.heatRules, rules);
             reads(List.of(ModifierKind.COIL));
             this.heatTooltip = tt -> tt.addHeatPerVoltageTierInfo(heatPerTier, baseVoltageTier);
@@ -725,9 +743,26 @@ public final class ProcessingSpec {
             return this;
         }
 
+        /**
+         * Refuses a recipe whose EU/t is above the spec's voltage, with
+         * {@link CheckRecipeResultRegistry#insufficientPower}.
+         */
+        public Builder requiresRecipeWithinVoltage() {
+            this.requirements.add(new Requirement.WithinVoltage());
+            return this;
+        }
+
+        /** Refuses a recipe whose {@code flag} is true, with {@link CheckRecipeResultRegistry#NO_RECIPE}. */
+        public Builder refusesRecipesFlagged(@Nonnull RecipeMetadataKey<Boolean> flag) {
+            return requires(
+                (inputs, recipe) -> !recipe.getMetadataOrDefault(flag, false),
+                (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE);
+        }
+
+        /** Refuses a recipe where {@code met} is false, with the result from {@code failure}. */
         public Builder requires(@Nonnull BiPredicate<ProcessingInputs, GTRecipe> met,
             @Nonnull BiFunction<ProcessingInputs, GTRecipe, CheckRecipeResult> failure) {
-            this.requirements.add(new Requirement(met, failure));
+            this.requirements.add(new Requirement.Custom(met, failure));
             return this;
         }
 
@@ -744,7 +779,7 @@ public final class ProcessingSpec {
 
         /** All hatch EU as one amp. */
         public Builder powerAtOneAmp() {
-            return power(ProcessingInputs::totalEu, in -> 1);
+            return power(ProcessingInputs::totalEu, inputs -> 1);
         }
 
         /** With extra amps, only the parallels rise, not the overclocks. */
@@ -781,7 +816,7 @@ public final class ProcessingSpec {
         /** Replaces the spec's terms in one mode. {@link ProcessingSpec#describeMode} writes their lines. */
         public Builder inMode(@Nonnull MachineMode mode, @Nonnull Consumer<Builder> terms) {
             int index = indexOf(mode);
-            this.variants.add(new Variant(in -> in.mode() == index, null, index, variantTerms(terms)));
+            this.variants.add(new Variant(inputs -> inputs.mode() == index, null, index, variantTerms(terms)));
             return this;
         }
 
@@ -795,7 +830,8 @@ public final class ProcessingSpec {
         /** Replaces the spec's terms at one value. The lines are headed by the kind's label for that value. */
         public Builder whenTier(@Nonnull ModifierKind.IntKind kind, int value, @Nonnull Consumer<Builder> terms) {
             reads(List.of(kind));
-            this.variants.add(new Variant(in -> in.value(kind) == value, kind.label(value), null, variantTerms(terms)));
+            this.variants
+                .add(new Variant(inputs -> inputs.value(kind) == value, kind.label(value), null, variantTerms(terms)));
             return this;
         }
 

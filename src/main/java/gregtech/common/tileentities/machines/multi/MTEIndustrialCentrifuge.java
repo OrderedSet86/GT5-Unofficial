@@ -53,7 +53,6 @@ import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.metadata.CentrifugeRecipeKey;
 import gregtech.api.render.RenderOverlay;
 import gregtech.api.structure.error.StructureError;
@@ -89,9 +88,7 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
         .speedRising(2, 3, MOMENTUM)
         .euModifier(0.9)
         // heavy mode recipes are for the heavy centrifuge
-        .requires(
-            (in, recipe) -> !recipe.getMetadataOrDefault(CentrifugeRecipeKey.INSTANCE, Boolean.FALSE),
-            (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+        .refusesRecipesFlagged(CentrifugeRecipeKey.INSTANCE)
         .build();
 
     private int momentum = 0;

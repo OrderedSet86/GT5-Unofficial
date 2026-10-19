@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.util.EnumSet;
@@ -25,7 +26,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import gregtech.api.enums.GTValues;
 import gregtech.api.enums.VoltageIndex;
 import gregtech.api.recipe.RecipeMap;
+import gregtech.api.recipe.RecipeMetadataKey;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
+import gregtech.api.recipe.metadata.SimpleRecipeMetadataKey;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
@@ -39,6 +42,7 @@ class ProcessingSpecTest {
     private static final MachineMode DISTILLERY = new MachineMode(NO_RECIPE_MAP, "Distillery", null);
     private static final MachineMode ORE = new MachineMode(NO_RECIPE_MAP, "Ore", null);
     private static final List<MachineMode> TOWER_AND_DISTILLERY = List.of(TOWER, DISTILLERY);
+    private static final RecipeMetadataKey<Boolean> FLAG = SimpleRecipeMetadataKey.create(Boolean.class, "test:flag");
 
     private static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("test:momentum")
         .source(ModifierKind.Source.RUNTIME)
@@ -191,7 +195,7 @@ class ProcessingSpecTest {
     @Test
     void aRuntimeValueIsReadAtEveryRecipeCheck() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallel(in -> 4 + in.value(MOMENTUM), MOMENTUM)
+            .parallel(inputs -> 4 + inputs.value(MOMENTUM), MOMENTUM)
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
         ProcessingLogic logic = new ProcessingLogic().setSpec(spec, atMomentum(0));
@@ -210,7 +214,7 @@ class ProcessingSpecTest {
     @Test
     void theInputsNeedEveryKindTheSpecReads() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallel(in -> 4 + in.value(MOMENTUM), MOMENTUM)
+            .parallel(inputs -> 4 + inputs.value(MOMENTUM), MOMENTUM)
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
 
@@ -264,8 +268,10 @@ class ProcessingSpecTest {
         // a binary search over WIDE's range checks about Integer.SIZE values
         final int SEARCH_BUDGET = 2 * Integer.SIZE;
         AtomicInteger checks = new AtomicInteger();
-        ProcessingSpec spec = buildCheckCountingSpec(checks, (in, recipe) -> in.value(WIDE) >= recipe.mSpecialValue);
-        ProcessingSpec never = buildCheckCountingSpec(checks, (in, recipe) -> false);
+        ProcessingSpec spec = buildCheckCountingSpec(
+            checks,
+            (inputs, recipe) -> inputs.value(WIDE) >= recipe.mSpecialValue);
+        ProcessingSpec never = buildCheckCountingSpec(checks, (inputs, recipe) -> false);
         ProcessingInputs inputs = spec.buildBestInputs()
             .energyHatches(VoltageIndex.LV, 1)
             .build();
@@ -281,18 +287,18 @@ class ProcessingSpecTest {
     private static ProcessingSpec buildCheckCountingSpec(AtomicInteger checks,
         BiPredicate<ProcessingInputs, GTRecipe> met) {
         return ProcessingSpec.builder()
-            .parallel(in -> 1, WIDE)
-            .requires((in, recipe) -> {
+            .parallel(inputs -> 1, WIDE)
+            .requires((inputs, recipe) -> {
                 checks.incrementAndGet();
-                return met.test(in, recipe);
-            }, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+                return met.test(inputs, recipe);
+            }, (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .build();
     }
 
     @Test
     void onlyAnOrderedKindHasALowestPassingValue() {
         ProcessingSpec spec = ProcessingSpec.builder()
-            .parallel(in -> 1, CASING)
+            .parallel(inputs -> 1, CASING)
             .build();
         ProcessingInputs inputs = spec.buildBestInputs()
             .energyHatches(VoltageIndex.LV, 1)
@@ -320,8 +326,8 @@ class ProcessingSpecTest {
     @Test
     void noOverclockRunsAtTheRecipesOwnVoltageWithItsCost() {
         OverclockCalculator planned = ProcessingSpec.builder()
-            .speed(in -> 1.25)
-            .euModifierNotLimitingParallel(in -> 2.5)
+            .speed(inputs -> 1.25)
+            .euModifierNotLimitingParallel(inputs -> 2.5)
             .noOverclock()
             .build()
             .resolve(recipe(16, 200, 0), inputs(VoltageIndex.LV, 0))
@@ -361,13 +367,13 @@ class ProcessingSpecTest {
             .speed(2)
             .build();
         ProcessingSpec undescribed = ProcessingSpec.builder()
-            .parallel(in -> 4)
-            .euModifier(in -> 0.9)
+            .parallel(inputs -> 4)
+            .euModifier(inputs -> 0.9)
             .build();
         ProcessingSpec overridden = ProcessingSpec.builder()
-            .parallel(in -> 4)
+            .parallel(inputs -> 4)
             .customTooltip(ProcessingSpec.Quantity.PARALLEL, tt -> tt.addInfo("Four at once"))
-            .euModifier(in -> 0.9)
+            .euModifier(inputs -> 0.9)
             .noTooltip(ProcessingSpec.Quantity.EU_MODIFIER)
             .build();
 
@@ -386,7 +392,7 @@ class ProcessingSpecTest {
             VoltageIndex.UMV })
     void calculateFollowsTheParallelAndOverclockLimits(int solenoid) {
         ProcessingSpec forgeHammer = ProcessingSpec.builder()
-            .parallel(in -> 6 * in.voltageTier() * in.value(SOLENOID), SOLENOID)
+            .parallel(inputs -> 6 * inputs.voltageTier() * inputs.value(SOLENOID), SOLENOID)
             .speed(2)
             .euModifier(1)
             .build();
@@ -475,7 +481,7 @@ class ProcessingSpecTest {
         ProcessingSpec spec = ProcessingSpec.builder()
             // Cupronickel coils: 1801K
             .coilHeatPerVoltageTier(0, VoltageIndex.EV, ProcessingSpec.HeatRule.REQUIRED)
-            .requires((in, recipe) -> recipe.mEUt <= 30, (in, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .requires((inputs, recipe) -> recipe.mEUt <= 30, (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
             .build();
         ProcessingInputs ev = inputs(VoltageIndex.EV, 0);
 
@@ -497,12 +503,62 @@ class ProcessingSpecTest {
     }
 
     @Test
+    void aRecipeAboveTheVoltageLacksPower() {
+        GTRecipe recipe = recipe(33, 200, 0);
+
+        assertEquals(
+            CheckRecipeResultRegistry.insufficientPower(33),
+            buildThirtyTwoVoltSpec().check(recipe, inputs(VoltageIndex.LV, 0)));
+    }
+
+    @Test
+    void aRecipeAtTheVoltageRuns() {
+        assertTrue(
+            buildThirtyTwoVoltSpec().check(recipe(32, 200, 0), inputs(VoltageIndex.LV, 0))
+                .wasSuccessful());
+    }
+
+    @Test
+    void aFlaggedRecipeIsRefused() {
+        GTRecipe recipe = recipe(30, 200, 0);
+        when(recipe.getMetadataOrDefault(FLAG, false)).thenReturn(true);
+
+        assertEquals(
+            CheckRecipeResultRegistry.NO_RECIPE,
+            buildFlagRefusingSpec().check(recipe, inputs(VoltageIndex.LV, 0)));
+    }
+
+    @Test
+    void anUnflaggedRecipeRuns() {
+        GTRecipe recipe = recipe(30, 200, 0);
+        when(recipe.getMetadataOrDefault(FLAG, false)).thenReturn(false);
+
+        assertTrue(
+            buildFlagRefusingSpec().check(recipe, inputs(VoltageIndex.LV, 0))
+                .wasSuccessful());
+    }
+
+    private static ProcessingSpec buildThirtyTwoVoltSpec() {
+        return ProcessingSpec.builder()
+            .power(inputs -> 32, inputs -> 1)
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .requiresRecipeWithinVoltage()
+            .build();
+    }
+
+    private static ProcessingSpec buildFlagRefusingSpec() {
+        return ProcessingSpec.builder()
+            .refusesRecipesFlagged(FLAG)
+            .build();
+    }
+
+    @Test
     void termsThatReadTheRecipeApplyInEveryMode() {
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .modes(TOWER_AND_DISTILLERY)
-                .inMode(TOWER, mode -> mode.requires((in, recipe) -> true, (in, recipe) -> null)));
+                .inMode(TOWER, mode -> mode.requires((inputs, recipe) -> true, (inputs, recipe) -> null)));
     }
 
     @Test
@@ -540,7 +596,7 @@ class ProcessingSpecTest {
         assertTrue(sets(atOneAmp, ProcessingSpec.Quantity.POWER));
 
         ProcessingSpec fixed = ProcessingSpec.builder()
-            .power(in -> 32, in -> 8)
+            .power(inputs -> 32, inputs -> 8)
             .noAmperageOverclock()
             .build();
         assertEquals(new ProcessingSpec.Power(32, 8, false), fixed.getPower(oneHatch));
@@ -550,7 +606,7 @@ class ProcessingSpecTest {
     void aRunDrawsNoMoreThanTheCap() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(16)
-            .euPerTickCap(in -> 100)
+            .euPerTickCap(inputs -> 100)
             .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
 
@@ -657,11 +713,11 @@ class ProcessingSpecTest {
     void aTermThatDiffersByModeNeedsATooltipToo() {
         ProcessingSpec undescribed = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(DISTILLERY, mode -> mode.parallel(in -> 3))
+            .inMode(DISTILLERY, mode -> mode.parallel(inputs -> 3))
             .build();
         ProcessingSpec coveredForEveryMode = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(DISTILLERY, mode -> mode.parallel(in -> 3))
+            .inMode(DISTILLERY, mode -> mode.parallel(inputs -> 3))
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
 
