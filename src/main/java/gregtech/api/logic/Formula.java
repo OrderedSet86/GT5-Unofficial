@@ -93,15 +93,15 @@ public sealed interface Formula {
     record Rising(double min, double max, @Nonnull ModifierKind.IntKind kind) implements Formula {
 
         public Rising {
-            if (kind.getRange() == null)
-                throw new IllegalArgumentException(kind + " has no range. A Rising term needs a range");
+            kind.requireRange();
         }
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
-            return min + (max - min) * inputs.value(kind)
-                / kind.getRange()
+            double rise = (max - min) * inputs.value(kind)
+                / kind.requireRange()
                     .max();
+            return min + rise;
         }
 
         @Nonnull
@@ -117,14 +117,13 @@ public sealed interface Formula {
     record RisingPerVoltageTier(int min, int max, @Nonnull ModifierKind.IntKind kind) implements Formula {
 
         public RisingPerVoltageTier {
-            if (kind.getRange() == null)
-                throw new IllegalArgumentException(kind + " has no range. A Rising term needs a range");
+            kind.requireRange();
         }
 
         @Override
         public double apply(@Nonnull ProcessingInputs inputs) {
             double rise = (max - min) * inputs.value(kind)
-                / (double) kind.getRange()
+                / (double) kind.requireRange()
                     .max();
             return (int) ((min + rise) * inputs.voltageTier());
         }

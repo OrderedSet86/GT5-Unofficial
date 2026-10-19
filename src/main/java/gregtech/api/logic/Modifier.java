@@ -69,7 +69,7 @@ public final class Modifier {
     @Nonnull
     public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
-        int absent = (int) ModifierKind.ITEM_PIPE_CASING.getRange()
+        int absent = (int) ModifierKind.ITEM_PIPE_CASING.requireRange()
             .min() - 1;
         return new Of<>(
             ModifierKind.ITEM_PIPE_CASING,
