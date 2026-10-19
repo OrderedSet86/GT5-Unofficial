@@ -377,14 +377,6 @@ public class OverclockCalculator {
         return noOverclock;
     }
 
-    public int getMaxOverclocks() {
-        return maxOverclocks;
-    }
-
-    public int getMaxRegularOverclocks() {
-        return maxRegularOverclocks;
-    }
-
     public int getRecipeHeat() {
         return recipeHeat;
     }
