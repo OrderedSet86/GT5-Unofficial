@@ -68,7 +68,6 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
         RecipeMaps.unpackagerRecipes,
         "GT5U.GTPP_MULTI_PACKAGER.mode.1",
         GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
-    /** The modes of this machine and of {@code MTEAmazonPackagerLegacy}, the GT++ machine of the same name. */
     public static final List<MachineMode> MODES = List.of(PACKAGER, UNPACKAGER);
 
     private static final int OFFSET_X = 4;

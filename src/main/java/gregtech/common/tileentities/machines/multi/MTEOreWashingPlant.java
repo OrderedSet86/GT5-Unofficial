@@ -63,7 +63,6 @@ public class MTEOreWashingPlant extends MTEExtendedPowerMultiBlockBase<MTEOreWas
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 0;
     private static final String STRUCTURE_PIECE_MAIN = "main";
-    // MTEIndustrialWashPlantLegacy and MTESteamWasher have these modes too
     public static final MachineMode ORE_WASH = new MachineMode(
         RecipeMaps.oreWasherRecipes,
         "GT5U.GTPP_MULTI_WASH_PLANT.mode.0",

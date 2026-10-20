@@ -299,7 +299,7 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
         return MODES;
     }
 
-    // the recipe maps in MODES are for NEI only, so the input hatches don't filter fluids by them
+    // checkProcessing() reads no recipe from the recipe maps of MODES, so the input hatches don't filter fluids by them
     @Override
     protected boolean filtersFluid() {
         return false;
