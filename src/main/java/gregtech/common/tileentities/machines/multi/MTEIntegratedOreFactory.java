@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -61,6 +63,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -73,7 +76,6 @@ import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import mcp.mobius.waila.api.IWailaConfigHandler;
@@ -91,16 +93,18 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Y = 6;
     private static final int OFFSET_Z = 1;
 
-    private static final UITexture[] MODE_ICONS = { GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_MACERATOR, // mac wash
-        // thermal
-        // mac
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_WASHER, // mac wash mac centri
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_CENTRIFUGE, // mac mac centri
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_SIFTER, // mac wash sift
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_BATH, // mac chem mac centri
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_THERMAL, // mac chem thermal mac
-        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_FORGE, // forge forge simplewash
-    };
+    /**
+     * The modes of this machine and of {@link MTEIntegratedOreFactoryLegacy}, in {@link ProcessingMode} order. The
+     * factory chains the recipe maps of several machines in each mode, so the modes have no recipe map.
+     */
+    public static final List<MachineMode> MODES = List.of(
+        createOreFactoryMode(0, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_MACERATOR),
+        createOreFactoryMode(1, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_WASHER),
+        createOreFactoryMode(2, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_CENTRIFUGE),
+        createOreFactoryMode(3, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_SIFTER),
+        createOreFactoryMode(4, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_BATH),
+        createOreFactoryMode(5, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_THERMAL),
+        createOreFactoryMode(6, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_FORGE));
 
     private static final IStructureDefinition<MTEIntegratedOreFactory> STRUCTURE_DEFINITION = StructureDefinition
         .<MTEIntegratedOreFactory>builder()
@@ -158,7 +162,6 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
             Materials.GraniteRed.getDust(1)));
 
     private ItemStack[] midProduct;
-    private ProcessingMode mode = ProcessingMode.MAC_WASH_THERMAL_MAC;
     private boolean doesVoidStone = false;
     private final XSTR random = new XSTR();
 
@@ -344,7 +347,7 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
         }
         midProduct = tOres.toArray(new ItemStack[0]);
 
-        switch (mode) {
+        switch (getProcessingMode()) {
             case MAC_WASH_THERMAL_MAC -> {
                 macerate(isOre);
                 wash(isCrushedOre);
@@ -392,7 +395,7 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
         this.mEfficiency = 10000 - (getIdealStatus() - getRepairStatus()) * 1000;
         this.mEfficiencyIncrease = 10000;
         this.mOutputItems = midProduct;
-        this.mMaxProgresstime = getRecipeTickTime(this.mode);
+        this.mMaxProgresstime = getRecipeTickTime(getProcessingMode());
         this.lEUt = fixedEUt;
 
         lastParallel = effectiveParallel;
@@ -709,7 +712,7 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
                 .encode("GT5U.infodata.integrated_ore_factory.parallelism", getMaxParallelRecipes()));
         info.add(IGregTechDeviceInformation.encode("GT5U.machines.oreprocessor.void", doesVoidStone));
         info.add("GT5U.multiblock.runningMode");
-        info.addAll(getDisplayMode(mode));
+        info.addAll(getDisplayMode(getProcessingMode()));
         return info.toArray(new String[0]);
     }
 
@@ -740,8 +743,8 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
             GTUtility.sendChatTrans(aPlayer, "GT5U.machines.oreprocessor.void", doesVoidStone);
             return;
         }
-        mode = mode.next();
-        GTUtility.sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", getDisplayModeComponent(mode));
+        setMachineMode(nextMachineMode());
+        GTUtility.sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", getDisplayModeComponent(getProcessingMode()));
     }
 
     /**
@@ -763,36 +766,30 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
         return result;
     }
 
+    @Nonnull
     @Override
-    public int getMachineMode() {
-        return mode.ordinal();
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
-    @Override
-    public void setMachineMode(int idx) {
-        mode = ProcessingMode.fromOrdinal(idx);
+    private ProcessingMode getProcessingMode() {
+        return ProcessingMode.fromOrdinal(getMachineMode());
     }
 
-    @Override
-    public String getMachineModeName() {
-        return String.join("\n", getDisplayMode(mode));
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui getGui() {
-        return super.getGui().withMachineModeIcons(MODE_ICONS);
+    private static MachineMode createOreFactoryMode(int index, UITexture icon) {
+        return new MachineMode(null, "GT5U.machines.oreprocessor.mode." + index, icon);
     }
 
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
-        mode = ProcessingMode.fromOrdinal(aNBT.getInteger("mode"));
+        // older saves have the mode index in "mode"
+        if (aNBT.hasKey("mode")) machineMode = aNBT.getInteger("mode");
         doesVoidStone = aNBT.getBoolean("doesVoidStone");
         super.loadNBTData(aNBT);
     }
 
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
-        aNBT.setInteger("mode", mode.ordinal());
         aNBT.setBoolean("doesVoidStone", doesVoidStone);
         super.saveNBTData(aNBT);
     }
@@ -815,7 +812,7 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
     @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
-        tag.setInteger("machineMode", mode.ordinal());
+        tag.setInteger("machineMode", getMachineMode());
         tag.setBoolean("doesVoidStone", doesVoidStone);
     }
 
@@ -846,10 +843,6 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
                 return VALUES[ordinal];
             }
             return ProcessingMode.MAC_WASH_THERMAL_MAC;
-        }
-
-        public ProcessingMode next() {
-            return fromOrdinal(this.ordinal() + 1);
         }
     }
 
