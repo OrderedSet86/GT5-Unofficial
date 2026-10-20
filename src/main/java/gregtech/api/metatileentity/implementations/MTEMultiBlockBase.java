@@ -2179,7 +2179,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         List<MachineMode> modes = getMachineModes();
         if (modes.isEmpty()) return IControllerWithOptionalFeatures.super.getAvailableRecipeMaps();
         Set<RecipeMap<?>> maps = new LinkedHashSet<>();
-        for (MachineMode mode : modes) maps.add(mode.recipeMap());
+        for (MachineMode mode : modes) {
+            if (mode.recipeMap() != null) maps.add(mode.recipeMap());
+        }
         return new ArrayList<>(maps);
     }
 
