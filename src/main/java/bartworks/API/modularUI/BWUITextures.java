@@ -59,9 +59,4 @@ public class BWUITextures {
         .of(MainMod.MOD_ID, "GUI/tab/title_dark_brown", 28, 28, 4);
     public static final AdaptableUITexture TAB_TITLE_ANGULAR_BROWN = AdaptableUITexture
         .of(MainMod.MOD_ID, "GUI/tab/title_angular_brown", 28, 28, 4);
-
-    public static final UITexture OVERLAY_BUTTON_ASSEMBLER_MODE = UITexture
-        .fullImage(MainMod.MOD_ID, "GUI/overlay_button/assembler_mode");
-    public static final UITexture OVERLAY_BUTTON_LINE_MODE = UITexture
-        .fullImage(MainMod.MOD_ID, "GUI/overlay_button/line_mode");
 }

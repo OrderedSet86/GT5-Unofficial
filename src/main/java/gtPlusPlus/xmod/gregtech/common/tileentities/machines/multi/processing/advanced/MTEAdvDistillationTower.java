@@ -16,8 +16,6 @@ import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 import static gregtech.api.util.GTStructureUtility.ofHatchAdder;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -33,8 +31,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.FluidStack;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.gtnewhorizon.structurelib.alignment.IAlignmentLimits;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
@@ -48,10 +44,10 @@ import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.IOutputHatch;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEHatchOutput;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
@@ -59,7 +55,6 @@ import gregtech.api.structure.error.StructureErrors;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipHelper;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -73,8 +68,15 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     protected static final String STRUCTURE_PIECE_TOP_HINT = "topHint";
     protected static final int DT_MODE_MAX_PARALLELS = 12;
 
-    private static final int MACHINEMODE_TOWER = 0;
-    private static final int MACHINEMODE_DISTILLERY = 1;
+    private static final MachineMode TOWER = new MachineMode(
+        RecipeMaps.distillationTowerRecipes,
+        "GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER);
+    private static final MachineMode DISTILLERY = new MachineMode(
+        RecipeMaps.distilleryRecipes,
+        "GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLING);
+    private static final List<MachineMode> MODES = List.of(TOWER, DISTILLERY);
 
     protected final List<List<MTEHatchOutput>> mOutputHatchesByLayer = new ArrayList<>();
     protected int mCasing;
@@ -303,15 +305,10 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
         // check success
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_TOWER) ? RecipeMaps.distillationTowerRecipes : RecipeMaps.distilleryRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.distilleryRecipes, RecipeMaps.distillationTowerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -322,7 +319,7 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
 
     @Override
     public int getPollutionPerSecond(ItemStack aStack) {
-        if (machineMode == MACHINEMODE_DISTILLERY)
+        if (getCurrentMachineMode() == DISTILLERY)
             return PollutionConfig.pollutionPerSecondMultiAdvDistillationTower_ModeDistillery;
         return PollutionConfig.pollutionPerSecondMultiAdvDistillationTower_ModeDT;
     }
@@ -357,7 +354,7 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     @Override
     protected boolean addFluidOutputs(FluidStack[] outputFluids) {
         boolean succeed = true;
-        if (machineMode == MACHINEMODE_TOWER) {
+        if (getCurrentMachineMode() == TOWER) {
             // dt mode
             for (int i = 0; i < outputFluids.length && i < mOutputHatchesByLayer.size(); i++) {
                 FluidStack tStack = outputFluids[i].copy();
@@ -395,13 +392,13 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     @Override
     protected void setupProcessingLogic(ProcessingLogic logic) {
         super.setupProcessingLogic(logic);
-        logic.setEuModifier(machineMode == MACHINEMODE_DISTILLERY ? 0.15D : 1.0D);
-        logic.setSpeedBonus(machineMode == MACHINEMODE_DISTILLERY ? 1.0D / 2.0D : 1.0D / 3.0D);
+        logic.setEuModifier(getCurrentMachineMode() == DISTILLERY ? 0.15D : 1.0D);
+        logic.setSpeedBonus(getCurrentMachineMode() == DISTILLERY ? 1.0D / 2.0D : 1.0D / 3.0D);
     }
 
     @Override
     public int getMaxParallelRecipes() {
-        return machineMode == MACHINEMODE_TOWER ? DT_MODE_MAX_PARALLELS
+        return getCurrentMachineMode() == TOWER ? DT_MODE_MAX_PARALLELS
             : (int) (2 * Math.floor((mHeight + 1) / 3f)) * GTUtility.getTier(this.getMaxInputVoltage());
     }
 
@@ -439,22 +436,5 @@ public class MTEAdvDistillationTower extends GTPPMultiBlockBase<MTEAdvDistillati
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
         tag.setString("mode", getMachineModeName());
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_ADV_DISTILLATION_TOWER.mode." + machineMode;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLATION_TOWER,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_DISTILLING);
     }
 }

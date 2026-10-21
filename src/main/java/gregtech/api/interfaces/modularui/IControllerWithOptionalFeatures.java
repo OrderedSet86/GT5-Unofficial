@@ -187,14 +187,6 @@ public interface IControllerWithOptionalFeatures extends IVoidable, IRecipeLocka
     }
 
     /**
-     * @param index Index of machineModeIcons to pull from
-     * @return UITexture associated with that machineMode
-     */
-    default UITexture getMachineModeIcon(int index) {
-        return null;
-    }
-
-    /**
      * @param index Number to set machineMode to
      */
     default void setMachineMode(int index) {}
@@ -211,29 +203,6 @@ public interface IControllerWithOptionalFeatures extends IVoidable, IRecipeLocka
      */
     default boolean getDefaultModeSwitch() {
         return supportsMachineModeSwitch();
-    }
-
-    Pos2d getMachineModeSwitchButtonPos();
-
-    /**
-     * Called when the mode switch button is clicked
-     */
-    default void onMachineModeSwitchClick() {}
-
-    default ButtonWidget createModeSwitchButton(IWidgetBuilder<?> builder) {
-        if (!supportsMachineModeSwitch()) return null;
-        Widget button = new ButtonWidget().setOnClick((clickData, widget) -> {
-            onMachineModeSwitchClick();
-            setMachineMode(nextMachineMode());
-        })
-            .setPlayClickSound(true)
-            .setBackground(() -> new IDrawable[] { GTUITextures.BUTTON_STANDARD, getMachineModeIcon(getMachineMode()) })
-            .attachSyncer(new FakeSyncWidget.IntegerSyncer(this::getMachineMode, this::setMachineMode), builder)
-            .addTooltip(StatCollector.translateToLocal("GT5U.gui.button.mode_switch"))
-            .setTooltipShowUpDelay(TOOLTIP_DELAY)
-            .setPos(getMachineModeSwitchButtonPos())
-            .setSize(16, 16);
-        return (ButtonWidget) button;
     }
 
     /**
