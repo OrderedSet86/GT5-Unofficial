@@ -1,10 +1,12 @@
 package gregtech.api.logic;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +22,9 @@ import java.util.function.IntSupplier;
 import java.util.function.LongPredicate;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntBiFunction;
 import java.util.function.ToIntFunction;
+import java.util.function.ToLongBiFunction;
 import java.util.function.ToLongFunction;
 
 import javax.annotation.Nonnull;
@@ -112,7 +116,7 @@ public final class ProcessingSpec {
         TIER_SKIPS(false),
         HEAT(false),
         RECIPE_OVERRIDE(false),
-        /** The voltage, the amperage, amperage overclocks and the EU/t cap. */
+        /** The voltage, the amperage, amperage overclocks, the EU/t cap and EU taken once per start. */
         POWER(false);
 
         private final boolean settableInVariant;
@@ -129,6 +133,14 @@ public final class ProcessingSpec {
 
     /** {@code lines} is null for a {@link Formula.Custom} formula. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
+
+    /** A term of the inputs, with the term's tooltip lines, or a term that reads the recipe. */
+    private sealed interface ParallelTerm {
+
+        record OfInputs(Term term) implements ParallelTerm {}
+
+        record OfRecipe(ToIntBiFunction<ProcessingInputs, GTRecipe> parallel) implements ParallelTerm {}
+    }
 
     private sealed interface Requirement {
 
@@ -149,7 +161,7 @@ public final class ProcessingSpec {
     /** {@code complete} is false if a term of the quantity has no lines. */
     private record Described(List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
-    private final List<Term> parallel;
+    private final List<ParallelTerm> parallel;
     /** The quantities with a single formula: the speed and the two EU modifiers. */
     private final EnumMap<Quantity, Term> scalars;
     @Nullable
@@ -157,6 +169,8 @@ public final class ProcessingSpec {
     private final OptionalInt maxTierSkips;
     @Nullable
     private final Heat heat;
+    @Nullable
+    private final ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks;
     private final List<Requirement> requirements;
     @Nullable
     private final RecipeOverride recipeOverride;
@@ -167,6 +181,8 @@ public final class ProcessingSpec {
     private final boolean noAmperageOverclock;
     @Nullable
     private final ToLongFunction<ProcessingInputs> euPerTickCap;
+    @Nullable
+    private final ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
     private final EnumMap<Quantity, Described> described;
     private final Map<Quantity, Consumer<MultiblockTooltipBuilder>> customTooltips;
     private final Set<Quantity> noTooltip;
@@ -186,6 +202,7 @@ public final class ProcessingSpec {
         Heat heat = builder.heatFunction == null ? null
             : new Heat(builder.heatFunction, Collections.unmodifiableSet(EnumSet.copyOf(builder.heatRules)));
         this.heat = heat;
+        this.maxOverclocks = builder.maxOverclocks;
         List<Requirement> requirements = new ArrayList<>();
         if (heat != null && heat.rules()
             .contains(HeatRule.REQUIRED)) {
@@ -201,6 +218,7 @@ public final class ProcessingSpec {
         this.amperage = builder.amperage;
         this.noAmperageOverclock = builder.noAmperageOverclock;
         this.euPerTickCap = builder.euPerTickCap;
+        this.startupEu = builder.startupEu;
         this.described = describeQuantities(builder, heat);
         this.customTooltips = new EnumMap<>(builder.customTooltips);
         this.noTooltip = builder.noTooltip.clone();
@@ -298,12 +316,13 @@ public final class ProcessingSpec {
             run,
             run.mDuration,
             getPower(inputs),
-            getMaxParallel(inputs),
+            computeMaxParallel(inputs, run),
             getDurationMultiplier(inputs),
             getEuModifier(inputs),
             getEuModifierNotLimitingParallel(inputs),
             new ResolvedRecipe.Overclock(
                 getOverclock(inputs),
+                maxOverclocks == null ? OptionalInt.empty() : OptionalInt.of(maxOverclocks.applyAsInt(inputs, run)),
                 getMaxTierSkipsOrDefault(),
                 heat == null ? null
                     : new ResolvedRecipe.Heat(
@@ -313,11 +332,12 @@ public final class ProcessingSpec {
                             .contains(HeatRule.OVERCLOCK),
                         heat.rules()
                             .contains(HeatRule.DISCOUNT))),
-            check(run, inputs));
+            check(run, inputs),
+            new ProcessingRun.RunEu(BigInteger.valueOf(startupEu == null ? 0 : startupEu.applyAsLong(inputs, run))));
     }
 
     /**
-     * The run with unlimited inputs and output space.
+     * The run from idle, with unlimited inputs and output space.
      *
      * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
@@ -326,11 +346,19 @@ public final class ProcessingSpec {
         return resolve(recipe, inputs).calculate();
     }
 
-    /** At least 1. */
+    /** At least 1. Leaves out the terms of {@link Builder#parallelPerRecipe}. */
     public int getMaxParallel(@Nonnull ProcessingInputs inputs) {
+        return computeMaxParallel(inputs, null);
+    }
+
+    private int computeMaxParallel(ProcessingInputs inputs, @Nullable GTRecipe recipe) {
         int sum = 0;
-        for (Term term : selectSetting(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
-            sum += (int) term.formula.apply(inputs);
+        for (ParallelTerm term : selectSetting(inputs, spec -> spec.parallel, terms -> !terms.isEmpty())) {
+            sum += switch (term) {
+                case ParallelTerm.OfInputs ofInputs -> (int) ofInputs.term().formula().apply(inputs);
+                case ParallelTerm.OfRecipe ofRecipe -> recipe == null ? 0
+                    : ofRecipe.parallel().applyAsInt(inputs, recipe);
+            };
         }
         return Math.max(1, sum);
     }
@@ -490,11 +518,13 @@ public final class ProcessingSpec {
     }
 
     private void writeLines(MultiblockTooltipBuilder tt, Set<Quantity> skip) {
+        Set<Consumer<MultiblockTooltipBuilder>> customWritten = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Quantity quantity : Quantity.values()) {
             if (skip.contains(quantity) || noTooltip.contains(quantity)) continue;
             Consumer<MultiblockTooltipBuilder> custom = customTooltips.get(quantity);
             if (custom != null) {
-                custom.accept(tt);
+                // one customTooltip can cover several quantities
+                if (customWritten.add(custom)) custom.accept(tt);
                 continue;
             }
             Described quantityDescribed = described.get(quantity);
@@ -505,10 +535,28 @@ public final class ProcessingSpec {
     /** Each quantity's tooltip lines, from the builder's settings. */
     private static EnumMap<Quantity, Described> describeQuantities(Builder builder, @Nullable Heat heat) {
         EnumMap<Quantity, Described> described = new EnumMap<>(Quantity.class);
-        if (!builder.parallel.isEmpty()) described.put(Quantity.PARALLEL, describeTerms(builder.parallel));
+        if (!builder.parallel.isEmpty()) {
+            List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
+            boolean complete = true;
+            for (ParallelTerm term : builder.parallel) {
+                if (term instanceof ParallelTerm.OfInputs ofInputs && ofInputs.term().lines != null) {
+                    lines.add(ofInputs.term().lines);
+                } else {
+                    complete = false;
+                }
+            }
+            described.put(Quantity.PARALLEL, new Described(lines, complete));
+        }
         builder.scalars.forEach((quantity, term) -> described.put(quantity, describeTerms(List.of(term))));
-        if (builder.overclock != null) {
-            described.put(Quantity.OVERCLOCK, new Described(List.of(), true));
+        if (builder.overclock != null || builder.maxOverclocks != null) {
+            List<Consumer<MultiblockTooltipBuilder>> lines = new ArrayList<>();
+            if (builder.overclock instanceof OverclockRule.Ratio ratio && !ratio.equals(OverclockRule.Ratio.STANDARD)) {
+                lines.add(tt -> tt.addOverclockRatioInfo(ratio.euMultiplier(), ratio.durationDivisor()));
+            }
+            if (builder.maxOverclocksTooltip != null) lines.add(builder.maxOverclocksTooltip);
+            described.put(
+                Quantity.OVERCLOCK,
+                new Described(lines, builder.maxOverclocks == null || builder.maxOverclocksTooltip != null));
         }
         if (builder.maxTierSkips.isPresent()) {
             int skips = builder.maxTierSkips.getAsInt();
@@ -532,7 +580,8 @@ public final class ProcessingSpec {
                 Quantity.RECIPE_OVERRIDE,
                 new Described(List.of(tt -> tt.addRecipeOverrideInfo(override.eut(), override.duration())), true));
         }
-        if (builder.voltage != null || builder.amperage != null
+        if (builder.startupEu != null || builder.voltage != null
+            || builder.amperage != null
             || builder.noAmperageOverclock
             || builder.euPerTickCap != null) {
             described.put(Quantity.POWER, new Described(List.of(), false));
@@ -552,7 +601,7 @@ public final class ProcessingSpec {
 
     public static final class Builder {
 
-        private final List<Term> parallel = new ArrayList<>();
+        private final List<ParallelTerm> parallel = new ArrayList<>();
         private final EnumMap<Quantity, Term> scalars = new EnumMap<>(Quantity.class);
         private OverclockRule overclock;
         private OptionalInt maxTierSkips = OptionalInt.empty();
@@ -565,11 +614,14 @@ public final class ProcessingSpec {
         private final EnumSet<Quantity> noTooltip = EnumSet.noneOf(Quantity.class);
         private List<MachineMode> modes;
         private final List<Variant> variants = new ArrayList<>();
+        private ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks;
+        private Consumer<MultiblockTooltipBuilder> maxOverclocksTooltip;
         private final List<Requirement> requirements = new ArrayList<>();
         private ToLongFunction<ProcessingInputs> voltage;
         private ToLongFunction<ProcessingInputs> amperage;
         private boolean noAmperageOverclock;
         private ToLongFunction<ProcessingInputs> euPerTickCap;
+        private ToLongBiFunction<ProcessingInputs, GTRecipe> startupEu;
         /** A null range means the kind's range. */
         private final Map<ModifierKind, ModifierKind.Range> reads = new LinkedHashMap<>();
 
@@ -649,8 +701,14 @@ public final class ProcessingSpec {
             return parallelTerm(new Formula.Custom(parallel::applyAsInt, Set.of(reads)), null);
         }
 
+        /** Adds a parallel that depends on the recipe. */
+        public Builder parallelPerRecipe(@Nonnull ToIntBiFunction<ProcessingInputs, GTRecipe> parallel) {
+            this.parallel.add(new ParallelTerm.OfRecipe(parallel));
+            return this;
+        }
+
         private Builder parallelTerm(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {
-            this.parallel.add(new Term(addReadsOf(formula), lines));
+            this.parallel.add(new ParallelTerm.OfInputs(new Term(addReadsOf(formula), lines)));
             return this;
         }
 
@@ -713,6 +771,11 @@ public final class ProcessingSpec {
             return this;
         }
 
+        public Builder overclock(double durationDivisor, double euMultiplier) {
+            this.overclock = new OverclockRule.Ratio(durationDivisor, euMultiplier);
+            return this;
+        }
+
         /** Values of 1 and below have no tooltip line. */
         public Builder maxTierSkips(int tierSkips) {
             this.maxTierSkips = OptionalInt.of(tierSkips);
@@ -721,6 +784,18 @@ public final class ProcessingSpec {
 
         public Builder unlimitedTierSkips() {
             return maxTierSkips(Integer.MAX_VALUE);
+        }
+
+        public Builder maxOverclocksPerRecipe(@Nonnull ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks,
+            @Nonnull Consumer<MultiblockTooltipBuilder> tooltip) {
+            this.maxOverclocksTooltip = tooltip;
+            return maxOverclocksPerRecipe(maxOverclocks);
+        }
+
+        /** Caps the overclocks per recipe. */
+        public Builder maxOverclocksPerRecipe(@Nonnull ToIntBiFunction<ProcessingInputs, GTRecipe> maxOverclocks) {
+            this.maxOverclocks = maxOverclocks;
+            return this;
         }
 
         private static final ToIntFunction<ProcessingInputs> COIL_HEAT = inputs -> (int) HeatingCoilLevel
@@ -793,8 +868,21 @@ public final class ProcessingSpec {
             return this;
         }
 
+        /** EU taken once when the machine starts from idle. */
+        public Builder startupEuPerRecipe(@Nonnull ToLongBiFunction<ProcessingInputs, GTRecipe> eu) {
+            this.startupEu = eu;
+            return this;
+        }
+
         public Builder customTooltip(@Nonnull Quantity quantity, @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             this.customTooltips.put(quantity, lines);
+            return this;
+        }
+
+        /** One block of lines for several quantities, written once where the first of them would be. */
+        public Builder customTooltip(@Nonnull Set<Quantity> quantities,
+            @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
+            for (Quantity quantity : quantities) this.customTooltips.put(quantity, lines);
             return this;
         }
 
@@ -856,11 +944,21 @@ public final class ProcessingSpec {
                     throw new IllegalArgumentException(quantity + " cannot differ by mode or tier");
                 }
             }
+            if (variant.hasRecipeTerm()) {
+                throw new IllegalArgumentException("terms that read the recipe apply in every mode");
+            }
             if (variant.overclock instanceof OverclockRule.None) {
                 throw new IllegalArgumentException("noOverclock applies in every mode");
             }
             variant.reads.forEach(this.reads::putIfAbsent);
             return spec;
+        }
+
+        private boolean hasRecipeTerm() {
+            for (ParallelTerm term : parallel) {
+                if (term instanceof ParallelTerm.OfRecipe) return true;
+            }
+            return maxOverclocks != null;
         }
 
         @Nonnull

@@ -1,5 +1,6 @@
 package gregtech.api.logic;
 
+import java.util.OptionalInt;
 import java.util.function.DoubleSupplier;
 
 import javax.annotation.Nonnull;
@@ -23,10 +24,11 @@ import gregtech.api.util.ParallelHelper;
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,
-    @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check) {
+    @Nonnull Overclock overclock, @Nonnull CheckRecipeResult check, @Nonnull ProcessingRun.RunEu eu) {
 
     /** @param heat Null where heat does not change the overclocks */
-    public record Overclock(@Nonnull ProcessingSpec.OverclockRule rule, int maxTierSkips, @Nullable Heat heat) {}
+    public record Overclock(@Nonnull ProcessingSpec.OverclockRule rule, @Nonnull OptionalInt maxOverclocks,
+        int maxTierSkips, @Nullable Heat heat) {}
 
     public record Heat(int machineHeat, int recipeHeat, boolean overclocking, boolean discounting) {}
 
@@ -40,7 +42,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             euModifier,
             euModifierNotLimitingParallel,
             overclock,
-            check);
+            check,
+            eu);
     }
 
     /** At most {@code limit} parallels, and at least 1. */
@@ -74,6 +77,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             .setAmperageOC(power.amperageOverclock())
             .setDurationDecreasePerOC(ratio.durationDivisor())
             .setEUtIncreasePerOC(ratio.euMultiplier());
+        overclock.maxOverclocks()
+            .ifPresent(calculator::setMaxOverclocks);
         Heat heat = overclock.heat();
         if (heat != null) {
             calculator.setMachineHeat(heat.machineHeat())
@@ -155,6 +160,7 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
             helper.getCurrentParallel(),
             calculator.getPerformedOverclocks(),
             (int) runTicks,
-            Math.min(power.euPerTickCap(), calculator.getConsumption()));
+            Math.min(power.euPerTickCap(), calculator.getConsumption()),
+            eu);
     }
 }
