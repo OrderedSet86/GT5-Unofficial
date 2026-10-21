@@ -70,7 +70,6 @@ import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizons.modularui.api.NumberFormatMUI;
 import com.gtnewhorizons.modularui.api.drawable.FluidDrawable;
 import com.gtnewhorizons.modularui.api.drawable.ItemDrawable;
-import com.gtnewhorizons.modularui.api.drawable.UITexture;
 import com.gtnewhorizons.modularui.api.math.Alignment;
 import com.gtnewhorizons.modularui.api.math.Color;
 import com.gtnewhorizons.modularui.api.math.Pos2d;
@@ -202,7 +201,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     public int damageFactorLow = 5;
     public float damageFactorHigh = 0.6f;
     public int machineMode = 0;
-    protected List<UITexture> machineModeIcons;
 
     public boolean mLockedToSingleRecipe = getDefaultRecipeLockingMode();
     protected boolean inputSeparation = getDefaultInputSeparationMode();
@@ -2190,7 +2188,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         List<MachineMode> modes = getMachineModes();
         if (modes.isEmpty()) return IControllerWithOptionalFeatures.super.getAvailableRecipeMaps();
         Set<RecipeMap<?>> maps = new LinkedHashSet<>();
-        for (MachineMode mode : modes) maps.add(mode.recipeMap());
+        for (MachineMode mode : modes) {
+            if (mode.recipeMap() != null) maps.add(mode.recipeMap());
+        }
         return new ArrayList<>(maps);
     }
 
@@ -3450,15 +3450,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
-     */
-    public void setMachineModeIcons() {
-
-    }
-
-    /**
-     * Override this if you are a multi-machine and want a GUI button. You will also want to override
-     * setMachineModeIcons(). Override nextMachineMode() if you have more than 2 modes.
+     * Whether the machine's GUI has a mode button and a mode line, and the machine saves {@code machineMode}. The base
+     * method returns true for two or more {@link #getMachineModes}.
      */
     @Override
     public boolean supportsMachineModeSwitch() {
@@ -3485,12 +3478,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     public String getMachineModeKey() {
         MachineMode mode = getCurrentMachineMode();
         return mode == null ? IControllerWithOptionalFeatures.super.getMachineModeKey() : mode.nameKey();
-    }
-
-    @Override
-    public UITexture getMachineModeIcon(int index) {
-        if (index > machineModeIcons.size() - 1) return null;
-        return machineModeIcons.get(index);
     }
 
     @Override
@@ -3527,11 +3514,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      */
     public boolean isMachineModeAvailable(int index) {
         return true;
-    }
-
-    @Override
-    public Pos2d getMachineModeSwitchButtonPos() {
-        return new Pos2d(80, 91);
     }
 
     @Override
@@ -3640,15 +3622,10 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                 .setPos(10, 7)
                 .setSize(182, 79));
 
-        if (supportsMachineModeSwitch() && machineModeIcons == null) {
-            machineModeIcons = new ArrayList<>(4);
-            setMachineModeIcons();
-        }
         builder.widget(createPowerSwitchButton(builder))
             .widget(createVoidExcessButton(builder))
             .widget(createMuffleButton(builder, this.canBeMuffled()))
             .widget(createInputSeparationButton(builder))
-            .widget(createModeSwitchButton(builder))
             .widget(createBatchModeButton(builder))
             .widget(createLockToSingleRecipeButton(builder))
             .widget(createStructureUpdateButton(builder));

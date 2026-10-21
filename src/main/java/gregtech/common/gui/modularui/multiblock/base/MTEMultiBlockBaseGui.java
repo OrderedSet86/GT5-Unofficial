@@ -162,7 +162,6 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
     }
 
     public ModularPanel build(PosGuiData guiData, PanelSyncManager syncManager, UISettings uiSettings) {
-        setMachineModeIcons();
         registerSyncValues(syncManager);
         ModularPanel panel = getBasePanel(guiData, syncManager, uiSettings);
         initPanelMap(panel, syncManager);
@@ -1344,8 +1343,6 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
         // setMachineMode() ignores an unavailable mode. Go on to the next available mode
         if (multiblock.getMachineMode() != index) multiblock.setMachineMode(multiblock.nextMachineMode());
     }
-
-    protected void setMachineModeIcons() {}
 
     // Method for registering Icons/Tooltip Text to specific ShutDownReasons. Override for custom icons/conditions.
 
