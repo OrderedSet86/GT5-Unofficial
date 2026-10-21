@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -53,6 +55,7 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -133,7 +136,6 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
     private static final IntOpenHashSet isOre = new IntOpenHashSet();
     private static boolean isInit = false;
     private ItemStack[] sMidProduct;
-    private int sMode = 0;
     private boolean sVoidStone = false;
     private int currentParallelism = 0;
 
@@ -282,7 +284,7 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
 
         OverclockCalculator calculator = new OverclockCalculator().setEUt(availableEUt)
             .setRecipeEUt(RECIPE_EUT)
-            .setDuration(getTime(sMode))
+            .setDuration(getTime(machineMode))
             .setParallel(originalMaxParallel);
 
         maxParallel = GTUtility.safeInt((long) (maxParallel * calculator.calculateMultiplierUnderOneTick()), 0);
@@ -379,7 +381,7 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
             }
         }
         sMidProduct = tOres.toArray(new ItemStack[0]);
-        switch (sMode) {
+        switch (machineMode) {
             case 0 -> {
                 doMac(isOre);
                 doWash(isCrushedOre);
@@ -462,14 +464,15 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
             GTUtility.sendChatTrans(aPlayer, "GT5U.machines.oreprocessor.void", sVoidStone);
             return;
         }
-        sMode = (sMode + 1) % 7;
-        List<String> des = getDisplayMode(sMode);
+        setMachineMode(nextMachineMode());
+        List<String> des = getDisplayMode(machineMode);
         GTUtility.sendChatToPlayer(aPlayer, String.join("", des));
     }
 
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
-        sMode = aNBT.getInteger("ssMode");
+        // older saves have the mode index in "ssMode"
+        if (aNBT.hasKey("ssMode")) machineMode = aNBT.getInteger("ssMode");
         sVoidStone = aNBT.getBoolean("ssStone");
         currentParallelism = aNBT.getInteger("currentParallelism");
         super.loadNBTData(aNBT);
@@ -477,7 +480,6 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
 
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
-        aNBT.setInteger("ssMode", sMode);
         aNBT.setBoolean("ssStone", sVoidStone);
         aNBT.setInteger("currentParallelism", currentParallelism);
         super.saveNBTData(aNBT);
@@ -766,7 +768,7 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
             IGregTechDeviceInformation
                 .encode("GT5U.infodata.integrated_ore_factory.parallelism", getCurrentParallelism()));
         informationData.add(IGregTechDeviceInformation.encode("GT5U.machines.oreprocessor.void", sVoidStone));
-        informationData.addAll(getDisplayMode(sMode));
+        informationData.addAll(getDisplayMode(machineMode));
         return informationData.toArray(new String[0]);
     }
 
@@ -873,7 +875,7 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
     @Override
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
-        tag.setInteger("ssMode", sMode);
+        tag.setInteger("ssMode", machineMode);
         tag.setBoolean("ssStone", sVoidStone);
         tag.setInteger("currentParallelism", currentParallelism);
     }
@@ -881,5 +883,11 @@ public class MTEIntegratedOreFactoryLegacy extends MTEExtendedPowerMultiBlockBas
     @Override
     public boolean supportsBatchMode() {
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public List<MachineMode> getMachineModes() {
+        return MTEIntegratedOreFactory.MODES;
     }
 }
