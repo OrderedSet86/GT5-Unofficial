@@ -11,8 +11,6 @@ import static gregtech.api.enums.HatchElement.Muffler;
 import static gregtech.api.enums.HatchElement.OutputBus;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -26,8 +24,6 @@ import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -36,18 +32,16 @@ import com.gtnewhorizon.structurelib.structure.StructureDefinition;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import gregtech.api.enums.SoundResource;
-import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.core.block.ModBlocks;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.GTPPMultiBlockBase;
@@ -58,8 +52,15 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
 
     private int mCasing;
 
-    private static final int MACHINEMODE_BENDER = 0;
-    private static final int MACHINEMODE_FORMER = 1;
+    private static final MachineMode BENDER = new MachineMode(
+        RecipeMaps.benderRecipes,
+        "GT5U.GTPP_MULTI_INDUSTRIAL_PLATE_PRESS.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_BENDING);
+    private static final MachineMode FORMER = new MachineMode(
+        RecipeMaps.formingPressRecipes,
+        "GT5U.GTPP_MULTI_INDUSTRIAL_PLATE_PRESS.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_FORMING);
+    private static final List<MachineMode> MODES = List.of(BENDER, FORMER);
 
     private static IStructureDefinition<MTEIndustrialPlatePressLegacy> STRUCTURE_DEFINITION = null;
 
@@ -171,15 +172,10 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
         return 50;
     }
 
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_FORMER) ? RecipeMaps.formingPressRecipes : RecipeMaps.benderRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.formingPressRecipes, RecipeMaps.benderRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -200,7 +196,7 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
 
     @Override
     public int getPollutionPerSecond(final ItemStack aStack) {
-        if (machineMode == MACHINEMODE_FORMER)
+        if (getCurrentMachineMode() == FORMER)
             return PollutionConfig.pollutionPerSecondMultiIndustrialPlatePress_ModeForming;
         return PollutionConfig.pollutionPerSecondMultiIndustrialPlatePress_ModeBending;
     }
@@ -209,14 +205,9 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
     public void loadNBTData(NBTTagCompound aNBT) {
         // Migrates old NBT tag to the new one
         if (aNBT.hasKey("mFormingMode")) {
-            machineMode = aNBT.getBoolean("mFormingMode") ? MACHINEMODE_FORMER : MACHINEMODE_BENDER;
+            machineMode = MODES.indexOf(aNBT.getBoolean("mFormingMode") ? FORMER : BENDER);
         }
         super.loadNBTData(aNBT);
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
     }
 
     @Override
@@ -224,17 +215,6 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
         setMachineMode(nextMachineMode());
         GTUtility
             .sendChatTrans(aPlayer, "GT5U.MULTI_MACHINE_CHANGE", new ChatComponentTranslation(getMachineModeKey()));
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_BENDING);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_FORMING);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_INDUSTRIAL_PLATE_PRESS.mode." + machineMode;
     }
 
     @Override
@@ -246,12 +226,5 @@ public class MTEIndustrialPlatePressLegacy extends GTPPMultiBlockBase<MTEIndustr
     public void getExtraWailaNBT(EntityPlayerMP player, TileEntity tile, NBTTagCompound tag, World world, int x, int y,
         int z) {
         tag.setString("mode", getMachineModeName());
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_BENDING,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_FORMING);
     }
 }

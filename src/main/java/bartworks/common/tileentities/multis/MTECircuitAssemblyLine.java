@@ -30,8 +30,6 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTUtility.validMTEList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,12 +55,8 @@ import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructa
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
 import com.gtnewhorizon.structurelib.structure.StructureDefinition;
-import com.gtnewhorizons.modularui.api.screen.ModularWindow;
-import com.gtnewhorizons.modularui.api.screen.UIBuildContext;
-import com.gtnewhorizons.modularui.common.widget.FakeSyncWidget;
 
 import bartworks.API.enums.CircuitImprint;
-import bartworks.API.modularUI.BWUITextures;
 import bartworks.API.recipe.BartWorksRecipeMaps;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -76,12 +70,13 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEEnhancedMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.metatileentity.implementations.MTEHatchInputBus;
-import gregtech.api.recipe.RecipeMap;
+import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -101,8 +96,15 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     implements ISurvivalConstructable, ICasingTextureProvider {
 
     private static final int CASING_INDEX = 16;
-    private static final int MACHINEMODE_CAL = 0;
-    private static final int MACHINEMODE_ASSEMBLER = 1;
+    private static final MachineMode CAL = new MachineMode(
+        BartWorksRecipeMaps.circuitAssemblyLineRecipes,
+        "chat.cal.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_CIRCUIT_ASSEMBLY_LINE_MODE);
+    private static final MachineMode ASSEMBLER = new MachineMode(
+        RecipeMaps.circuitAssemblerRecipes,
+        "chat.cal.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_CIRCUIT_ASSEMBLER_MODE);
+    private static final List<MachineMode> MODES = List.of(CAL, ASSEMBLER);
 
     private static final String STRUCTURE_PIECE_FIRST = "first";
     private static final String STRUCTURE_PIECE_NEXT = "next";
@@ -300,7 +302,7 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
 
     @Override
     public void onLeftclick(IGregTechTileEntity aBaseMetaTileEntity, EntityPlayer aPlayer) {
-        if (machineMode == MACHINEMODE_CAL && !isImprinted() && getBaseMetaTileEntity().isServerSide()) {
+        if (getCurrentMachineMode() == CAL && !isImprinted() && getBaseMetaTileEntity().isServerSide()) {
             ItemStack heldItem = aPlayer.getHeldItem();
             if (imprintMachine(heldItem)) {
                 if (heldItem.stackSize <= 0) {
@@ -317,33 +319,13 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
         ItemStack aTool) {
         setMachineMode(nextMachineMode());
         // TODO: Replace with GT5U.MULTI_MACHINE_CHANGE. Requires changing translations
-        GTUtility.sendChatTrans(aPlayer, "chat.cal.mode." + machineMode);
-    }
-
-    @Override
-    public String getMachineModeName() {
-        return StatCollector.translateToLocal("chat.cal.mode." + machineMode);
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(BWUITextures.OVERLAY_BUTTON_LINE_MODE);
-        machineModeIcons.add(BWUITextures.OVERLAY_BUTTON_ASSEMBLER_MODE);
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return switch (machineMode) {
-            case MACHINEMODE_CAL -> BartWorksRecipeMaps.circuitAssemblyLineRecipes;
-            case MACHINEMODE_ASSEMBLER -> RecipeMaps.circuitAssemblerRecipes;
-            default -> throw new IllegalStateException("Unexpected value: " + machineMode);
-        };
+        GTUtility.sendChatTrans(aPlayer, getMachineModeKey());
     }
 
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(BartWorksRecipeMaps.circuitAssemblyLineRecipes, RecipeMaps.circuitAssemblerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -354,11 +336,11 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
             @Nonnull
             protected CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
                 // limit CA mode recipes to hatch tier - 1
-                if (machineMode == MACHINEMODE_ASSEMBLER
+                if (getCurrentMachineMode() == ASSEMBLER
                     && recipe.mEUt > MTECircuitAssemblyLine.this.getMaxInputVoltage() / 4) {
                     return CheckRecipeResultRegistry.insufficientVoltage(recipe.mEUt * 4L);
                 }
-                if (machineMode == MACHINEMODE_CAL) {
+                if (getCurrentMachineMode() == CAL) {
                     if (mInputBusses.size() < recipe.mInputs.length) {
                         return CheckRecipeResultRegistry.NO_RECIPE;
                     }
@@ -388,17 +370,12 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     @NotNull
     @Override
     public CheckRecipeResult checkProcessing() {
-        switch (machineMode) {
-            case MACHINEMODE_CAL -> {
-                if (!this.imprintMachine(this.getControllerSlot())) {// Imprint check embedded in it
-                    return SimpleCheckRecipeResult.ofFailure("no_imprint");
-                }
+        if (getCurrentMachineMode() == CAL) {
+            if (!this.imprintMachine(this.getControllerSlot())) {// Imprint check embedded in it
+                return SimpleCheckRecipeResult.ofFailure("no_imprint");
             }
-            case MACHINEMODE_ASSEMBLER -> {
-                if (length < MINIMUM_CIRCUIT_ASSEMBLER_LENGTH) {
-                    return SimpleCheckRecipeResult.ofFailure("not_enough_length");
-                }
-            }
+        } else if (length < MINIMUM_CIRCUIT_ASSEMBLER_LENGTH) {
+            return SimpleCheckRecipeResult.ofFailure("not_enough_length");
         }
         return super.checkProcessing();
     }
@@ -406,7 +383,7 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     @Override
     protected void setupProcessingLogic(ProcessingLogic logic) {
         super.setupProcessingLogic(logic);
-        if (machineMode == MACHINEMODE_CAL) logic.setSpecialSlotItem(this.circuitImprint.imprint.get(1));
+        if (getCurrentMachineMode() == CAL) logic.setSpecialSlotItem(this.circuitImprint.imprint.get(1));
     }
 
     @SideOnly(Side.CLIENT)
@@ -417,7 +394,7 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
 
     @Override
     public ArrayList<ItemStack> getStoredInputsForColor(Optional<Byte> color) {
-        if (machineMode == MACHINEMODE_ASSEMBLER) return super.getStoredInputsForColor(color);
+        if (getCurrentMachineMode() == ASSEMBLER) return super.getStoredInputsForColor(color);
 
         ArrayList<ItemStack> rList = new ArrayList<>();
         for (MTEHatchInputBus tHatch : validMTEList(mInputBusses)) {
@@ -603,21 +580,6 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     }
 
     @Override
-    protected boolean useMui2() {
-        return false;
-    }
-
-    @Override
-    public void addUIWidgets(ModularWindow.Builder builder, UIBuildContext buildContext) {
-        super.addUIWidgets(builder, buildContext);
-        builder.widget(
-            new FakeSyncWidget.StringSyncer(
-                () -> this.circuitImprint != null ? this.circuitImprint.circuit.get(1)
-                    .getDisplayName() : "",
-                val -> {}));
-    }
-
-    @Override
     public boolean supportsVoidProtection() {
         return true;
     }
@@ -636,7 +598,7 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
     public boolean onWireCutterRightClick(ForgeDirection side, ForgeDirection wrenchingSide, EntityPlayer aPlayer,
         float aX, float aY, float aZ, ItemStack aTool) {
         if (!aPlayer.isSneaking()) {
-            if (machineMode == MACHINEMODE_CAL) return false;
+            if (getCurrentMachineMode() == CAL) return false;
             inputSeparation = !inputSeparation;
             GTUtility.sendChatTrans(
                 aPlayer,
@@ -649,21 +611,12 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
 
     @Override
     public boolean supportsInputSeparation() {
-        return switch (machineMode) {
-            case MACHINEMODE_CAL -> false;
-            case MACHINEMODE_ASSEMBLER -> true;
-            default -> throw new IllegalStateException("Unexpected value: " + machineMode);
-        };
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
+        return getCurrentMachineMode() == ASSEMBLER;
     }
 
     @Override
     public boolean isInputSeparationEnabled() {
-        return machineMode == MACHINEMODE_ASSEMBLER && super.isInputSeparationEnabled();
+        return getCurrentMachineMode() == ASSEMBLER && super.isInputSeparationEnabled();
     }
 
     @Override
@@ -689,10 +642,6 @@ public class MTECircuitAssemblyLine extends MTEEnhancedMultiBlockBase<MTECircuit
 
     @Override
     protected boolean supportsCraftingMEBuffer() {
-        return switch (machineMode) {
-            case MACHINEMODE_CAL -> false;
-            case MACHINEMODE_ASSEMBLER -> true;
-            default -> throw new IllegalStateException("Unexpected value: " + machineMode);
-        };
+        return getCurrentMachineMode() == ASSEMBLER;
     }
 }
