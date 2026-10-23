@@ -524,14 +524,16 @@ class ProcessingSpecTest {
                 .maxParallel());
 
         ProcessingSpec timing = ProcessingSpec.builder()
+            .durationPerRecipe((inputs, recipe) -> 50)
+            .noTooltip(ProcessingSpec.Quantity.DURATION)
             .maxOverclocksPerRecipe((inputs, recipe) -> 1)
             .noTooltip(ProcessingSpec.Quantity.OVERCLOCK)
             .build();
         ProcessingRun run = timing.calculate(recipe(30, 400, 0), iv);
 
-        // one overclock where IV would allow four
+        // 50 ticks, not the recipe's 400, then one overclock where IV would allow four
         assertEquals(1, run.overclocks());
-        assertEquals(200, run.ticks());
+        assertEquals(25, run.ticks());
         assertEquals(120, run.euPerTick());
     }
 
@@ -765,6 +767,35 @@ class ProcessingSpecTest {
                 .wasSuccessful());
         assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
         assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 100, 0), inMode(2)));
+    }
+
+    @Test
+    void theRunCarriesEuPerRunAndItsOutputOdds() {
+        ProcessingSpec plain = ProcessingSpec.builder()
+            .build();
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .euPerRunPerRecipe(
+                (inputs, recipe) -> BigInteger.valueOf(recipe.mDuration)
+                    .pow(3))
+            .euGeneratedPerRecipe((inputs, recipe) -> BigInteger.TEN)
+            .successChancePerRecipe((inputs, recipe) -> 0.25)
+            .outputYieldPerRecipe((inputs, recipe) -> 0.5)
+            .noTooltip(ProcessingSpec.Quantity.POWER, ProcessingSpec.Quantity.OUTPUT)
+            .build();
+        ProcessingInputs hv = inputs(VoltageIndex.HV, 0);
+
+        ProcessingRun defaults = plain.calculate(recipe(30, 100, 0), hv);
+        ProcessingRun run = spec.calculate(recipe(30, 100_000, 0), hv);
+
+        assertEquals(ProcessingRun.RunEu.NONE, defaults.eu());
+        assertEquals(ProcessingRun.Output.CERTAIN, defaults.output());
+        assertEquals(
+            new ProcessingRun.RunEu(BigInteger.ZERO, new BigInteger("1000000000000000"), BigInteger.TEN),
+            run.eu());
+        assertEquals(new ProcessingRun.Output(0.25, 0.5), run.output());
+        assertTrue(
+            spec.getUndescribed()
+                .isEmpty());
     }
 
     @Test

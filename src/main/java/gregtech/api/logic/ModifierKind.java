@@ -22,7 +22,7 @@ import gregtech.api.util.tooltip.TooltipHelper;
  * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
  * constants here. A kind only one machine has is registered in that machine's class.
  */
-public abstract sealed class ModifierKind permits ModifierKind.IntKind {
+public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierKind.LongKind {
 
     /** Where a planner gets the value from. */
     public enum Source {
@@ -43,6 +43,14 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
         /** The tier that per-tier terms and their tooltips use: {@code value} plus the kind's tier offset. */
         public int countedTier(int value) {
             return value + super.tierOffset;
+        }
+    }
+
+    /** A kind whose values can exceed {@link Integer#MAX_VALUE}, such as litres of stored fluid. */
+    public static final class LongKind extends ModifierKind {
+
+        private LongKind(Builder<LongKind> builder) {
+            super(builder);
         }
     }
 
@@ -166,6 +174,12 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind {
     @Nonnull
     public static Builder<IntKind> ofInt(@Nonnull String id) {
         return new Builder<>(id, IntKind::new);
+    }
+
+    /** @param id Namespaced by mod, such as {@code "gregtech:coil"} */
+    @Nonnull
+    public static Builder<LongKind> ofLong(@Nonnull String id) {
+        return new Builder<>(id, LongKind::new);
     }
 
     public static final class Builder<K extends ModifierKind> {

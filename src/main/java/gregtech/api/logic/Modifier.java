@@ -41,6 +41,12 @@ public final class Modifier {
         return new Modifier(kind, getter::getAsInt, value -> setter.accept(Math.toIntExact(value)));
     }
 
+    @Nonnull
+    public static Modifier of(@Nonnull ModifierKind.LongKind kind, @Nonnull LongSupplier getter,
+        @Nonnull LongConsumer setter) {
+        return new Modifier(kind, getter, setter);
+    }
+
     /** Before the first structure check, the value can be outside the spec's range. */
     public long get() {
         return getter.getAsLong();

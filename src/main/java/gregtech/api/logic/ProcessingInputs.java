@@ -56,9 +56,15 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return (int) rawValue(kind);
     }
 
+    /** @throws IllegalArgumentException if no value was given for the kind */
+    public long value(@Nonnull ModifierKind.LongKind kind) {
+        return rawValue(kind);
+    }
+
     public long value(@Nonnull ModifierKind kind) {
         return switch (kind) {
             case ModifierKind.IntKind tier -> value(tier);
+            case ModifierKind.LongKind amount -> value(amount);
         };
     }
 
@@ -162,10 +168,16 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return this;
         }
 
+        public Builder value(@Nonnull ModifierKind.LongKind kind, long value) {
+            this.values.put(kind, value);
+            return this;
+        }
+
         /** For a value taken from a {@link ModifierKind.Range}, whose bounds are longs. */
         public Builder value(@Nonnull ModifierKind kind, long value) {
             return switch (kind) {
                 case ModifierKind.IntKind tier -> value(tier, Math.toIntExact(value));
+                case ModifierKind.LongKind amount -> value(amount, value);
             };
         }
 
