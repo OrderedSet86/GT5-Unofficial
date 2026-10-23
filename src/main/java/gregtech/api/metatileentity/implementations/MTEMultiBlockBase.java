@@ -2275,10 +2275,14 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         ProcessingSpec spec = getProcessingSpec();
         if (processingLogic == null || spec == null) return null;
+        prepareForInspection();
         setupProcessingLogic(processingLogic);
         processingLogic.setSpec(spec, inputs);
         return processingLogic.inspect(recipe);
     }
+
+    /** Moves the machine past any start-up phase. */
+    protected void prepareForInspection() {}
 
     /** One {@link Modifier} per kind the machine's spec reads. */
     @Nonnull

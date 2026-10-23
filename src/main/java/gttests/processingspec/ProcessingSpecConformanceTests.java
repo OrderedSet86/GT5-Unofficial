@@ -86,8 +86,8 @@ public class ProcessingSpecConformanceTests {
 
     /**
      * The first difference between the machine's run and the spec's, or null. The machine is a copy with every modifier
-     * at the top of the modifier's range, run in every mode over sampled recipes and energy hatches. Machines without
-     * processing logic are only checked to evaluate.
+     * at the top of the modifier's range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn},
+     * over sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
      */
     @Nullable
     private static String findRunDifference(Entry entry) {
@@ -103,6 +103,7 @@ public class ProcessingSpecConformanceTests {
         int modes = machine.getMachineModes()
             .size();
         for (int mode = 0; mode < Math.max(1, modes); mode++) {
+            if (!spec.canCalculate(mode)) continue;
             if (modes > 1) machine.setMachineMode(mode);
             for (GTRecipe recipe : sampleRecipes(machine.getRecipeMap())) {
                 for (List<ProcessingInputs.EnergyHatch> hatches : listEnergySamples()) {

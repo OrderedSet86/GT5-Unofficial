@@ -633,6 +633,11 @@ class ProcessingSpecTest {
         assertEquals(new ProcessingSpec.Power(2 * luv, 1, true), atOneAmp.getPower(oneHatch));
         assertTrue(sets(atOneAmp, ProcessingSpec.Quantity.POWER));
 
+        ProcessingSpec allAmps = ProcessingSpec.builder()
+            .allAmps()
+            .build();
+        assertEquals(new ProcessingSpec.Power(luv, 2, true), allAmps.getPower(oneHatch));
+
         ProcessingSpec fixed = ProcessingSpec.builder()
             .power(inputs -> 32, inputs -> 8)
             .noAmperageOverclock()
@@ -663,6 +668,103 @@ class ProcessingSpecTest {
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .whenTier(ModifierKind.COIL, 1, ProcessingSpec.Builder::noOverclock));
+    }
+
+    @Test
+    void aRecipeEuMultiplierMakesTheRecipeAskForMore() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(TOWER_AND_DISTILLERY)
+            .inMode(DISTILLERY, mode -> mode.recipeEuMultiplier(16))
+            .requires(
+                (inputs, recipe) -> recipe.mEUt <= inputs.averageVoltage(),
+                (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .noTooltip(ProcessingSpec.Quantity.RECIPE_EU_MULTIPLIER)
+            .build();
+        GTRecipe recipe = recipe(30, 400, 0);
+        ProcessingInputs ev = ProcessingInputs.builder()
+            .energyHatches(VoltageIndex.EV, 1)
+            .mode(1)
+            .build();
+
+        ProcessingRun run = spec.calculate(recipe, ev);
+
+        // 480 EU/t on EV: one overclock
+        assertEquals(1, run.overclocks());
+        assertEquals(1920, run.euPerTick());
+        assertFalse(
+            spec.calculate(recipe(129, 400, 0), ev)
+                .result()
+                .wasSuccessful(),
+            "2064 EU/t is more than EV");
+        assertEquals(30, recipe.mEUt, "the recipe itself is left alone");
+    }
+
+    @Test
+    void unlimitedEnergyLimitsNeitherParallelsNorOverclocks() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .parallel(256)
+            .maxOverclocksPerRecipe((inputs, recipe) -> 2)
+            .unlimitedEnergy(inputs -> inputs.value(ModifierKind.COIL) == 1)
+            .noTooltip(ProcessingSpec.Quantity.OVERCLOCK, ProcessingSpec.Quantity.POWER)
+            .build();
+        GTRecipe recipe = recipe(480, 400, 0);
+
+        ProcessingRun limited = spec.calculate(recipe, inputs(VoltageIndex.LuV, 0));
+        ProcessingRun unlimited = spec.calculate(recipe, inputs(VoltageIndex.LuV, 1));
+
+        assertEquals(32768 / 480, limited.parallel());
+        assertEquals(256, unlimited.parallel());
+        assertEquals(2, unlimited.overclocks());
+        assertEquals(
+            GTValues.V[VoltageIndex.LuV],
+            spec.getPower(inputs(VoltageIndex.LuV, 1))
+                .voltage(),
+            "recipes still see the hatch voltage");
+    }
+
+    @Test
+    void aRequirementToStartIsLeftToTheMachineButPlannersCheckIt() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .requiresToStart(
+                (inputs, recipe) -> inputs.totalEu() >= 10_000,
+                (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .build();
+        GTRecipe recipe = recipe(30, 100, 0);
+        ProcessingInputs hv = inputs(VoltageIndex.HV, 0);
+
+        assertTrue(
+            spec.check(recipe, hv)
+                .wasSuccessful());
+        assertFalse(
+            spec.resolve(recipe, hv)
+                .checkToStart()
+                .wasSuccessful());
+        assertFalse(
+            spec.calculate(recipe, hv)
+                .result()
+                .wasSuccessful());
+        assertTrue(
+            spec.calculate(recipe, inputs(VoltageIndex.IV, 0))
+                .result()
+                .wasSuccessful());
+    }
+
+    @Test
+    void aModeOutsideRecipeProcessingIsNotCalculated() {
+        ProcessingSpec spec = ProcessingSpec.builder()
+            .modes(List.of(TOWER, DISTILLERY, ORE))
+            .notCalculatedIn(ORE)
+            .build();
+
+        assertTrue(spec.canCalculate(0));
+        assertFalse(spec.canCalculate(2));
+        assertTrue(
+            spec.calculate(recipe(30, 100, 0), inMode(0))
+                .result()
+                .wasSuccessful());
+        assertThrows(IllegalArgumentException.class, () -> spec.calculate(recipe(30, 100, 0), inMode(2)));
+        assertThrows(IllegalArgumentException.class, () -> spec.resolve(recipe(30, 100, 0), inMode(2)));
     }
 
     @Test
@@ -871,15 +973,16 @@ class ProcessingSpecTest {
         assertEquals(4, lines(spec).size(), "the coils, the voltage bonus, the discount and the overclock");
     }
 
-    /** Modelled on the Multi Smelter. */
+    /** Modelled on the Multi Smelter and the Arc Furnace's blast mode. */
     @Test
     void recipeCostTermsWriteALine() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .recipeOverride(4, 128)
+            .recipeEuMultiplier(16)
             .build();
 
         assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
-        assertEquals(1, lines(spec).size());
+        assertEquals(2, lines(spec).size());
     }
 
     /** Modelled on fusion. The fusion markdown has the parallel and the power lines. */
