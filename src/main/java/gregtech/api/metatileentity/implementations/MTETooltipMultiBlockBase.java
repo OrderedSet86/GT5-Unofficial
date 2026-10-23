@@ -62,6 +62,12 @@ public abstract class MTETooltipMultiBlockBase extends MTEMultiBlockBase impleme
         return tooltip;
     }
 
+    /** Set by {@link MultiblockTooltipBuilder#addStructureDeprecatedLine()} in the tooltip. */
+    @Override
+    public boolean isStructureDeprecated() {
+        return getTooltip().isStructureDeprecated();
+    }
+
     @Override
     public final String[] getDescription() {
         return getCurrentDescription();

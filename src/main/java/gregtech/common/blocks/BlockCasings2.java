@@ -12,6 +12,7 @@ import gregtech.api.enums.Dyes;
 import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Textures;
 import gregtech.api.render.TextureFactory;
+import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
@@ -66,7 +67,7 @@ public class BlockCasings2 extends BlockCasingsAbstract {
 
         register(15, ItemList.Casing_Pipe_TungstenSteel);
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < GTStructureUtility.PIPE_CASING_TIERS; i++) {
             GTStructureChannels.PIPE_CASING.registerAsIndicator(new ItemStack(this, 1, i + 12), i + 1);
         }
     }
