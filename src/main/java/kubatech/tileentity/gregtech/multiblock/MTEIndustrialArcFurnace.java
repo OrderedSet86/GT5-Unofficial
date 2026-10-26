@@ -30,6 +30,7 @@ import static net.minecraft.util.StatCollector.translateToLocalFormatted;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -73,7 +74,11 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.objects.ItemData;
 import gregtech.api.recipe.RecipeMap;
@@ -118,6 +123,24 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int ARC_SURGE_CHANCE_PERCENT = 5;
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
+    private static final List<ArcFurnaceElectrode> ELECTRODES = List.of(ArcFurnaceElectrode.values());
+    /** Not ordered: no electrode is best at everything. */
+    private static final ModifierKind.IntKind ELECTRODE = ModifierKind.ofInt("kubatech:electrode")
+        .name("GT5U.MBTT.Tiers.Electrode")
+        .source(ModifierKind.Source.ITEM)
+        .range(0, ELECTRODES.size() - 1)
+        .labels(
+            index -> index < 0 ? "GT5U.MBTT.Tiers.NoElectrode"
+                : ELECTRODES.get((int) index)
+                    .getUnlocalizedName() + ".name")
+        .register();
+    /** The Infinity electrode's parallel. The parallel doubles after every run, from 1. */
+    private static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
+        .name("GT5U.MBTT.Tiers.InfinityParallel")
+        .source(ModifierKind.Source.RUNTIME)
+        .ordered()
+        .range(1, Integer.MAX_VALUE)
+        .register();
     private static final MachineMode NORMAL = new MachineMode(
         arcFurnaceRecipes,
         "kubatech.arcfurnace.mode.normal",
@@ -131,6 +154,70 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         "kubatech.arcfurnace.mode.ore",
         GTGuiTextures.TT_OVERLAY_BUTTON_FURNACE_MODE);
     private static final List<MachineMode> MODES = List.of(NORMAL, BLAST, ORE);
+    private static final ProcessingSpec SPEC = createProcessingSpec();
+
+    /** Reads the parallel, speed, EU modifier and overclock ratio from the electrode. */
+    private static ProcessingSpec createProcessingSpec() {
+        ProcessingSpec.Builder spec = ProcessingSpec.builder()
+            .modes(MODES)
+            .reads(ELECTRODE)
+            .parallel(MTEIndustrialArcFurnace::getElectrodeParallel, ELECTRODE, INFINITY_PARALLEL)
+            .speed(inputs -> {
+                ArcFurnaceElectrode electrode = getElectrode(inputs);
+                return electrode == null ? 1 : electrode.speedModifier;
+            }, ELECTRODE)
+            .euModifier(inputs -> {
+                ArcFurnaceElectrode electrode = getElectrode(inputs);
+                return electrode == null ? 1 : electrode.euModifier;
+            }, ELECTRODE)
+            .maxOverclocksPerRecipe(
+                (inputs, recipe) -> (int) GTUtility.log4(inputs.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
+            .maxTierSkips(0)
+            .inMode(BLAST, mode -> mode.recipeEuMultiplier(BLAST_MODE_POWER_MULTIPLIER))
+            // ore mode smelts ore by ore in runMachine, not as recipes
+            .notCalculatedIn(ORE)
+            .allAmps()
+            .unlimitedEnergy(inputs -> getElectrode(inputs) == ArcFurnaceElectrode.InfinityElectrode)
+            .requires(
+                (inputs, recipe) -> getElectrode(inputs) != null,
+                (inputs, recipe) -> SimpleCheckRecipeResult.ofFailure("no_electrode"))
+            .requiresRecipeWithinVoltage()
+            .startupEuPerRecipe((inputs, recipe) -> computeIgnitionEuPerTick(inputs) * STARTUP_DURATION_TICKS)
+            .requiresToStart(
+                (inputs, recipe) -> inputs.totalEu() >= computeIgnitionEuPerTick(inputs),
+                (inputs, recipe) -> CheckRecipeResultRegistry.insufficientStartupPower(
+                    (int) computeIgnitionEuPerTick(inputs),
+                    GTUtility.getTier(inputs.averageVoltage())))
+            // the markdown and the electrode items' tooltips state these numbers
+            .customTooltip(
+                EnumSet.of(
+                    ProcessingSpec.Quantity.PARALLEL,
+                    ProcessingSpec.Quantity.DURATION,
+                    ProcessingSpec.Quantity.EU_MODIFIER,
+                    ProcessingSpec.Quantity.RECIPE_EU_MULTIPLIER,
+                    ProcessingSpec.Quantity.OVERCLOCK,
+                    ProcessingSpec.Quantity.POWER),
+                tt -> tt.addMarkdown(
+                    new ResourceLocation("gregtech", "industrial-arc-furnace"),
+                    ImmutableMap.of(
+                        "surge_threshold",
+                        ARC_SURGE_DURABILITY_THRESHOLD_PERCENT,
+                        "surge_chance",
+                        ARC_SURGE_CHANCE_PERCENT,
+                        "blast_power_multiplier",
+                        BLAST_MODE_POWER_MULTIPLIER,
+                        "ore_startup_seconds",
+                        ORE_MODE_STARTUP_TICKS / 20,
+                        "ore_idle_ticks",
+                        ORE_MODE_IDLE_FINISH_TICKS)));
+        for (ArcFurnaceElectrode electrode : ELECTRODES) {
+            spec.whenTier(
+                ELECTRODE,
+                electrode.ordinal(),
+                tier -> tier.overclock(electrode.OCSpeedFactor, electrode.OCPowerFactor));
+        }
+        return spec.build();
+    }
 
     public MTEIndustrialArcFurnace(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
@@ -279,6 +366,20 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     }
 
     @Override
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        return List.of(
+            Modifier.of(
+                ELECTRODE,
+                () -> electrode == null ? -1 : electrode.ordinal(),
+                index -> electrode = ELECTRODES.get(index)),
+            Modifier.of(
+                INFINITY_PARALLEL,
+                () -> ArcFurnaceElectrode.getInfinityTargetParallel(effectState),
+                value -> ArcFurnaceElectrode.setInfinityTargetParallel(effectState, value)));
+    }
+
+    @Override
     public void clearHatches() {
         super.clearHatches();
         // Electrode hatches register outside addIfSmartInput, so they need their crafting icon dropped here.
@@ -369,14 +470,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(translateToLocal("gt.mbtt.machine_type.arc_furnace_iaf"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "industrial-arc-furnace"),
-                ImmutableMap.of(
-                    "surge_threshold", ARC_SURGE_DURABILITY_THRESHOLD_PERCENT,
-                    "surge_chance", ARC_SURGE_CHANCE_PERCENT,
-                    "blast_power_multiplier", BLAST_MODE_POWER_MULTIPLIER,
-                    "ore_startup_seconds", ORE_MODE_STARTUP_TICKS / 20,
-                    "ore_idle_ticks", ORE_MODE_IDLE_FINISH_TICKS))
+            .addProcessingSpecInfo(SPEC)
             .addSupportMultiAmp()
             .beginStructureBlock(17, 11, 19, true)
             .addController(translateToLocal("gt.mbtt.structure.front_center_4th_layer"))
@@ -497,12 +591,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         effectState = new NBTTagCompound();
     }
 
-    @Nonnull
-    @Override
-    public List<MachineMode> getMachineModes() {
-        return MODES;
-    }
-
     @Override
     public boolean supportsSingleRecipeLocking() {
         return false;
@@ -548,20 +636,6 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         long para = (volts * amps) / eut;
         if (para > paraLimit) para = paraLimit;
         return (int) para;
-    }
-
-    @Override
-    protected void setProcessingLogicPower(ProcessingLogic logic) {
-        if (electrode == null) return;
-        logic.setSpeedBonus(1d / electrode.speedModifier);
-        logic.setMaxParallel(electrode.parallelLimit);
-        logic.setOverclock(electrode.OCSpeedFactor, electrode.OCPowerFactor);
-        logic.setEuModifier(electrode.euModifier);
-        logic.setAvailableVoltage(getAverageInputVoltage());
-        logic.setAvailableAmperage(getMaxInputAmps());
-        logic.setMaxTierSkips(0);
-        logic.noRecipeCaching();
-        applySpecialEffect(new ArcFurnaceProcessingEvent.EventConfigureProcessing(this, logic));
     }
 
     private void applySpecialEffect(ArcFurnaceProcessingEvent event) {
@@ -826,19 +900,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
             @Override
             protected @NotNull Stream<GTRecipe> findRecipeMatches(@Nullable RecipeMap<?> map) {
                 Stream<GTRecipe> str = super.findRecipeMatches(map).limit(1);
-                if (getCurrentMachineMode() == NORMAL) return str;
-                if (getCurrentMachineMode() == BLAST) {
-                    GTRecipe found = str.findAny()
-                        .orElse(null);
-                    if (found == null) return Stream.of();
-                    GTRecipe copy = found.copy()
-                        .setEUt(
-                            (int) Math
-                                .min((long) found.mEUt * (long) BLAST_MODE_POWER_MULTIPLIER, (long) Integer.MAX_VALUE));
-                    copy.mCanBeBuffered = false;
-                    return Stream.of(copy);
-                }
-                // ores
+                if (getCurrentMachineMode() != ORE) return str;
                 for (ItemStack inputItem : inputItems) {
                     ItemStack smeltedOutput = GTModHandler.getSmeltingOutput(inputItem, false, null);
                     if (smeltedOutput != null) {
@@ -901,12 +963,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
 
             @Override
             protected @NotNull CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                if (electrode == null) return SimpleCheckRecipeResult.ofFailure("no_electrode");
                 CheckRecipeResult result = super.validateRecipe(recipe);
                 if (!result.wasSuccessful()) return result;
-                // check if we can even process anything
-                if (this.availableVoltage < recipe.mEUt)
-                    return CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
                 if (phase == ArcFurnacePhase.Standby && !canOutputAll(recipe.mOutputs))
                     return CheckRecipeResultRegistry.ITEM_OUTPUT_FULL;
                 if (phase == ArcFurnacePhase.Standby && !canOutputAll(recipe.mFluidOutputs))
@@ -924,13 +982,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                         .setEUtDiscount(1)
                         .setDurationModifier(1);
                 }
-                OverclockCalculator calculator = super.createOverclockCalculator(recipe)
-                    .setMaxOverclocks((int) GTUtility.log4(this.availableVoltage / Math.max((long) recipe.mEUt, 32)));
-                ArcFurnaceProcessingEvent.EventConfigureOverclock event = new ArcFurnaceProcessingEvent.EventConfigureOverclock(
-                    MTEIndustrialArcFurnace.this,
-                    calculator);
-                applySpecialEffect(event);
-                return calculator;
+                return super.createOverclockCalculator(recipe);
             }
 
             @Override
@@ -941,13 +993,8 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                     phase = ArcFurnacePhase.ArcIgnition;
                     this.setBatchSize(1);
                     GTRecipe ignitionRecipe = fakeRecipe();
-                    final long use = (long) (getAverageInputVoltage() * 30d
-                        / 32d
-                        * this.maxParallel
-                        * (electrode.startupPenalty + 1d)
-                        * electrode.euModifier);
                     // we set here to generate insufficient power error
-                    ignitionRecipe.mEUt = (int) Math.min(use, Integer.MAX_VALUE);
+                    ignitionRecipe.mEUt = (int) computeIgnitionEuPerTick(specInputs);
                     ignitionRecipe.mDuration = STARTUP_DURATION_TICKS;
                     ArcFurnaceProcessingEvent.EventStartIgnition event = new ArcFurnaceProcessingEvent.EventStartIgnition(
                         MTEIndustrialArcFurnace.this,
@@ -968,13 +1015,41 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                         .setMaxParallel(1);
                 }
 
-                ParallelHelper helper = super.createParallelHelper(recipe);
-                applySpecialEffect(
-                    new ArcFurnaceProcessingEvent.EventCreateParallelHelper(MTEIndustrialArcFurnace.this, helper));
-                return helper;
+                return super.createParallelHelper(recipe);
             }
 
-        };
+        }.noRecipeCaching();
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    protected void prepareForInspection() {
+        // SPEC checks ignition with requiresToStart(), so skip the ignition phase
+        phase = ArcFurnacePhase.Processing;
+    }
+
+    @Nullable
+    private static ArcFurnaceElectrode getElectrode(ProcessingInputs inputs) {
+        int index = inputs.value(ELECTRODE);
+        return index < 0 ? null : ELECTRODES.get(index);
+    }
+
+    private static int getElectrodeParallel(ProcessingInputs inputs) {
+        ArcFurnaceElectrode electrode = getElectrode(inputs);
+        if (electrode == null) return 1;
+        return electrode == ArcFurnaceElectrode.InfinityElectrode ? inputs.value(INFINITY_PARALLEL)
+            : electrode.parallelLimit;
+    }
+
+    private static long computeIgnitionEuPerTick(ProcessingInputs inputs) {
+        ArcFurnaceElectrode electrode = getElectrode(inputs);
+        if (electrode == null) return 0;
+        long use = (long) electrode.computeStartupEuPerTick(inputs.averageVoltage(), getElectrodeParallel(inputs));
+        return Math.min(use, Integer.MAX_VALUE);
     }
 
     enum ArcFurnaceHatches implements IHatchElement<MTEIndustrialArcFurnace> {
