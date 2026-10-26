@@ -1,5 +1,7 @@
 package gregtech.api.metatileentity.implementations;
 
+import java.util.List;
+
 import javax.annotation.Nonnull;
 
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -110,6 +112,12 @@ public abstract class MTEExtendedPowerMultiBlockBase<T extends MTEEnhancedMultiB
         if (lEUt > 0) {
             lEUt = (-lEUt);
         }
+    }
+
+    @Nonnull
+    @Override
+    protected List<? extends MTEHatch> getPowerHatches() {
+        return getExoticAndNormalEnergyHatchList();
     }
 
     @Override

@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.StatCollector;
@@ -36,7 +38,9 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.interfaces.tileentity.IOverclockDescriptionProvider;
+import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
@@ -74,6 +78,18 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     public static final Casings bronzeCasing = Casings.BronzePlatedBricks;
     public static final Casings steelCasing = Casings.SolidSteelMachineCasing;
 
+    private static final int STEAM_PARALLEL = 8;
+    private static final double BASIC_DURATION_MULTIPLIER = 1.6;
+    private static final double EU_MODIFIER_PER_PRESSURE = 1.25;
+    protected static final int PRESSURE_BASIC = 1;
+    protected static final int PRESSURE_HIGH = 2;
+    protected static final ModifierKind.IntKind PRESSURE = ModifierKind.ofInt("gregtech:steam_pressure")
+        .name("GT5U.MBTT.Tiers.SteamPressure")
+        .ordered()
+        .range(PRESSURE_BASIC, PRESSURE_HIGH)
+        .labels(PRESSURE_BASIC, "GT5U.MBTT.Tiers.Basic", "GT5U.MBTT.Tiers.HighPressure")
+        .register();
+
     public MTESteamMultiBlockBase(String aName) {
         super(aName);
         this.overclockDescriber = createOverclockDescriber();
@@ -82,6 +98,30 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     public MTESteamMultiBlockBase(int aID, String aName, String aNameRegional) {
         super(aID, aName, aNameRegional);
         this.overclockDescriber = createOverclockDescriber();
+    }
+
+    /**
+     * High Pressure runs twice as fast for twice the steam.
+     *
+     * @param tierRecipes The voltage tier of the recipes the machine can run, from {@link #getTierRecipes()}
+     */
+    @Nonnull
+    protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {
+        return ProcessingSpec.builder()
+            .parallel(STEAM_PARALLEL)
+            .speed(inputs -> inputs.value(PRESSURE) / BASIC_DURATION_MULTIPLIER, PRESSURE)
+            .customTooltip(ProcessingSpec.Quantity.DURATION, tt -> tt.addStaticSpeedInfo(1.25f))
+            .euModifierNotLimitingParallel(inputs -> EU_MODIFIER_PER_PRESSURE * inputs.value(PRESSURE), PRESSURE)
+            .customTooltip(
+                ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL,
+                tt -> tt.addStaticSteamEffInfo(0.625f))
+            .noOverclock()
+            .maxTierSkips(0)
+            // matches setProcessingLogicPower(): V[tierRecipes] with an amp for every parallel
+            .power(inputs -> V[tierRecipes], inputs -> STEAM_PARALLEL)
+            .noAmperageOverclock()
+            .noTooltip(ProcessingSpec.Quantity.POWER)
+            .requiresRecipeWithinVoltage();
     }
 
     public abstract String getMachineType();

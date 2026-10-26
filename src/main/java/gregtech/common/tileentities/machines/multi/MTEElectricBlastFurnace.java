@@ -14,9 +14,7 @@ import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAS
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_ACTIVE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.OVERLAY_FRONT_ELECTRIC_BLAST_FURNACE_GLOW;
 import static gregtech.api.enums.Textures.BlockIcons.casingTexturePages;
-import static gregtech.api.util.GTStructureUtility.activeCoils;
 import static gregtech.api.util.GTStructureUtility.buildHatchAdder;
-import static gregtech.api.util.GTStructureUtility.ofCoil;
 
 import java.util.List;
 
@@ -32,7 +30,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import com.google.common.collect.ImmutableMap;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -52,17 +49,15 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gregtech.common.misc.GTStructureChannels;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -75,6 +70,17 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
     public static final int HEAT_PER_VOLTAGE_TIER = 100;
     /** Voltage tier above which the per-tier heat bonus starts */
     public static final int BASE_TIER_FOR_HEAT_INCREASE = VoltageIndex.MV;
+
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .coilHeatPerVoltageTier(
+            HEAT_PER_VOLTAGE_TIER,
+            BASE_TIER_FOR_HEAT_INCREASE,
+            ProcessingSpec.HeatRule.OVERCLOCK,
+            ProcessingSpec.HeatRule.DISCOUNT,
+            ProcessingSpec.HeatRule.REQUIRED)
+        .build();
+    private static final Modifier.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = Modifier
+        .coil(MTEElectricBlastFurnace::getCoilLevel, MTEElectricBlastFurnace::setCoilLevel);
 
     private int mHeatingCapacity = 0;
 
@@ -94,10 +100,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
                 .hint(3)
                 .buildAndChain(GregTechAPI.sBlockCasings1, CASING_INDEX))
         .addElement('m', Muffler.newAny(CASING_INDEX, 2))
-        .addElement(
-            'C',
-            GTStructureChannels.HEATING_COIL
-                .use(activeCoils(ofCoil(MTEElectricBlastFurnace::setCoilLevel, MTEElectricBlastFurnace::getCoilLevel))))
+        .addElement('C', COIL)
         .addElement(
             'b',
             buildHatchAdder(MTEElectricBlastFurnace.class)
@@ -125,15 +128,8 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         // spotless:off
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.blast_furnace_ebf"))
-            .addMarkdown(
-                new ResourceLocation("gregtech", "electric-blast-furnace"),
-                ImmutableMap.<String, Object>builder()
-                    .put("heat_per_tier", HEAT_PER_VOLTAGE_TIER)
-                    .put("eu_reduction", OverclockCalculator.DEFAULT_HEAT_DISCOUNT_PERCENT_FOR_TOOLTIPS)
-                    .put("eu_reduction_heat", OverclockCalculator.HEAT_DISCOUNT_THRESHOLD)
-                    .put("heat_per_poc", OverclockCalculator.HEAT_OVERCLOCK_THRESHOLD)
-                    .put("base_tier_for_heat_increase", BASE_TIER_FOR_HEAT_INCREASE)
-                    .build())
+            .addProcessingSpecInfo(SPEC)
+            .addMarkdown(new ResourceLocation("gregtech", "electric-blast-furnace"))
             .addPollutionAmount(getPollutionPerSecond(null))
             .beginStructureBlock(3, 4, 3, true)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_bottom_center"))
@@ -188,23 +184,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Nonnull
-            @Override
-            protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-                return super.createOverclockCalculator(recipe).setRecipeHeat(recipe.mSpecialValue)
-                    .setMachineHeat(mHeatingCapacity)
-                    .setHeatOC(true)
-                    .setHeatDiscount(true);
-            }
-
-            @Override
-            protected @Nonnull CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
-                return recipe.mSpecialValue <= mHeatingCapacity ? CheckRecipeResultRegistry.SUCCESSFUL
-                    : CheckRecipeResultRegistry.insufficientHeat(recipe.mSpecialValue);
-            }
-        };
+        return new ProcessingLogic();
     }
 
     @Override
@@ -224,8 +204,18 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
 
-        this.mHeatingCapacity = (int) getCoilLevel().getHeat()
-            + HEAT_PER_VOLTAGE_TIER * (GTUtility.getTier(getMaxInputVoltage()) - BASE_TIER_FOR_HEAT_INCREASE);
+        this.mHeatingCapacity = SPEC.getMachineHeat(getCurrentProcessingSpecInputs());
+    }
+
+    @Override
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        return List.of(COIL.of(this));
     }
 
     @Override

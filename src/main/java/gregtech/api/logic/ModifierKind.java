@@ -1,0 +1,240 @@
+package gregtech.api.logic;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import net.minecraft.util.StatCollector;
+
+import gregtech.api.enums.GTValues;
+import gregtech.api.enums.HeatingCoilLevel;
+import gregtech.api.util.GTStructureUtility;
+import gregtech.api.util.tooltip.TooltipHelper;
+
+/**
+ * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
+ * constants here. A kind only one machine has is registered in that machine's class.
+ */
+public abstract sealed class ModifierKind permits ModifierKind.IntKind {
+
+    /** Where a planner gets the value from. */
+    public enum Source {
+        ENERGY,
+        STRUCTURE,
+        /** Such as an upgrade chip. */
+        ITEM,
+        /** A value the machine builds up while running, such as momentum. */
+        RUNTIME
+    }
+
+    public static final class IntKind extends ModifierKind {
+
+        private IntKind(Builder<IntKind> builder) {
+            super(builder);
+        }
+
+        /** The tier that per-tier terms and their tooltips use: {@code value} plus the kind's tier offset. */
+        public int countedTier(int value) {
+            return value + super.tierOffset;
+        }
+    }
+
+    /** The values a machine takes for a kind, both ends included. */
+    public record Range(long min, long max) {
+
+        public Range {
+            if (min > max) throw new IllegalArgumentException("min " + min + " > max " + max);
+        }
+
+        public boolean contains(long value) {
+            return value >= min && value <= max;
+        }
+    }
+
+    // register() adds kinds while the machine classes load
+    private static final Map<String, ModifierKind> REGISTRY = new LinkedHashMap<>();
+
+    /** The voltage tier of the energy hatches. {@link ProcessingInputs.Builder#value} rejects this kind. */
+    public static final IntKind VOLTAGE = ofInt("gregtech:voltage").name("GT5U.MBTT.Tiers.Voltage")
+        .source(Source.ENERGY)
+        .ordered()
+        .labels(tier -> GTValues.VN[(int) tier])
+        .register();
+    /** The heating coil tier: 0 for Cupronickel. */
+    public static final IntKind COIL = ofInt("gregtech:coil").name("GT5U.MBTT.Tiers.Coil")
+        .ordered()
+        .range(0, HeatingCoilLevel.getMaxTier())
+        .tierOffset(1)
+        .labels(
+            tier -> HeatingCoilLevel.getFromTier((byte) tier)
+                .getName())
+        .register();
+    /** 1 for the lowest item pipe casing. */
+    public static final IntKind ITEM_PIPE_CASING = ofInt("gregtech:item_pipe_casing").name("GT5U.MBTT.Tiers.ItemPipe")
+        .ordered()
+        .range(1, GTStructureUtility.ITEM_PIPE_CASING_TIERS)
+        .register();
+    /** {@link GTStructureUtility#pipeCasing}: 1 for the lowest pipe casing. */
+    public static final IntKind PIPE_CASING = ofInt("gregtech:pipe_casing").name("GT5U.MBTT.Tiers.FluidPipe")
+        .ordered()
+        .range(1, GTStructureUtility.PIPE_CASING_TIERS)
+        .labels(
+            tier -> GTStructureUtility.pipeCasing((int) tier)
+                .get(1)
+                .getDisplayName())
+        .register();
+    /** The count of repeated slices or layers. The range is in each machine's spec. */
+    public static final IntKind LENGTH = ofInt("gregtech:length").name("GT5U.MBTT.Tiers.Length")
+        .ordered()
+        .register();
+
+    @Nonnull
+    public final String id;
+    @Nonnull
+    public final String nameKey;
+    @Nonnull
+    public final Source source;
+    /** Machines are better at higher values. */
+    public final boolean ordered;
+    @Nullable
+    private final Range range;
+    @Nullable
+    private final LongFunction<String> labels;
+    private final int tierOffset;
+
+    private ModifierKind(Builder<?> builder) {
+        this.id = builder.id;
+        this.nameKey = builder.nameKey;
+        this.source = builder.source;
+        this.ordered = builder.ordered;
+        this.range = builder.range;
+        this.labels = builder.labels;
+        this.tierOffset = builder.tierOffset;
+    }
+
+    /**
+     * The values every machine takes for this kind, or null for a kind ranged per machine. The range of a kind ranged
+     * per machine is set in each machine's spec, with {@link ProcessingSpec.Builder#range}.
+     */
+    @Nullable
+    public Range getRange() {
+        return range;
+    }
+
+    @Nonnull
+    public Range requireRange() {
+        if (range == null) throw new IllegalArgumentException(this + " has no range on the kind");
+        return range;
+    }
+
+    @Nonnull
+    public String getName() {
+        return StatCollector.translateToLocal(nameKey);
+    }
+
+    /** In the tooltip tier colour. */
+    @Nonnull
+    public String getTierText() {
+        return TooltipHelper.tierText(getName());
+    }
+
+    /** Such as "LuV", or the number where the kind has no labels. */
+    @Nonnull
+    public String label(long value) {
+        return labels == null ? String.valueOf(value) : StatCollector.translateToLocal(labels.apply(value));
+    }
+
+    @Override
+    public String toString() {
+        return id;
+    }
+
+    /** The list is complete only after every machine class has loaded and registered the class's kinds. */
+    @Nonnull
+    public static List<ModifierKind> all() {
+        return Collections.unmodifiableList(new ArrayList<>(REGISTRY.values()));
+    }
+
+    /** @param id Namespaced by mod, such as {@code "gregtech:coil"} */
+    @Nonnull
+    public static Builder<IntKind> ofInt(@Nonnull String id) {
+        return new Builder<>(id, IntKind::new);
+    }
+
+    public static final class Builder<K extends ModifierKind> {
+
+        private final String id;
+        private final Function<Builder<K>, K> create;
+        private String nameKey;
+        private Source source = Source.STRUCTURE;
+        private boolean ordered;
+        @Nullable
+        private Range range;
+        private LongFunction<String> labels;
+        private int tierOffset;
+
+        private Builder(String id, Function<Builder<K>, K> create) {
+            this.id = id;
+            this.create = create;
+            this.nameKey = id;
+        }
+
+        /** A translation key, or the name itself. */
+        public Builder<K> name(@Nonnull String nameKey) {
+            this.nameKey = nameKey;
+            return this;
+        }
+
+        public Builder<K> source(@Nonnull Source source) {
+            this.source = source;
+            return this;
+        }
+
+        public Builder<K> ordered() {
+            this.ordered = true;
+            return this;
+        }
+
+        /** The values every machine takes for this kind. */
+        public Builder<K> range(long min, long max) {
+            this.range = new Range(min, max);
+            return this;
+        }
+
+        /** Added to a value in per-tier terms: 1 for coils, whose tier 0 is Cupronickel. */
+        private Builder<K> tierOffset(int tierOffset) {
+            this.tierOffset = tierOffset;
+            return this;
+        }
+
+        public Builder<K> labels(@Nonnull LongFunction<String> labels) {
+            this.labels = labels;
+            return this;
+        }
+
+        /** Names or translation keys, from {@code first} up. */
+        public Builder<K> labels(long first, @Nonnull String... labels) {
+            return labels(value -> {
+                long index = value - first;
+                return index >= 0 && index < labels.length ? labels[(int) index] : String.valueOf(value);
+            });
+        }
+
+        /** @throws IllegalStateException if a kind with this id is registered already */
+        @Nonnull
+        public K register() {
+            K kind = create.apply(this);
+            if (REGISTRY.putIfAbsent(id, kind) != null) {
+                throw new IllegalStateException("modifier kind " + id + " is registered already");
+            }
+            return kind;
+        }
+    }
+}
