@@ -71,6 +71,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import gregtech.api.enums.VoidingMode;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.implementations.MTEMultiBlockBase;
 import gregtech.api.metatileentity.implementations.gui.ItemDisplayKey;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -102,6 +103,13 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
     public MTEMultiBlockBaseGui(T multiblock) {
         this.multiblock = multiblock;
         this.baseMetaTileEntity = multiblock.getBaseMetaTileEntity();
+        if (multiblock.supportsMachineModeSwitch()) {
+            for (MachineMode mode : multiblock.getMachineModes()) {
+                // the mode button has one state per machineModeIcons entry, in mode order.
+                // Keep a null entry for a mode with no icon
+                this.machineModeIcons.add(mode.guiIcon());
+            }
+        }
         initCustomIcons();
         initShutdownMaps();
     }
@@ -154,7 +162,6 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
     }
 
     public ModularPanel build(PosGuiData guiData, PanelSyncManager syncManager, UISettings uiSettings) {
-        setMachineModeIcons();
         registerSyncValues(syncManager);
         ModularPanel panel = getBasePanel(guiData, syncManager, uiSettings);
         initPanelMap(panel, syncManager);
@@ -1298,7 +1305,7 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
             multiblock::setBatchMode).allowC2S();
         syncManager.syncValue("batchMode", batchModeSyncer);
 
-        IntSyncValue machineModeSyncer = new IntSyncValue(multiblock::getMachineMode, multiblock::setMachineMode)
+        IntSyncValue machineModeSyncer = new IntSyncValue(multiblock::getMachineMode, this::selectMachineMode)
             .allowC2S();
         syncManager.syncValue("machineMode", machineModeSyncer);
 
@@ -1330,7 +1337,12 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
         syncManager.syncValue("mufflerSyncer", mufflerSyncer);
     }
 
-    protected void setMachineModeIcons() {}
+    private void selectMachineMode(int index) {
+        multiblock.setMachineMode(index);
+        // the client adds one to the index on each mode button press, without calling isMachineModeAvailable().
+        // setMachineMode() ignores an unavailable mode. Go on to the next available mode
+        if (multiblock.getMachineMode() != index) multiblock.setMachineMode(multiblock.nextMachineMode());
+    }
 
     // Method for registering Icons/Tooltip Text to specific ShutDownReasons. Override for custom icons/conditions.
 

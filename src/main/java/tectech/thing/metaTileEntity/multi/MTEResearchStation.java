@@ -16,8 +16,6 @@ import static gregtech.api.util.GTUtility.validMTEList;
 import static tectech.thing.CustomItemList.holder_Hatch;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -51,11 +49,11 @@ import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.metatileentity.implementations.MTEHatchEnergy;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -90,8 +88,15 @@ import tectech.thing.metaTileEntity.multi.base.render.TTRenderedExtendedFacingTe
 public class MTEResearchStation extends TTMultiblockBase implements ISurvivalConstructable {
 
     // region variables
-    public static final int MODE_RESEARCH_STATION = 0;
-    public static final int MODE_SCANNER = 1;
+    private static final MachineMode RESEARCH = new MachineMode(
+        TecTechRecipeMaps.researchStationFakeRecipes,
+        "gt.blockmachines.multimachine.em.research.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RESEARCH);
+    private static final MachineMode SCANNER = new MachineMode(
+        scannerFakeRecipes,
+        "gt.blockmachines.multimachine.em.research.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SCANNER);
+    private static final List<MachineMode> MODES = List.of(RESEARCH, SCANNER);
 
     public static final int PACKET_LOSS_GRACE_WINDOW = 20;
     public static final int PACKET_LOSS_DECAY_WINDOW = 80;
@@ -290,8 +295,14 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
 
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(scannerFakeRecipes, TecTechRecipeMaps.researchStationFakeRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
+    }
+
+    // checkProcessing() reads no recipe from the recipe maps of MODES, so the input hatches don't filter fluids by them
+    @Override
+    protected boolean filtersFluid() {
+        return false;
     }
 
     @Override
@@ -311,37 +322,6 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
         return !eSafeVoid;
     }
     // endregion
-
-    // region machine mode
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public int nextMachineMode() {
-        if (this.machineMode == MODE_RESEARCH_STATION) return MODE_SCANNER;
-        return MODE_RESEARCH_STATION;
-    }
-
-    @Override
-    public void setMachineMode(int aIndex) {
-        switch (aIndex) {
-            case MODE_RESEARCH_STATION, MODE_SCANNER -> this.machineMode = aIndex;
-            default -> this.machineMode = MODE_RESEARCH_STATION;
-        }
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return getMachineModeKey(this.machineMode);
-    }
-
-    private static String getMachineModeKey(int mode) {
-        return "gt.blockmachines.multimachine.em.research.mode." + mode;
-    }
-
-    // endregion machine mode
 
     // region holder utils
     private void unlockHolders() {
@@ -480,11 +460,8 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
         }
         // null controller stack if invalid
         ItemStack specialStack = this.getResearchSpecialStack();
-        result = switch (this.machineMode) {
-            case MODE_SCANNER -> findSBScannerRecipe(holderStack, specialStack);
-            case MODE_RESEARCH_STATION -> findResearchStationRecipe(holderStack, specialStack);
-            default -> CheckRecipeResultRegistry.INTERNAL_ERROR;
-        };
+        result = getCurrentMachineMode() == SCANNER ? findSBScannerRecipe(holderStack, specialStack)
+            : findResearchStationRecipe(holderStack, specialStack);
         // fail-safes
         if (!result.wasSuccessful()) {
             this.resetProgress();
@@ -676,12 +653,9 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
             // abort the recipe if one was ongoing, this just makes the migration infinitely simpler
             // since the old version didn't track any output values.
             this.resetProgress();
-            if (aNBT.getString(NBT_OLD_MODE)
-                .equals("Scanner")) {
-                this.machineMode = MODE_SCANNER;
-            } else {
-                this.machineMode = MODE_RESEARCH_STATION;
-            }
+            this.machineMode = MODES.indexOf(
+                aNBT.getString(NBT_OLD_MODE)
+                    .equals("Scanner") ? SCANNER : RESEARCH);
         } else {
             computationRemaining = aNBT.getLong(NBT_COMP_REMAIN);
             computationRequired = aNBT.getLong(NBT_COMP_TOTAL);
@@ -791,9 +765,7 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
 
     @Override
     protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEResearchStationGui(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_RESEARCH,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SCANNER);
+        return new MTEResearchStationGui(this);
     }
 
     public long getComputationConsumed() {
@@ -821,7 +793,9 @@ public class MTEResearchStation extends TTMultiblockBase implements ISurvivalCon
     @Override
     public void getExtraWailaBody(ItemStack itemStack, List<String> list, NBTTagCompound tag,
         IWailaDataAccessor accessor, IWailaConfigHandler config) {
-        list.add(StatCollector.translateToLocal(getMachineModeKey(tag.getInteger("machineMode"))));
+        int modeIndex = tag.getInteger("machineMode");
+        MachineMode mode = MODES.get(modeIndex >= 0 && modeIndex < MODES.size() ? modeIndex : 0);
+        list.add(StatCollector.translateToLocal(mode.nameKey()));
         list.add(
             StatCollector.translateToLocalFormatted(
                 "gt.blockmachines.multimachine.em.research.computation",

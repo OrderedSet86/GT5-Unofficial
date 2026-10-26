@@ -18,6 +18,8 @@ import static com.gtnewhorizon.gtnhlib.util.numberformatting.NumberFormatUtil.fo
 import java.util.Arrays;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -29,10 +31,7 @@ import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.google.common.collect.ImmutableMap;
-import com.gtnewhorizons.modularui.api.math.Pos2d;
 
 import bartworks.MainMod;
 import gregtech.api.casing.Casings;
@@ -40,21 +39,29 @@ import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.OrePrefixes;
 import gregtech.api.enums.TierEU;
-import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.implementations.MTEHatchInput;
 import gregtech.api.modularui2.GTGuiTextures;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.util.GTModHandler;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.MTEDrillerBaseGui;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.tileentities.machines.multi.MTEDrillerBase;
 
 @IMetaTileEntity.SkipGenerateDescription
 public class MTEDeepEarthHeatingPump extends MTEDrillerBase {
+
+    private static final MachineMode STEAM = new MachineMode(
+        null,
+        "GT5U.DEHP.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM);
+    private static final MachineMode COOLANT = new MachineMode(
+        null,
+        "GT5U.DEHP.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
+    private static final List<MachineMode> MODES = List.of(STEAM, COOLANT);
 
     private byte mMode;
 
@@ -131,25 +138,10 @@ public class MTEDeepEarthHeatingPump extends MTEDrillerBase {
         return 11;
     }
 
+    @Nonnull
     @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public Pos2d getMachineModeSwitchButtonPos() {
-        return new Pos2d(98, 91);
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_STEAM);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.DEHP.mode." + machineMode;
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -220,7 +212,7 @@ public class MTEDeepEarthHeatingPump extends MTEDrillerBase {
             workState = WorkState.DOWNWARD;
             return true;
         }
-        if (this.machineMode == 0) {
+        if (getCurrentMachineMode() == STEAM) {
             long steamProduced = 25600L * this.mEfficiency / 10000L;
             long waterConsume = (steamProduced + 160) / 160;
 
@@ -234,7 +226,7 @@ public class MTEDeepEarthHeatingPump extends MTEDrillerBase {
                 this.explodeMultiblock();
                 return false;
             }
-        } else if (this.machineMode == 1) {
+        } else if (getCurrentMachineMode() == COOLANT) {
             long coolantConverted = 192L * this.mEfficiency / 10_000L;
             if (this.getFluidFromHatches(
                 GTModHandler.getIC2Coolant(0)
@@ -308,12 +300,5 @@ public class MTEDeepEarthHeatingPump extends MTEDrillerBase {
     @Override
     public int calculateMaxProgressTime(int tier, boolean simulateWorking) {
         return 1;
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEDrillerBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_STEAM,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_LPF_FLUID);
     }
 }

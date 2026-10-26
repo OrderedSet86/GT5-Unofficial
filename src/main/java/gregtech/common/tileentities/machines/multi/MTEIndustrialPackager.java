@@ -11,8 +11,6 @@ import static gregtech.api.util.GTStructureUtility.chainAllGlasses;
 import static gregtech.api.util.GTStructureUtility.chainItemPipeCasings;
 import static gregtech.api.util.GTStructureUtility.ofFrame;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -28,8 +26,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import org.jetbrains.annotations.NotNull;
-
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition;
 import com.gtnewhorizon.structurelib.structure.ISurvivalBuildEnvironment;
@@ -40,11 +36,11 @@ import gregtech.api.enums.GTValues;
 import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.Textures;
-import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.ITexture;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.modularui2.GTGuiTextures;
@@ -56,7 +52,6 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.tooltip.TooltipTier;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.pollution.PollutionConfig;
 import gtPlusPlus.xmod.gregtech.common.blocks.textures.TexturesGtBlock;
@@ -66,8 +61,15 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
 
     private static IStructureDefinition<MTEIndustrialPackager> STRUCTURE_DEFINITION = null;
     private static final String STRUCTURE_PIECE_MAIN = "main";
-    private static final int MACHINEMODE_PACKAGER = 0;
-    private static final int MACHINEMODE_UNPACKAGER = 1;
+    private static final MachineMode PACKAGER = new MachineMode(
+        RecipeMaps.packagerRecipes,
+        "GT5U.GTPP_MULTI_PACKAGER.mode.0",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PACKAGER);
+    private static final MachineMode UNPACKAGER = new MachineMode(
+        RecipeMaps.unpackagerRecipes,
+        "GT5U.GTPP_MULTI_PACKAGER.mode.1",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
+    public static final List<MachineMode> MODES = List.of(PACKAGER, UNPACKAGER);
 
     private static final int OFFSET_X = 4;
     private static final int OFFSET_Y = 1;
@@ -307,20 +309,10 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
         return PollutionConfig.pollutionPerSecondMultiPackager;
     }
 
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_PACKAGER.mode." + machineMode;
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return (machineMode == MACHINEMODE_PACKAGER) ? RecipeMaps.packagerRecipes : RecipeMaps.unpackagerRecipes;
-    }
-
     @Nonnull
     @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.packagerRecipes, RecipeMaps.unpackagerRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -332,25 +324,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
     }
 
     @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_PACKAGER);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTEMultiBlockBaseGui<>(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PACKAGER,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
-    }
-
-    @Override
     public boolean supportsInputSeparation() {
-        return true;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
         return true;
     }
 
