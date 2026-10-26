@@ -542,11 +542,11 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
                 tt -> tt.addMarkdown(
                     new ResourceLocation("gregtech", "large-fusion-computer"),
                     ImmutableMap.<String, Object>builder()
-                        .put("power", formatNumber(getSingleHatchPower()))
-                        .put("capacity", formatNumber(capableStartup / MAX_ENERGY_HATCHES))
-                        .put("tier", GTValues.TIER_COLORS[tier()] + GTValues.VN[tier()])
-                        .put("base_para", formatNumber(maxParallel))
-                        .put("per_tier_para", formatNumber(maxParallel))
+                        .put("power", getSingleHatchPower())
+                        .put("capacity", capableStartup / MAX_ENERGY_HATCHES)
+                        .put("tier", tier())
+                        .put("base_para", maxParallel)
+                        .put("per_tier_para", maxParallel)
                         .build()))
             .build();
     }
