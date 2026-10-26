@@ -61,7 +61,6 @@ import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.misc.GTStructureChannels;
 
-@IMetaTileEntity.SkipGenerateDescription
 public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTEMegaDistillationTower>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
@@ -556,7 +555,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
     @Override
     protected MultiblockTooltipBuilder createTooltip() {
         final MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
-        // spotless:off
         tt.addMachineType("Distillery, DT, MDT")
             .addMarkdown(
                 new ResourceLocation("gregtech", "mega-distillation-tower"),
@@ -600,7 +598,6 @@ public class MTEMegaDistillationTower extends MTEExtendedPowerMultiBlockBase<MTE
             .addStructureInfo("")
             .addSubChannel(GTStructureChannels.STRUCTURE_HEIGHT)
             .toolTipFinisher();
-        // spotless:on
         return tt;
     }
 
