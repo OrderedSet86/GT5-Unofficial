@@ -82,6 +82,9 @@ public class OverclockCalculator {
     public static final int DEFAULT_MAX_TIER_SKIPS = 1;
     /** Per {@link #HEAT_DISCOUNT_THRESHOLD} of heat headroom. */
     public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
+    /** The EU/t that each heat discount saves, in percent, for tooltips. */
+    public static final double DEFAULT_HEAT_DISCOUNT_PERCENT_FOR_TOOLTIPS = (1.0D - DEFAULT_HEAT_DISCOUNT_MULTIPLIER)
+        * 100;
 
     /** Creates calculator that doesn't do OC at all. Will use recipe duration. */
     public static OverclockCalculator ofNoOverclock(@Nonnull GTRecipe recipe) {
