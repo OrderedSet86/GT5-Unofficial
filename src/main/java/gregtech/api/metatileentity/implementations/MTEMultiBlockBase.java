@@ -570,6 +570,16 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         debugEnergyPresent = false;
     }
 
+    /**
+     * Drops this multiblock's AE2 crafting icon from hatches kept outside {@link #mSmartInputHatches}, for a
+     * {@link #clearHatches()} override to call on its own lists before clearing them.
+     */
+    protected void clearCraftingIcons(Collection<? extends MTEHatch> hatches) {
+        for (MTEHatch hatch : hatches) {
+            hatch.updateCraftingIcon(null, getBaseMetaTileEntity());
+        }
+    }
+
     public boolean checkStructure(boolean aForceReset, IGregTechTileEntity aBaseMetaTileEntity) {
         if (!aBaseMetaTileEntity.isServerSide()) return mMachine;
         // Only trigger an update if forced (from onPostTick, generally), or if the structure has changed
@@ -1245,7 +1255,27 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
             if (isColorAbsent(hatchColors, color)) continue;
             processingLogic.setInputFluids(getStoredFluidsForColor(Optional.of(color)));
             if (isInputSeparationEnabled()) {
-                if (mInputBusses.isEmpty()) {
+                boolean checkedBus = false;
+                for (MTEHatchInputBus bus : mInputBusses) {
+                    if (bus instanceof MTEHatchCraftingInputME) continue;
+                    byte busColor = bus.getColor();
+                    if (busColor != -1 && busColor != color) continue;
+                    checkedBus = true;
+                    List<ItemStack> inputItems = new ArrayList<>();
+                    for (int i = bus.getSizeInventory() - 1; i >= 0; i--) {
+                        ItemStack stored = bus.getStackInSlot(i);
+                        if (stored != null) inputItems.add(stored);
+                    }
+                    if (canUseControllerSlotForRecipe() && getControllerSlot() != null) {
+                        inputItems.add(getControllerSlot());
+                    }
+                    processingLogic.setInputItems(inputItems);
+                    CheckRecipeResult foundResult = processingLogic.process();
+                    if (foundResult.wasSuccessful()) return foundResult;
+                    // Recipe failed in interesting way, so remember that and continue searching
+                    if (foundResult != CheckRecipeResultRegistry.NO_RECIPE) result = foundResult;
+                }
+                if (!checkedBus) {
                     List<ItemStack> inputItems = new ArrayList<>();
                     if (canUseControllerSlotForRecipe() && getControllerSlot() != null) {
                         inputItems.add(getControllerSlot());
@@ -1255,25 +1285,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                     if (foundResult.wasSuccessful()) return foundResult;
                     // Recipe failed in interesting way, so remember that and continue searching
                     if (foundResult != CheckRecipeResultRegistry.NO_RECIPE) result = foundResult;
-                } else {
-                    for (MTEHatchInputBus bus : mInputBusses) {
-                        if (bus instanceof MTEHatchCraftingInputME) continue;
-                        byte busColor = bus.getColor();
-                        if (busColor != -1 && busColor != color) continue;
-                        List<ItemStack> inputItems = new ArrayList<>();
-                        for (int i = bus.getSizeInventory() - 1; i >= 0; i--) {
-                            ItemStack stored = bus.getStackInSlot(i);
-                            if (stored != null) inputItems.add(stored);
-                        }
-                        if (canUseControllerSlotForRecipe() && getControllerSlot() != null) {
-                            inputItems.add(getControllerSlot());
-                        }
-                        processingLogic.setInputItems(inputItems);
-                        CheckRecipeResult foundResult = processingLogic.process();
-                        if (foundResult.wasSuccessful()) return foundResult;
-                        // Recipe failed in interesting way, so remember that and continue searching
-                        if (foundResult != CheckRecipeResultRegistry.NO_RECIPE) result = foundResult;
-                    }
                 }
             } else {
                 List<ItemStack> inputItems = getStoredInputsForColor(Optional.of(color));

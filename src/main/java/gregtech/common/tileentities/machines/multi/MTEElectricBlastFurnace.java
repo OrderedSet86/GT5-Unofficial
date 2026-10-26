@@ -66,15 +66,15 @@ import mcp.mobius.waila.api.IWailaDataAccessor;
 public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectricBlastFurnace>
     implements ISurvivalConstructable, ICasingTextureProvider {
 
-    /** Extra heat granted for every voltage tier above {@link #HEAT_BONUS_START_TIER} */
+    /** Extra heat granted for every voltage tier above {@link #BASE_TIER_FOR_HEAT_INCREASE} */
     public static final int HEAT_PER_VOLTAGE_TIER = 100;
     /** Voltage tier above which the per-tier heat bonus starts */
-    public static final int HEAT_BONUS_START_TIER = VoltageIndex.MV;
+    public static final int BASE_TIER_FOR_HEAT_INCREASE = VoltageIndex.MV;
 
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .coilHeatPerVoltageTier(
             HEAT_PER_VOLTAGE_TIER,
-            HEAT_BONUS_START_TIER,
+            BASE_TIER_FOR_HEAT_INCREASE,
             ProcessingSpec.HeatRule.OVERCLOCK,
             ProcessingSpec.HeatRule.DISCOUNT,
             ProcessingSpec.HeatRule.REQUIRED)
