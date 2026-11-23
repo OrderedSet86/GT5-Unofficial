@@ -643,16 +643,16 @@ public class ProcessingLogic {
     }
 
     /**
-     * Returns the run of {@code found} through the spec and this logic's requirement, parallel, overclock and duration
-     * hooks. The run has unlimited inputs and output space. This method calls neither {@link #validateRecipe} nor
-     * {@link #applyRecipe}. Both methods may change the world. When the logic has a spec, both methods can only reject
-     * a recipe.
+     * ONLY FOR THE CONFORMANCE GAME TEST AND THE UNIT TESTS. Returns the run of {@code found} through the spec and this
+     * logic's requirement, parallel, overclock and duration hooks. The run has unlimited inputs and output space. This
+     * method calls neither {@link #validateRecipe} nor {@link #applyRecipe}. Both methods may change the world. When
+     * the logic has a spec, both methods can only reject a recipe.
      *
      * @throws IllegalStateException if {@link #setSpec} wasn't called
      */
     @Nonnull
-    public final ProcessingRun inspect(@Nonnull GTRecipe found) {
-        if (spec == null) throw new IllegalStateException("inspect needs a spec");
+    public final ProcessingRun inspectForTesting(@Nonnull GTRecipe found) {
+        if (spec == null) throw new IllegalStateException("inspectForTesting needs a spec");
         specResolved = resolveSpec(found);
         CheckRecipeResult specResult = checkSpecRequirements(specResolved);
         if (!specResult.wasSuccessful()) return ProcessingRun.failed(specResult);
@@ -715,7 +715,7 @@ public class ProcessingLogic {
             return OverclockCalculator.getMaxAllowedRecipeEUt(
                 spec.getPower(specInputs)
                     .voltage(),
-                spec.getMaxTierSkipsOrDefault());
+                spec.getMaxTierSkips());
         }
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
     }

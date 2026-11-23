@@ -79,7 +79,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
             ProcessingSpec.HeatRule.DISCOUNT,
             ProcessingSpec.HeatRule.REQUIRED)
         .build();
-    private static final Modifier.Of<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = Modifier
+    private static final Modifier.Element<MTEElectricBlastFurnace, HeatingCoilLevel> COIL = Modifier
         .coil(MTEElectricBlastFurnace::getCoilLevel, MTEElectricBlastFurnace::setCoilLevel);
 
     private int mHeatingCapacity = 0;
@@ -204,7 +204,7 @@ public class MTEElectricBlastFurnace extends MTEAbstractMultiFurnace<MTEElectric
         checkHasAnyInput(errors);
         checkHasAnyOutput(errors);
 
-        this.mHeatingCapacity = SPEC.getMachineHeat(getCurrentProcessingSpecInputs());
+        this.mHeatingCapacity = SPEC.getMachineHeat(getProcessingInputs());
     }
 
     @Override

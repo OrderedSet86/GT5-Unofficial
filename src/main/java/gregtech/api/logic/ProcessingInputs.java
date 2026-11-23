@@ -128,12 +128,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
 
         private Builder() {}
 
-        /** {@code count} regular hatches. */
-        public Builder energyHatches(int tier, int count) {
-            for (int i = 0; i < count; i++) energyHatch(EnergyHatch.regular(tier));
-            return this;
-        }
-
         public Builder energyHatch(@Nonnull EnergyHatch hatch) {
             this.energyHatches.add(hatch);
             return this;

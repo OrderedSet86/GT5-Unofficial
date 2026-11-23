@@ -17,8 +17,8 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * A {@code Modifier} reads and writes the value of one machine for a {@link ModifierKind}. An {@link Of} constant is
- * also the structure element that writes the value: {@code .addElement('C', COIL)}.
+ * A {@code Modifier} reads the value of one machine for a {@link ModifierKind}. An {@link Element} constant is also the
+ * structure element that writes the value: {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 
@@ -44,16 +44,19 @@ public final class Modifier {
         return getter.getAsLong();
     }
 
-    /** Sets the value without a structure check. Machine code must not call this method. */
-    public void set(long value) {
+    /**
+     * ONLY FOR THE CONFORMANCE GAME TEST. Sets the value without a structure check, so the test can run a machine copy
+     * at each value. Machine code must not call this method.
+     */
+    public void setValueForTesting(long value) {
         setter.accept(value);
     }
 
     /** Accepts one coil type. */
     @Nonnull
-    public static <T extends MTEMultiBlockBase> Of<T, HeatingCoilLevel> coil(
+    public static <T extends MTEMultiBlockBase> Element<T, HeatingCoilLevel> coil(
         @Nonnull Function<T, HeatingCoilLevel> getter, @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
-        return new Of<>(machine -> Modifier.of(ModifierKind.COIL, () -> {
+        return new Element<>(machine -> Modifier.of(ModifierKind.COIL, () -> {
             HeatingCoilLevel coil = getter.apply(machine);
             return (coil == null ? HeatingCoilLevel.None : coil).getTier();
         }, tier -> setter.accept(machine, HeatingCoilLevel.getFromTier((byte) tier))),
@@ -63,22 +66,22 @@ public final class Modifier {
 
     /** The getter returns -1 before the first structure check. */
     @Nonnull
-    public static <T> Of<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
+    public static <T> Element<T, Integer> itemPipeCasing(@Nonnull Function<T, Integer> getter,
         @Nonnull BiConsumer<T, Integer> setter) {
         int absent = (int) ModifierKind.ITEM_PIPE_CASING.requireRange()
             .min() - 1;
-        return new Of<>(machine -> Modifier.of(ModifierKind.ITEM_PIPE_CASING, () -> {
+        return new Element<>(machine -> Modifier.of(ModifierKind.ITEM_PIPE_CASING, () -> {
             Integer tier = getter.apply(machine);
             return tier == null ? absent : tier;
         }, tier -> setter.accept(machine, tier)), GTStructureUtility.chainItemPipeCasings(-1, setter, getter));
     }
 
     /** A structure element for one kind and machine class. {@link #of} returns the {@code Modifier} of one machine. */
-    public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
+    public static final class Element<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
         private final Function<T, Modifier> modifierOf;
 
-        private Of(Function<T, Modifier> modifierOf, IStructureElement<T> element) {
+        private Element(Function<T, Modifier> modifierOf, IStructureElement<T> element) {
             super(element);
             this.modifierOf = modifierOf;
         }
