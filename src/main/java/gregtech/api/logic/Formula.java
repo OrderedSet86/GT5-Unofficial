@@ -9,15 +9,15 @@ import javax.annotation.Nonnull;
 import gregtech.api.util.GTUtility;
 
 /**
- * A {@code Formula} computes one number of a {@link ProcessingSpec}. {@link #reads} returns the kinds the formula
- * reads, and each record type has one shape of tooltip line.
+ * A {@code Formula} computes one number of a {@link ProcessingSpec}. Each record type except {@link Custom} has one
+ * shape of tooltip line.
  */
 public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
 
     @Nonnull
-    Set<ModifierKind> reads();
+    Set<ModifierKind> modifierKinds();
 
     record Constant(double value) implements Formula {
 
@@ -28,7 +28,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of();
         }
     }
@@ -42,7 +42,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of();
         }
     }
@@ -57,7 +57,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of(kind);
         }
     }
@@ -72,7 +72,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of(kind);
         }
     }
@@ -87,7 +87,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of(ModifierKind.VOLTAGE);
         }
     }
@@ -109,7 +109,7 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of(kind);
         }
     }
@@ -133,20 +133,21 @@ public sealed interface Formula {
 
         @Nonnull
         @Override
-        public Set<ModifierKind> reads() {
+        public Set<ModifierKind> modifierKinds() {
             return Set.of(kind, ModifierKind.VOLTAGE);
         }
     }
 
     /**
-     * Plain code. The tooltip line doesn't have a shape for this formula. Describe the formula with
-     * {@link ProcessingSpec.Builder#customTooltip}.
+     * {@link ProcessingSpec.Builder} creates a {@code Custom} formula from each function of the
+     * {@link ProcessingInputs} that a builder method takes. {@link ProcessingSpec} doesn't write a tooltip line for a
+     * {@code Custom} formula. Describe the formula with {@link ProcessingSpec.Builder#customTooltip}.
      */
-    record Custom(@Nonnull ToDoubleFunction<ProcessingInputs> function, @Nonnull Set<ModifierKind> reads)
+    record Custom(@Nonnull ToDoubleFunction<ProcessingInputs> function, @Nonnull Set<ModifierKind> modifierKinds)
         implements Formula {
 
         public Custom {
-            reads = Set.copyOf(reads);
+            modifierKinds = Set.copyOf(modifierKinds);
         }
 
         @Override
