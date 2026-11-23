@@ -77,7 +77,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         .euPerTickCap(inputs -> VP[GTUtility.getTier(inputs.averageVoltage())])
         .noTooltip(ProcessingSpec.Quantity.POWER)
         .build();
-    private static final Modifier.Of<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
+    private static final Modifier.Element<MTEMultiFurnace, HeatingCoilLevel> COIL = Modifier
         .coil(MTEMultiFurnace::getCoilLevel, MTEMultiFurnace::setCoilLevel);
     private static final int CASING_INDEX = 11;
     private static final String STRUCTURE_PIECE_MAIN = "main";
@@ -180,7 +180,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
     @NotNull
     public CheckRecipeResult checkProcessing() {
         List<ItemStack> tInput = getAllStoredInputs();
-        ResolvedRecipe smelting = SPEC.resolve(Smelting.RECIPE, getCurrentProcessingSpecInputs());
+        ResolvedRecipe smelting = SPEC.resolve(Smelting.RECIPE, getProcessingInputs());
         long recipeEUt = smelting.recipe().mEUt;
         if (smelting.power()
             .voltage() < recipeEUt) {
@@ -306,7 +306,7 @@ public class MTEMultiFurnace extends MTEAbstractMultiFurnace<MTEMultiFurnace>
         if (getCoilLevel() == HeatingCoilLevel.None) {
             errors.add(StructureErrorRegistry.COIL_LEVEL_NOT_ENOUGH);
         } else {
-            this.mLevel = SPEC.getMaxParallel(getCurrentProcessingSpecInputs());
+            this.mLevel = SPEC.getMaxParallel(getProcessingInputs());
         }
         checkHasEnergyHatch(errors);
         checkHasMaintenanceHatch(errors);

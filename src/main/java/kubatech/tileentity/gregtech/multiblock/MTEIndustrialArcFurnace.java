@@ -1027,7 +1027,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     }
 
     @Override
-    protected void prepareForInspection() {
+    protected void prepareForTesting() {
         // SPEC checks ignition with requiresToStart(), so skip the ignition phase
         phase = ArcFurnacePhase.Processing;
     }

@@ -1170,7 +1170,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         setProcessingLogicPower(logic);
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
-            logic.setSpec(spec, getCurrentProcessingSpecInputs())
+            logic.setSpec(spec, getProcessingInputs())
                 .setParallelLimit(getPowerPanelParallelLimit());
         }
     }
@@ -2228,7 +2228,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /** @throws IllegalStateException if {@link #getSpecModifiers} returns other kinds than the spec reads */
     @Nonnull
-    public ProcessingInputs getCurrentProcessingSpecInputs() {
+    public ProcessingInputs getProcessingInputs() {
         List<Modifier> modifiers = getSpecModifiers();
         ProcessingSpec spec = getProcessingSpec();
         if (spec != null) {
@@ -2278,23 +2278,24 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The run of {@code recipe} through the machine's processing logic at {@code inputs}. Call this on a
-     * {@link #newMetaEntity} copy. The method sets up the processing logic with the spec.
+     * ONLY FOR THE CONFORMANCE GAME TEST. The run of {@code recipe} through the machine's processing logic at
+     * {@code inputs}. Call this on a {@link #newMetaEntity} copy. The method sets up the processing logic with the
+     * spec.
      *
      * @return null if the machine doesn't have a spec or processing logic
      */
     @Nullable
-    public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+    public final ProcessingRun calculateForTesting(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         ProcessingSpec spec = getProcessingSpec();
         if (processingLogic == null || spec == null) return null;
-        prepareForInspection();
+        prepareForTesting();
         setupProcessingLogic(processingLogic);
         processingLogic.setSpec(spec, inputs);
-        return processingLogic.inspect(recipe);
+        return processingLogic.inspectForTesting(recipe);
     }
 
-    /** Moves the machine past any start-up phase. */
-    protected void prepareForInspection() {}
+    /** ONLY FOR THE CONFORMANCE GAME TEST. Moves the machine past any start-up phase. */
+    protected void prepareForTesting() {}
 
     /** One {@link Modifier} per kind the machine's spec reads. */
     @Nonnull
@@ -3414,7 +3415,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      */
     public int getMaxParallelRecipes() {
         ProcessingSpec spec = getProcessingSpec();
-        return spec == null ? 1 : spec.getMaxParallel(getCurrentProcessingSpecInputs());
+        return spec == null ? 1 : spec.getMaxParallel(getProcessingInputs());
     }
 
     /**

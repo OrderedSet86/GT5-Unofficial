@@ -81,7 +81,7 @@ public class MTEIndustrialPackager extends MTEExtendedPowerMultiBlockBase<MTEInd
         .speedPerTier(1, 1, ModifierKind.ITEM_PIPE_CASING)
         .euModifier(0.75)
         .build();
-    private static final Modifier.Of<MTEIndustrialPackager, Integer> ITEM_PIPE = Modifier
+    private static final Modifier.Element<MTEIndustrialPackager, Integer> ITEM_PIPE = Modifier
         .itemPipeCasing(MTEIndustrialPackager::getItemPipeTier, MTEIndustrialPackager::setItemPipeTier);
 
     public MTEIndustrialPackager(final int aID, final String aName, final String aNameRegional) {

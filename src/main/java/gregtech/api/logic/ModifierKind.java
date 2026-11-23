@@ -89,15 +89,6 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         .ordered()
         .range(1, GTStructureUtility.ITEM_PIPE_CASING_TIERS)
         .register();
-    /** The tier of {@link GTStructureUtility#pipeCasing}. The lowest pipe casing is 1. */
-    public static final IntKind PIPE_CASING = ofInt("gregtech:pipe_casing").name("GT5U.MBTT.Tiers.FluidPipe")
-        .ordered()
-        .range(1, GTStructureUtility.PIPE_CASING_TIERS)
-        .labels(
-            tier -> GTStructureUtility.pipeCasing((int) tier)
-                .get(1)
-                .getDisplayName())
-        .register();
     /** The count of repeated slices or layers. The range is in each machine's spec. */
     public static final IntKind LENGTH = ofInt("gregtech:length").name("GT5U.MBTT.Tiers.Length")
         .ordered()

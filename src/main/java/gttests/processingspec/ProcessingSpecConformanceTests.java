@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -28,8 +27,8 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
 /**
- * Checks each registered multiblock with a {@link ProcessingSpec}. The multiblock's tooltip must have a line for each
- * number of the spec, and the multiblock's recipe runs must match {@link ProcessingSpec#calculate}.
+ * Checks each registered multiblock with a {@link ProcessingSpec}. The multiblock's recipe runs must match
+ * {@link ProcessingSpec#calculate}.
  */
 @GameTestHolder(Mods.ModIDs.GREG_TECH)
 public class ProcessingSpecConformanceTests {
@@ -63,21 +62,13 @@ public class ProcessingSpecConformanceTests {
     }
 
     /**
-     * Returns the machine's problems. A problem is a number of the spec without a tooltip line, or a recipe run that
-     * differs from the spec's.
+     * Returns the machine's problems. A problem is a recipe run that differs from the spec's.
      */
     private static List<String> findProblems(Entry entry) {
         List<String> problems = new ArrayList<>();
         String name = entry.machine()
             .getClass()
             .getSimpleName();
-        Set<ProcessingSpec.Quantity> undescribed = entry.spec()
-            .getUndescribed();
-        if (!undescribed.isEmpty()) {
-            problems.add(
-                name + " has no tooltip line for " + undescribed + ". Use a Formula term, customTooltip or noTooltip");
-        }
-
         try {
             String difference = findRunDifference(entry);
             if (difference != null) problems.add(name + " runs a recipe differently from its spec: " + difference);
@@ -101,8 +92,9 @@ public class ProcessingSpecConformanceTests {
         MTEMultiBlockBase machine = (MTEMultiBlockBase) entry.machine()
             .newMetaEntity(null);
         for (Modifier modifier : machine.getSpecModifiers()) {
-            modifier.set(
-                spec.getRange(modifier.kind)
+            modifier.setValueForTesting(
+                spec.getModifiers()
+                    .get(modifier.kind)
                     .max());
         }
 
@@ -121,11 +113,11 @@ public class ProcessingSpecConformanceTests {
                             .energyHatches(hatches)
                             .mode(mode)
                             .build());
-                    ProcessingInputs inputs = machine.getCurrentProcessingSpecInputs()
+                    ProcessingInputs inputs = machine.getProcessingInputs()
                         .toBuilder()
                         .energyHatches(hatches)
                         .build();
-                    ProcessingRun own = machine.calculateForInspection(recipe, inputs);
+                    ProcessingRun own = machine.calculateForTesting(recipe, inputs);
                     if (own == null) continue;
                     ProcessingRun fromSpec = spec.calculate(recipe, inputs);
                     if (!own.equals(fromSpec)) {

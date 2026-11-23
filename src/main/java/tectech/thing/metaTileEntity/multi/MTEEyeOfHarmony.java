@@ -1352,7 +1352,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         // Intentional: pity compares the base recipe chance before overflow penalties are applied.
         pityGuaranteed = baseChance == successChance && pityChanceForRecipe >= 1;
 
-        ProcessingInputs inputs = getCurrentProcessingSpecInputs();
+        ProcessingInputs inputs = getProcessingInputs();
         parallelAmount = SPEC.getMaxParallel(inputs);
         ProcessingRun run = SPEC.calculate(TecTech.eyeOfHarmonyRecipeStorage.recipeMapEntry(recipeObject), inputs);
         if (!run.result()
