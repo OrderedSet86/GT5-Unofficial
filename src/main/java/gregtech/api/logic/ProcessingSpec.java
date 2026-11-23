@@ -657,7 +657,7 @@ public final class ProcessingSpec {
         }
 
         private Formula addReadsOf(Formula formula) {
-            reads(formula.reads());
+            reads(formula.modifierKinds());
             return formula;
         }
 
