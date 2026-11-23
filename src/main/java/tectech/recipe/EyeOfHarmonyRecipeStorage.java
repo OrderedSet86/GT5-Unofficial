@@ -7,6 +7,8 @@ import static tectech.recipe.TecTechRecipeMaps.eyeOfHarmonyRecipes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
@@ -25,6 +27,7 @@ import gregtech.api.enums.OrePrefixes;
 import gregtech.api.enums.StoneType;
 import gregtech.api.interfaces.IOreMaterial;
 import gregtech.api.util.GTOreDictUnificator;
+import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.common.ores.BWOreAdapter;
 import gregtech.common.ores.GTPPOreAdapter;
@@ -102,6 +105,13 @@ public class EyeOfHarmonyRecipeStorage {
         }
     };
 
+    private final Map<EyeOfHarmonyRecipe, GTRecipe> recipeMapEntries = new IdentityHashMap<>();
+
+    /** The recipe map's entry for {@code recipe}. The entry's special item is {@code recipe}. */
+    public GTRecipe recipeMapEntry(final EyeOfHarmonyRecipe recipe) {
+        return recipeMapEntries.get(recipe);
+    }
+
     public EyeOfHarmonyRecipe recipeLookUp(final ItemStack aStack) {
         String dimAbbreviation = blocksMapInverted.get(Block.getBlockFromItem(aStack.getItem()));
         return recipeHashMap.get(dimAbbreviation);
@@ -136,7 +146,8 @@ public class EyeOfHarmonyRecipeStorage {
                 .duration(recipe.getRecipeTimeInTicks())
                 .eut(0)
                 .special(recipe)
-                .addTo(eyeOfHarmonyRecipes);
+                .addTo(eyeOfHarmonyRecipes)
+                .forEach(entry -> recipeMapEntries.put(recipe, entry));
         }
     }
 

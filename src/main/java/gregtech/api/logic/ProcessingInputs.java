@@ -57,9 +57,15 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return (int) rawValue(kind);
     }
 
+    /** @throws IllegalArgumentException if the inputs don't have a value for the kind */
+    public long value(@Nonnull ModifierKind.LongKind kind) {
+        return rawValue(kind);
+    }
+
     public long value(@Nonnull ModifierKind kind) {
         return switch (kind) {
             case ModifierKind.IntKind tier -> value(tier);
+            case ModifierKind.LongKind amount -> value(amount);
         };
     }
 
@@ -147,6 +153,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         public Builder value(@Nonnull ModifierKind kind, long value) {
             return switch (kind) {
                 case ModifierKind.IntKind tier -> value(tier, Math.toIntExact(value));
+                case ModifierKind.LongKind amount -> value(amount, value);
             };
         }
 
@@ -160,6 +167,11 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
                     "the voltage tier is read from the energy hatches. Add them with energyHatch()");
             }
             this.values.put(kind, (long) value);
+            return this;
+        }
+
+        public Builder value(@Nonnull ModifierKind.LongKind kind, long value) {
+            this.values.put(kind, value);
             return this;
         }
 

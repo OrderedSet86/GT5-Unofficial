@@ -614,7 +614,8 @@ public class ProcessingLogic {
                 null),
             CheckRecipeResultRegistry.SUCCESSFUL,
             CheckRecipeResultRegistry.SUCCESSFUL,
-            ProcessingRun.RunEu.NONE);
+            ProcessingRun.RunEu.NONE,
+            ProcessingRun.Output.CERTAIN);
     }
 
     /**

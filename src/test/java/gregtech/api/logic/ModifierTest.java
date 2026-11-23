@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -80,17 +81,40 @@ class ModifierTest {
         assertEquals("LuV", ModifierKind.VOLTAGE.label(VoltageIndex.LuV));
     }
 
+    @Test
+    void aValueHasItsKindsType() {
+        ModifierKind.LongKind stored = ModifierKind.ofLong("test:stored_fluid")
+            .source(ModifierKind.Source.RUNTIME)
+            .register();
+        long[] litres = { 0 };
+        Modifier modifier = Modifier.of(stored, () -> litres[0], value -> litres[0] = value);
+
+        modifier.setValueForTesting(10_000_000_000L);
+        ProcessingInputs inputs = ProcessingInputs.builder()
+            .modifiers(List.of(modifier))
+            .value(ModifierKind.COIL, 3)
+            .build();
+        long amount = inputs.value(stored);
+        int coil = inputs.value(ModifierKind.COIL);
+
+        assertEquals(10_000_000_000L, amount);
+        assertEquals(3, coil);
+    }
+
     /**
      * The switch doesn't have a default arm. After a new {@link ModifierKind} is added, this test compiles only when
      * the switch has a case for the new kind.
      */
     @Test
     void aPlannerHandlesEachKindOfValue() {
-        ModifierKind kind = ModifierKind.COIL;
-        String control = switch (kind) {
-            case ModifierKind.IntKind tier -> "slider";
-        };
-        assertEquals("slider", control);
+        for (ModifierKind kind : List.of(ModifierKind.COIL, ModifierKind.ofLong("test:litres")
+            .register())) {
+            String control = switch (kind) {
+                case ModifierKind.IntKind tier -> "slider";
+                case ModifierKind.LongKind amount -> "number field";
+            };
+            assertEquals(kind == ModifierKind.COIL ? "slider" : "number field", control);
+        }
     }
 
     @Test
