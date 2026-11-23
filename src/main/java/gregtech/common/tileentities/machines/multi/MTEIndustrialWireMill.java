@@ -58,7 +58,7 @@ public class MTEIndustrialWireMill extends MTEExtendedPowerMultiBlockBase<MTEInd
         .speedPerTier(1, 0.5, ModifierKind.ITEM_PIPE_CASING)
         .euModifier(0.75)
         .build();
-    private static final Modifier.Of<MTEIndustrialWireMill, Integer> ITEM_PIPE = Modifier
+    private static final Modifier.Element<MTEIndustrialWireMill, Integer> ITEM_PIPE = Modifier
         .itemPipeCasing(MTEIndustrialWireMill::getItemPipeTier, MTEIndustrialWireMill::setItemPipeTier);
 
     public MTEIndustrialWireMill(final int aID, final String aName, final String aNameRegional) {

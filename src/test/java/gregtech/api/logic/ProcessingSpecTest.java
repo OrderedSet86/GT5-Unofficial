@@ -1,6 +1,7 @@
 package gregtech.api.logic;
 
 import static gregtech.api.logic.TestRecipes.recipe;
+import static gregtech.api.logic.TestRecipes.regularHatches;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,7 +10,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -65,16 +65,27 @@ class ProcessingSpecTest {
 
     private static ProcessingInputs inputs(int voltageTier, int coilTier) {
         return ProcessingInputs.builder()
-            .energyHatches(voltageTier, 1)
+            .energyHatches(regularHatches(voltageTier, 1))
             .value(ModifierKind.COIL, coilTier)
             .build();
     }
 
     private static ProcessingInputs inMode(int mode) {
         return ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LV, 1)
+            .energyHatches(regularHatches(VoltageIndex.LV, 1))
             .mode(mode)
             .build();
+    }
+
+    private static double durationMultiplier(ProcessingSpec spec, ProcessingInputs inputs) {
+        return spec.resolve(recipe(30, 100, 0), inputs)
+            .durationMultiplier();
+    }
+
+    private static ProcessingSpec.OverclockRule overclockRule(ProcessingSpec spec, ProcessingInputs inputs) {
+        return spec.resolve(recipe(30, 100, 0), inputs)
+            .overclock()
+            .rule();
     }
 
     private static List<String> lines(ProcessingSpec spec) {
@@ -86,7 +97,7 @@ class ProcessingSpecTest {
     @Test
     void inputsNameEveryValue() {
         ProcessingInputs luv = ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LuV, 1)
+            .energyHatches(regularHatches(VoltageIndex.LuV, 1))
             .value(SOLENOID, VoltageIndex.LuV)
             .build();
 
@@ -120,7 +131,7 @@ class ProcessingSpecTest {
             .build();
 
         // Cupronickel is coil tier 0 and tier 1 on the tooltip
-        assertEquals(1 / 0.5, spec.getDurationMultiplier(inputs(VoltageIndex.LV, 0)));
+        assertEquals(1 / 0.5, durationMultiplier(spec, inputs(VoltageIndex.LV, 0)));
     }
 
     @Test
@@ -135,8 +146,8 @@ class ProcessingSpecTest {
             .value(ModifierKind.ITEM_PIPE_CASING, 1)
             .build();
 
-        assertEquals(1 / 2.0, withBase.getDurationMultiplier(lowestCasing));
-        assertEquals(1 / 0.5, withoutBase.getDurationMultiplier(lowestCasing));
+        assertEquals(1 / 2.0, durationMultiplier(withBase, lowestCasing));
+        assertEquals(1 / 0.5, durationMultiplier(withoutBase, lowestCasing));
         assertEquals(1, lines(withBase).size());
         assertEquals(1, lines(withoutBase).size());
     }
@@ -147,7 +158,7 @@ class ProcessingSpecTest {
             .speed(2.5)
             .build();
 
-        assertEquals(0.4, spec.getDurationMultiplier(inputs(VoltageIndex.LV, 0)));
+        assertEquals(0.4, durationMultiplier(spec, inputs(VoltageIndex.LV, 0)));
     }
 
     @Test
@@ -202,12 +213,12 @@ class ProcessingSpecTest {
 
         assertEquals(
             4,
-            logic.inspect(recipe(1, 200, 0))
+            logic.inspectForTesting(recipe(1, 200, 0))
                 .parallel());
         logic.setSpec(spec, atMomentum(100));
         assertEquals(
             104,
-            logic.inspect(recipe(1, 200, 0))
+            logic.inspectForTesting(recipe(1, 200, 0))
                 .parallel());
     }
 
@@ -239,7 +250,7 @@ class ProcessingSpecTest {
             .build();
 
         ProcessingInputs best = spec.buildBestInputs()
-            .energyHatches(VoltageIndex.EV, 1)
+            .energyHatches(regularHatches(VoltageIndex.EV, 1))
             .build();
 
         assertEquals(100, best.value(MOMENTUM));
@@ -254,7 +265,7 @@ class ProcessingSpecTest {
             .coilHeatPerVoltageTier(100, VoltageIndex.MV, ProcessingSpec.HeatRule.REQUIRED)
             .build();
         ProcessingInputs mv = spec.buildBestInputs()
-            .energyHatches(VoltageIndex.MV, 1)
+            .energyHatches(regularHatches(VoltageIndex.MV, 1))
             .build();
 
         assertEquals(OptionalInt.of(0), spec.findLowestPassing(ModifierKind.COIL, recipe(120, 100, 1700), mv));
@@ -273,7 +284,7 @@ class ProcessingSpecTest {
             (inputs, recipe) -> inputs.value(WIDE) >= recipe.mSpecialValue);
         ProcessingSpec never = buildCheckCountingSpec(checks, (inputs, recipe) -> false);
         ProcessingInputs inputs = spec.buildBestInputs()
-            .energyHatches(VoltageIndex.LV, 1)
+            .energyHatches(regularHatches(VoltageIndex.LV, 1))
             .build();
 
         assertEquals(OptionalInt.of(1_000_000), spec.findLowestPassing(WIDE, recipe(30, 100, 1_000_000), inputs));
@@ -292,6 +303,7 @@ class ProcessingSpecTest {
                 checks.incrementAndGet();
                 return met.test(inputs, recipe);
             }, (inputs, recipe) -> CheckRecipeResultRegistry.NO_RECIPE)
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
     }
 
@@ -299,27 +311,13 @@ class ProcessingSpecTest {
     void onlyAnOrderedKindHasALowestPassingValue() {
         ProcessingSpec spec = ProcessingSpec.builder()
             .parallel(inputs -> 1, CASING)
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
         ProcessingInputs inputs = spec.buildBestInputs()
-            .energyHatches(VoltageIndex.LV, 1)
+            .energyHatches(regularHatches(VoltageIndex.LV, 1))
             .build();
 
         assertThrows(IllegalArgumentException.class, () -> spec.findLowestPassing(CASING, recipe(30, 100, 0), inputs));
-    }
-
-    @Test
-    void aSpecWithModeTermsVariesByMode() {
-        ProcessingSpec spec = ProcessingSpec.builder()
-            .modes(TOWER_AND_DISTILLERY)
-            .parallel(16)
-            .inMode(DISTILLERY, mode -> mode.parallel(4))
-            .build();
-
-        assertTrue(spec.hasModeVariants());
-        assertFalse(
-            ProcessingSpec.builder()
-                .build()
-                .hasModeVariants());
     }
 
     /** Modelled on the steam multiblocks. */
@@ -329,6 +327,7 @@ class ProcessingSpecTest {
             .speed(inputs -> 1.25)
             .euModifierNotLimitingParallel(inputs -> 2.5)
             .noOverclock()
+            .noTooltip(ProcessingSpec.Quantity.DURATION, ProcessingSpec.Quantity.EU_MODIFIER_NOT_LIMITING_PARALLEL)
             .build()
             .resolve(recipe(16, 200, 0), inputs(VoltageIndex.LV, 0))
             .toCalculator()
@@ -366,10 +365,9 @@ class ProcessingSpecTest {
             .parallelPerTier(4, ModifierKind.VOLTAGE)
             .speed(2)
             .build();
-        ProcessingSpec undescribed = ProcessingSpec.builder()
+        ProcessingSpec.Builder undescribed = ProcessingSpec.builder()
             .parallel(inputs -> 4)
-            .euModifier(inputs -> 0.9)
-            .build();
+            .euModifier(inputs -> 0.9);
         ProcessingSpec overridden = ProcessingSpec.builder()
             .parallel(inputs -> 4)
             .customTooltip(ProcessingSpec.Quantity.PARALLEL, tt -> tt.addInfo("Four at once"))
@@ -377,11 +375,10 @@ class ProcessingSpecTest {
             .noTooltip(ProcessingSpec.Quantity.EU_MODIFIER)
             .build();
 
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), described.getUndescribed());
-        assertEquals(
-            EnumSet.of(ProcessingSpec.Quantity.PARALLEL, ProcessingSpec.Quantity.EU_MODIFIER),
-            undescribed.getUndescribed());
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), overridden.getUndescribed());
+        assertEquals(2, lines(described).size(), "the parallel and the speed");
+        assertTrue(
+            assertThrows(IllegalStateException.class, undescribed::build).getMessage()
+                .contains("[PARALLEL, EU_MODIFIER]"));
         assertEquals(List.of("Four at once"), lines(overridden));
     }
 
@@ -393,6 +390,7 @@ class ProcessingSpecTest {
     void calculateFollowsTheParallelAndOverclockLimits(int solenoid) {
         ProcessingSpec forgeHammer = ProcessingSpec.builder()
             .parallel(inputs -> 6 * inputs.voltageTier() * inputs.value(SOLENOID), SOLENOID)
+            .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .speed(2)
             .euModifier(1)
             .build();
@@ -401,7 +399,7 @@ class ProcessingSpecTest {
         ProcessingRun run = forgeHammer.calculate(
             recipe(16, 56, 0),
             ProcessingInputs.builder()
-                .energyHatches(VoltageIndex.LuV, 1)
+                .energyHatches(regularHatches(VoltageIndex.LuV, 1))
                 .value(SOLENOID, solenoid)
                 .build());
 
@@ -420,7 +418,7 @@ class ProcessingSpecTest {
         ProcessingRun run = spec.calculate(
             recipe(480, 100, 0),
             ProcessingInputs.builder()
-                .energyHatches(VoltageIndex.LuV, 1)
+                .energyHatches(regularHatches(VoltageIndex.LuV, 1))
                 .build());
 
         assertEquals(GTValues.V[VoltageIndex.LuV] / 480, run.parallel());
@@ -439,10 +437,9 @@ class ProcessingSpecTest {
             .build();
 
         assertEquals(4, spec.getMaxParallel(inMode(0)));
-        assertEquals(1, spec.getDurationMultiplier(inMode(0)));
+        assertEquals(1, durationMultiplier(spec, inMode(0)));
         assertEquals(8, spec.getMaxParallel(inMode(1)));
-        assertEquals(0.5, spec.getDurationMultiplier(inMode(1)));
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
+        assertEquals(0.5, durationMultiplier(spec, inMode(1)));
 
         assertEquals(1, lines(spec).size(), "the spec's own line: a mode's lines go in its own section");
         MultiblockTooltipBuilder distillery = new MultiblockTooltipBuilder();
@@ -572,7 +569,7 @@ class ProcessingSpecTest {
             new ProcessingSpec.Power(luv, 4, true),
             spec.getPower(
                 ProcessingInputs.builder()
-                    .energyHatches(VoltageIndex.LuV, 2)
+                    .energyHatches(regularHatches(VoltageIndex.LuV, 2))
                     .build()),
             "with two regular hatches, all four amps are used");
         assertEquals(
@@ -591,6 +588,7 @@ class ProcessingSpecTest {
 
         ProcessingSpec atOneAmp = ProcessingSpec.builder()
             .powerAtOneAmp()
+            .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
         assertEquals(new ProcessingSpec.Power(2 * luv, 1, true), atOneAmp.getPower(oneHatch));
         assertTrue(sets(atOneAmp, ProcessingSpec.Quantity.POWER));
@@ -598,6 +596,7 @@ class ProcessingSpecTest {
         ProcessingSpec fixed = ProcessingSpec.builder()
             .power(inputs -> 32, inputs -> 8)
             .noAmperageOverclock()
+            .noTooltip(ProcessingSpec.Quantity.POWER)
             .build();
         assertEquals(new ProcessingSpec.Power(32, 8, false), fixed.getPower(oneHatch));
     }
@@ -619,7 +618,7 @@ class ProcessingSpecTest {
     @Test
     void theVoltageTierReadsTheSummedHatchVoltage() {
         ProcessingInputs twoLuv = ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LuV, 2)
+            .energyHatches(regularHatches(VoltageIndex.LuV, 2))
             .build();
 
         assertEquals(VoltageIndex.ZPM, twoLuv.voltageTier());
@@ -628,8 +627,8 @@ class ProcessingSpecTest {
     @Test
     void theAverageVoltageIsTheMeanOfTheHatches() {
         ProcessingInputs mixed = ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LuV, 1)
-            .energyHatches(VoltageIndex.IV, 1)
+            .energyHatches(regularHatches(VoltageIndex.LuV, 1))
+            .energyHatches(regularHatches(VoltageIndex.IV, 1))
             .build();
 
         assertEquals((GTValues.V[VoltageIndex.LuV] + GTValues.V[VoltageIndex.IV]) / 2, mixed.averageVoltage());
@@ -638,7 +637,7 @@ class ProcessingSpecTest {
     @Test
     void theTotalEuCountsEveryAmpOfEveryHatch() {
         ProcessingInputs twoLuv = ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.LuV, 2)
+            .energyHatches(regularHatches(VoltageIndex.LuV, 2))
             .build();
 
         // 2 A for each regular hatch
@@ -711,18 +710,16 @@ class ProcessingSpecTest {
 
     @Test
     void aTermThatDiffersByModeNeedsATooltipToo() {
-        ProcessingSpec undescribed = ProcessingSpec.builder()
+        ProcessingSpec.Builder undescribed = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
-            .inMode(DISTILLERY, mode -> mode.parallel(inputs -> 3))
-            .build();
+            .inMode(DISTILLERY, mode -> mode.parallel(inputs -> 3));
         ProcessingSpec coveredForEveryMode = ProcessingSpec.builder()
             .modes(TOWER_AND_DISTILLERY)
             .inMode(DISTILLERY, mode -> mode.parallel(inputs -> 3))
             .noTooltip(ProcessingSpec.Quantity.PARALLEL)
             .build();
 
-        assertEquals(EnumSet.of(ProcessingSpec.Quantity.PARALLEL), undescribed.getUndescribed());
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), coveredForEveryMode.getUndescribed());
+        assertThrows(IllegalStateException.class, undescribed::build);
         assertThrows(
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
@@ -741,7 +738,6 @@ class ProcessingSpecTest {
             .maxTierSkips(0)
             .build();
 
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
         assertTrue(lines(spec).isEmpty());
     }
 
@@ -756,13 +752,9 @@ class ProcessingSpecTest {
                 ProcessingSpec.HeatRule.DISCOUNT,
                 ProcessingSpec.HeatRule.REQUIRED)
             .build();
-        ProcessingSpec.Heat heat = spec.getHeat()
-            .get();
-
         assertEquals(
             200,
-            heat.getMachineHeat(inputs(VoltageIndex.EV, 3)) - heat.getMachineHeat(inputs(VoltageIndex.MV, 3)));
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
+            spec.getMachineHeat(inputs(VoltageIndex.EV, 3)) - spec.getMachineHeat(inputs(VoltageIndex.MV, 3)));
         assertEquals(4, lines(spec).size(), "the coils, the voltage bonus, the discount and the overclock");
     }
 
@@ -773,7 +765,6 @@ class ProcessingSpecTest {
             .recipeOverride(4, 128)
             .build();
 
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
         assertEquals(1, lines(spec).size());
     }
 
@@ -787,9 +778,8 @@ class ProcessingSpecTest {
 
         assertEquals(16, spec.getMaxParallel(atMomentum(0)));
         assertEquals(32, spec.getMaxParallel(atMomentum(100)));
-        assertEquals(0.5, spec.getDurationMultiplier(atMomentum(0)));
-        assertEquals(1 / 3.0, spec.getDurationMultiplier(atMomentum(100)), 1e-12);
-        assertEquals(EnumSet.noneOf(ProcessingSpec.Quantity.class), spec.getUndescribed());
+        assertEquals(0.5, durationMultiplier(spec, atMomentum(0)));
+        assertEquals(1 / 3.0, durationMultiplier(spec, atMomentum(100)), 1e-12);
     }
 
     @Test
@@ -810,12 +800,15 @@ class ProcessingSpecTest {
             IllegalArgumentException.class,
             () -> ProcessingSpec.builder()
                 .parallelPerVoltageTierRising(4, 8, ModifierKind.LENGTH));
-        assertThrows(IllegalArgumentException.class, () -> new Formula.Rising(2, 3, ModifierKind.LENGTH));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ProcessingSpec.builder()
+                .speedRising(2, 3, ModifierKind.LENGTH));
     }
 
     private static ProcessingInputs atMomentum(int momentum) {
         return ProcessingInputs.builder()
-            .energyHatches(VoltageIndex.EV, 1)
+            .energyHatches(regularHatches(VoltageIndex.EV, 1))
             .value(MOMENTUM, momentum)
             .build();
     }
