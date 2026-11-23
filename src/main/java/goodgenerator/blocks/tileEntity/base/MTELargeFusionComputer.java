@@ -512,7 +512,7 @@ public abstract class MTELargeFusionComputer extends TTMultiblockBase
         return processingSpec;
     }
 
-    /** The spec of this MK, from the MK's tier, parallel and start-up capacity. */
+    /** Builds the spec of this MK from the MK's tier, parallel and start-up capacity. */
     private ProcessingSpec createProcessingSpec() {
         FusionOverclockDescriber describer = (FusionOverclockDescriber) overclockDescriber;
         int maxParallel = getMaxPara();

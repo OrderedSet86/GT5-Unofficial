@@ -3,11 +3,9 @@ package gregtech.api.logic;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
-import java.util.function.IntFunction;
 import java.util.function.IntSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
-import java.util.function.ToIntFunction;
 
 import javax.annotation.Nonnull;
 
@@ -19,8 +17,8 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.common.misc.GTStructureChannels;
 
 /**
- * The getter and setter of one machine's value for a {@link ModifierKind}. An {@link Of} constant is also the structure
- * element that writes the value: {@code .addElement('C', COIL)}.
+ * A {@code Modifier} reads and writes the value of one machine for a {@link ModifierKind}. An {@link Of} constant is
+ * also the structure element that writes the value: {@code .addElement('C', COIL)}.
  */
 public final class Modifier {
 
@@ -52,7 +50,7 @@ public final class Modifier {
         return getter.getAsLong();
     }
 
-    /** Sets the value without a structure check. Machine code must not call this. */
+    /** Sets the value without a structure check. Machine code must not call this method. */
     public void set(long value) {
         setter.accept(value);
     }
@@ -61,12 +59,10 @@ public final class Modifier {
     @Nonnull
     public static <T extends MTEMultiBlockBase> Of<T, HeatingCoilLevel> coil(
         @Nonnull Function<T, HeatingCoilLevel> getter, @Nonnull BiConsumer<T, HeatingCoilLevel> setter) {
-        return new Of<>(
-            ModifierKind.COIL,
-            getter,
-            setter,
-            coil -> (coil == null ? HeatingCoilLevel.None : coil).getTier(),
-            tier -> HeatingCoilLevel.getFromTier((byte) tier),
+        return new Of<>(machine -> Modifier.of(ModifierKind.COIL, () -> {
+            HeatingCoilLevel coil = getter.apply(machine);
+            return (coil == null ? HeatingCoilLevel.None : coil).getTier();
+        }, tier -> setter.accept(machine, HeatingCoilLevel.getFromTier((byte) tier))),
             GTStructureChannels.HEATING_COIL
                 .use(GTStructureUtility.activeCoils(GTStructureUtility.ofCoil(setter, getter))));
     }
@@ -77,40 +73,25 @@ public final class Modifier {
         @Nonnull BiConsumer<T, Integer> setter) {
         int absent = (int) ModifierKind.ITEM_PIPE_CASING.requireRange()
             .min() - 1;
-        return new Of<>(
-            ModifierKind.ITEM_PIPE_CASING,
-            getter,
-            setter,
-            tier -> tier == null ? absent : tier,
-            tier -> tier,
-            GTStructureUtility.chainItemPipeCasings(-1, setter, getter));
+        return new Of<>(machine -> Modifier.of(ModifierKind.ITEM_PIPE_CASING, () -> {
+            Integer tier = getter.apply(machine);
+            return tier == null ? absent : tier;
+        }, tier -> setter.accept(machine, tier)), GTStructureUtility.chainItemPipeCasings(-1, setter, getter));
     }
 
     /** A structure element for one kind and machine class. {@link #of} returns the {@code Modifier} of one machine. */
     public static final class Of<T, V> extends GTStructureUtility.ProxyStructureElement<T, IStructureElement<T>> {
 
-        private final ModifierKind.IntKind kind;
-        private final Function<T, V> getter;
-        private final BiConsumer<T, V> setter;
-        private final ToIntFunction<V> toTier;
-        private final IntFunction<V> fromTier;
+        private final Function<T, Modifier> modifierOf;
 
-        private Of(ModifierKind.IntKind kind, Function<T, V> getter, BiConsumer<T, V> setter, ToIntFunction<V> toTier,
-            IntFunction<V> fromTier, IStructureElement<T> element) {
+        private Of(Function<T, Modifier> modifierOf, IStructureElement<T> element) {
             super(element);
-            this.kind = kind;
-            this.getter = getter;
-            this.setter = setter;
-            this.toTier = toTier;
-            this.fromTier = fromTier;
+            this.modifierOf = modifierOf;
         }
 
         @Nonnull
         public Modifier of(@Nonnull T machine) {
-            return Modifier.of(
-                kind,
-                () -> toTier.applyAsInt(getter.apply(machine)),
-                tier -> setter.accept(machine, fromTier.apply(tier)));
+            return modifierOf.apply(machine);
         }
     }
 }

@@ -19,8 +19,8 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.tooltip.TooltipHelper;
 
 /**
- * A value a {@link ProcessingSpec} reads, such as a coil tier, an item count or momentum. Shared kinds are the
- * constants here. A kind only one machine has is registered in that machine's class.
+ * A {@code ModifierKind} is a value that a {@link ProcessingSpec} reads, such as a coil tier, an item count or
+ * momentum. Shared kinds are the constants here. A kind only one machine has is registered in that machine's class.
  */
 public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierKind.LongKind {
 
@@ -40,7 +40,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
             super(builder);
         }
 
-        /** The tier that per-tier terms and their tooltips use: {@code value} plus the kind's tier offset. */
+        /** Returns {@code value} plus the kind's tier offset. Per-tier terms and their tooltips use this tier. */
         public int countedTier(int value) {
             return value + super.tierOffset;
         }
@@ -75,7 +75,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         .ordered()
         .labels(tier -> GTValues.VN[(int) tier])
         .register();
-    /** The heating coil tier: 0 for Cupronickel. */
+    /** The heating coil tier. Cupronickel is 0. */
     public static final IntKind COIL = ofInt("gregtech:coil").name("GT5U.MBTT.Tiers.Coil")
         .ordered()
         .range(0, HeatingCoilLevel.getMaxTier())
@@ -89,7 +89,7 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         .ordered()
         .range(1, GTStructureUtility.ITEM_PIPE_CASING_TIERS)
         .register();
-    /** {@link GTStructureUtility#pipeCasing}: 1 for the lowest pipe casing. */
+    /** The tier of {@link GTStructureUtility#pipeCasing}. The lowest pipe casing is 1. */
     public static final IntKind PIPE_CASING = ofInt("gregtech:pipe_casing").name("GT5U.MBTT.Tiers.FluidPipe")
         .ordered()
         .range(1, GTStructureUtility.PIPE_CASING_TIERS)
@@ -128,8 +128,8 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
     }
 
     /**
-     * The values every machine takes for this kind, or null for a kind ranged per machine. The range of a kind ranged
-     * per machine is set in each machine's spec, with {@link ProcessingSpec.Builder#range}.
+     * The values every machine takes for this kind, or null for a kind ranged per machine.
+     * {@link ProcessingSpec.Builder#range} sets the range of a kind ranged per machine in each machine's spec.
      */
     @Nullable
     public Range getRange() {
@@ -142,18 +142,18 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
         return range;
     }
 
-    @Nonnull
-    public String getName() {
-        return StatCollector.translateToLocal(nameKey);
-    }
-
     /** In the tooltip tier colour. */
     @Nonnull
     public String getTierText() {
         return TooltipHelper.tierText(getName());
     }
 
-    /** Such as "LuV", or the number where the kind has no labels. */
+    @Nonnull
+    public String getName() {
+        return StatCollector.translateToLocal(nameKey);
+    }
+
+    /** Returns the label of {@code value}, such as "LuV", or the number when the kind doesn't have labels. */
     @Nonnull
     public String label(long value) {
         return labels == null ? String.valueOf(value) : StatCollector.translateToLocal(labels.apply(value));
@@ -222,23 +222,23 @@ public abstract sealed class ModifierKind permits ModifierKind.IntKind,ModifierK
             return this;
         }
 
-        /** Added to a value in per-tier terms: 1 for coils, whose tier 0 is Cupronickel. */
+        /** Per-tier terms add this offset to a value. The coil offset is 1, and coil tier 0 is Cupronickel. */
         private Builder<K> tierOffset(int tierOffset) {
             this.tierOffset = tierOffset;
             return this;
         }
 
-        public Builder<K> labels(@Nonnull LongFunction<String> labels) {
-            this.labels = labels;
-            return this;
-        }
-
-        /** Names or translation keys, from {@code first} up. */
+        /** {@code labels} are names or translation keys for the values from {@code first} up. */
         public Builder<K> labels(long first, @Nonnull String... labels) {
             return labels(value -> {
                 long index = value - first;
                 return index >= 0 && index < labels.length ? labels[(int) index] : String.valueOf(value);
             });
+        }
+
+        public Builder<K> labels(@Nonnull LongFunction<String> labels) {
+            this.labels = labels;
+            return this;
         }
 
         /** @throws IllegalStateException if a kind with this id is registered already */

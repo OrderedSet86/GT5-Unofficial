@@ -55,9 +55,8 @@ public abstract class OverclockDescriber {
     public abstract OverclockCalculator createCalculator(OverclockCalculator template, GTRecipe recipe);
 
     /**
-     * A calculator for the recipe on this machine, with the settings the machine and NEI use, before
-     * {@link OverclockCalculator#calculate()}. Planners, such as factory solvers and GuideNH, call this method to get
-     * the machine's overclock numbers without reflection.
+     * Returns a calculator for the recipe on this machine. {@link OverclockCalculator#calculate()} hasn't run on the
+     * calculator yet. The calculator has the settings that the machine and NEI use.
      */
     public final OverclockCalculator createCalculator(GTRecipe recipe) {
         return createCalculator(

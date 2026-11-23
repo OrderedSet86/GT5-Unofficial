@@ -28,15 +28,18 @@ import gregtech.api.recipe.RecipeMap;
 import gregtech.api.util.GTRecipe;
 
 /**
- * Checks every registered multiblock with a {@link ProcessingSpec}: the multiblock's tooltip has a line for each number
- * of the spec, and the multiblock's recipe runs match {@link ProcessingSpec#calculate}.
+ * Checks each registered multiblock with a {@link ProcessingSpec}. The multiblock's tooltip must have a line for each
+ * number of the spec, and the multiblock's recipe runs must match {@link ProcessingSpec#calculate}.
  */
 @GameTestHolder(Mods.ModIDs.GREG_TECH)
 public class ProcessingSpecConformanceTests {
 
     private static final int SAMPLE_RECIPES = 8;
 
-    /** @param machine The prototype, for its name, modes and recipe maps. Do not change the prototype. */
+    /**
+     * @param machine The prototype. The test reads the name, modes and recipe maps of the prototype. Don't change the
+     *                prototype.
+     */
     private record Entry(@Nonnull MTEMultiBlockBase machine, @Nonnull ProcessingSpec spec) {}
 
     @GameTest(batch = "gt5.spec.checks")
@@ -60,7 +63,8 @@ public class ProcessingSpecConformanceTests {
     }
 
     /**
-     * The machine's problems: a number of the spec with no tooltip line, and a recipe run that differs from the spec's.
+     * Returns the machine's problems. A problem is a number of the spec without a tooltip line, or a recipe run that
+     * differs from the spec's.
      */
     private static List<String> findProblems(Entry entry) {
         List<String> problems = new ArrayList<>();
@@ -74,11 +78,12 @@ public class ProcessingSpecConformanceTests {
                 name + " has no tooltip line for " + undescribed + ". Use a Formula term, customTooltip or noTooltip");
         }
 
-        // a machine that throws is one problem, and the remaining machines are still checked
         try {
             String difference = findRunDifference(entry);
             if (difference != null) problems.add(name + " runs a recipe differently from its spec: " + difference);
-        } catch (RuntimeException exception) { // noqa: NAR142
+        } catch (RuntimeException exception) {
+            // GT machine code throws undeclared unchecked exceptions. Record the exception as one problem of this
+            // machine
             problems.add(name + " cannot be inspected without a world: " + exception);
         }
         return problems;
@@ -86,8 +91,9 @@ public class ProcessingSpecConformanceTests {
 
     /**
      * The first difference between the machine's run and the spec's, or null. The machine is a copy with every modifier
-     * at the top of the modifier's range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn},
-     * over sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
+     * at the top of the modifier's range. The test runs the copy over sampled recipes and energy hatches in every mode
+     * outside {@link ProcessingSpec.Builder#notCalculatedIn}. For a machine without processing logic, the test only
+     * checks that the spec evaluates.
      */
     @Nullable
     private static String findRunDifference(Entry entry) {

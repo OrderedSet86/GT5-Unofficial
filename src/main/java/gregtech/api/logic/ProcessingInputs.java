@@ -12,10 +12,11 @@ import gregtech.api.enums.GTValues;
 import gregtech.api.util.GTUtility;
 
 /**
- * What a {@link ProcessingSpec} reads: the energy hatches, the machine mode and a value per {@link ModifierKind}.
+ * {@code ProcessingInputs} has what a {@link ProcessingSpec} reads. The inputs are the energy hatches, the machine mode
+ * and a value per {@link ModifierKind}.
  *
- * @param energyHatches What the machine draws from, including hatches it cannot reach
- *                      ({@link EnergyHatch#disconnected})
+ * @param energyHatches The energy hatches of the machine. The list includes a hatch the machine can't reach ({@link
+ *                      EnergyHatch#disconnected})
  */
 public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mode,
     @Nonnull Map<ModifierKind, Long> values) {
@@ -33,7 +34,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
             return new EnergyHatch(0, 0, exotic);
         }
 
-        /** Supplies 2 A. */
+        /** A regular hatch has 2 A. */
         @Nonnull
         public static EnergyHatch regular(int tier) {
             return new EnergyHatch(GTValues.V[tier], 2, false);
@@ -49,7 +50,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
     /**
      * For {@link ModifierKind#VOLTAGE}, the value is {@link #voltageTier}.
      *
-     * @throws IllegalArgumentException if no value was given for the kind
+     * @throws IllegalArgumentException if the inputs don't have a value for the kind
      */
     public int value(@Nonnull ModifierKind.IntKind kind) {
         if (kind == ModifierKind.VOLTAGE) return voltageTier();
@@ -78,7 +79,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return value;
     }
 
-    /** The tier of {@link #maxInputVoltage()}. */
     public int voltageTier() {
         return GTUtility.getTier(maxInputVoltage());
     }
@@ -134,14 +134,14 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
 
         private Builder() {}
 
-        public Builder energyHatch(@Nonnull EnergyHatch hatch) {
-            this.energyHatches.add(hatch);
-            return this;
-        }
-
         /** {@code count} regular hatches. */
         public Builder energyHatches(int tier, int count) {
             for (int i = 0; i < count; i++) energyHatch(EnergyHatch.regular(tier));
+            return this;
+        }
+
+        public Builder energyHatch(@Nonnull EnergyHatch hatch) {
+            this.energyHatches.add(hatch);
             return this;
         }
 
@@ -153,6 +153,14 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         public Builder mode(int mode) {
             this.mode = mode;
             return this;
+        }
+
+        /** For a value taken from a {@link ModifierKind.Range}, whose bounds are longs. */
+        public Builder value(@Nonnull ModifierKind kind, long value) {
+            return switch (kind) {
+                case ModifierKind.IntKind tier -> value(tier, Math.toIntExact(value));
+                case ModifierKind.LongKind amount -> value(amount, value);
+            };
         }
 
         /**
@@ -171,14 +179,6 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         public Builder value(@Nonnull ModifierKind.LongKind kind, long value) {
             this.values.put(kind, value);
             return this;
-        }
-
-        /** For a value taken from a {@link ModifierKind.Range}, whose bounds are longs. */
-        public Builder value(@Nonnull ModifierKind kind, long value) {
-            return switch (kind) {
-                case ModifierKind.IntKind tier -> value(tier, Math.toIntExact(value));
-                case ModifierKind.LongKind amount -> value(amount, value);
-            };
         }
 
         public Builder modifiers(@Nonnull Iterable<Modifier> modifiers) {

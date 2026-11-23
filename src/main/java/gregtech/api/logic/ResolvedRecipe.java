@@ -13,17 +13,18 @@ import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
 
 /**
- * A {@link ProcessingSpec}'s numbers for one recipe at one set of inputs, before overclocks.
+ * A {@code ResolvedRecipe} has a {@link ProcessingSpec}'s numbers for one recipe at one set of inputs. The numbers are
+ * before overclocks.
  * <p>
  * A planner overriding a single overclock setting passes a changed calculator:
  * {@code resolved.calculate(resolved.toCalculator().setMaxOverclocks(3))}.
  *
- * @param recipe       The recipe the machine runs: a copy at the spec's fixed cost or at a multiplied EU/t, else the
- *                     recipe itself
+ * @param recipe       The recipe the machine runs. When the spec has a fixed cost or a multiplied EU/t, the recipe is a
+ *                     copy at that cost
  * @param duration     In ticks before overclocks
  * @param check        The first requirement the recipe fails, else success
- * @param checkToStart The first requirement to start from idle that the recipe fails, else success.
- *                     {@link #calculate} checks both this and {@code check}.
+ * @param checkToStart The first requirement to start from idle that the recipe fails, else success. {@link #calculate}
+ *                     checks both this and {@code check}.
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,
@@ -58,13 +59,12 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return limit >= maxParallel ? this : withMaxParallel(Math.max(1, limit));
     }
 
-    /** A fresh calculator for this recipe, before {@link OverclockCalculator#calculate()}. */
     @Nonnull
     public OverclockCalculator toCalculator() {
         return toCalculator(recipe.mEUt, duration);
     }
 
-    /** A fresh calculator for another recipe the machine runs, with this recipe's settings. */
+    /** Returns a fresh calculator for another recipe the machine runs. The calculator has this recipe's settings. */
     @Nonnull
     public OverclockCalculator toCalculator(long recipeEuPerTick, int recipeDuration) {
         double euDiscount = euModifier * euModifierNotLimitingParallel;
@@ -115,7 +115,10 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
         return calculate(toCalculator());
     }
 
-    /** The run with unlimited inputs and output space, from a calculator the caller has changed. */
+    /**
+     * Returns the run with unlimited inputs and output space. {@code calculator} is a calculator from
+     * {@link #toCalculator} with changed settings.
+     */
     @Nonnull
     public ProcessingRun calculate(@Nonnull OverclockCalculator calculator) {
         if (!check.wasSuccessful()) return ProcessingRun.failed(check);
@@ -126,8 +129,8 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     }
 
     /**
-     * Unlimited inputs and output space: no void protection, recipe lock, batch or input consumption. Call this after
-     * the machine's settings on the helper.
+     * Sets unlimited inputs and output space on the helper. The helper then skips void protection, the recipe lock,
+     * batch mode and input consumption. Call this after the machine's settings on the helper.
      */
     @Nonnull
     public static ParallelHelper configureForPlanning(@Nonnull ParallelHelper helper) {
@@ -146,10 +149,10 @@ public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull Pr
     }
 
     /**
-     * The run from {@code helper} after build() and {@code calculator} after calculate(): the helper's failure, an
-     * overflow, or else the run.
+     * Returns the run from {@code helper} after build() and {@code calculator} after calculate(). The run is the
+     * helper's failure, an overflow, or else the successful run.
      *
-     * @param ticks Read only once nothing has overflowed
+     * @param ticks Read only when the run didn't overflow
      */
     @Nonnull
     public ProcessingRun toRun(@Nonnull ParallelHelper helper, @Nonnull OverclockCalculator calculator,
