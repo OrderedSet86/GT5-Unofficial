@@ -5,9 +5,12 @@ import static gregtech.api.logic.TestRecipes.regularHatches;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.math.BigInteger;
+
 import org.junit.jupiter.api.Test;
 
 import gregtech.api.enums.VoltageIndex;
+import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.util.GTRecipe;
 import gregtech.api.util.OverclockCalculator;
 import gregtech.api.util.ParallelHelper;
@@ -53,6 +56,14 @@ class ProcessingLogicTest {
             SPEC.calculate(recipe, LUV),
             halved.setSpec(SPEC, LUV)
                 .inspectForTesting(recipe));
+    }
+
+    /** insufficientStartupPower() returns a new result on each call. */
+    @Test
+    void twoFailuresForTheSameStartupCostAreTheSameRun() {
+        assertEquals(
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)),
+            ProcessingRun.failed(CheckRecipeResultRegistry.insufficientStartupPower(BigInteger.TEN)));
     }
 
     @Test
