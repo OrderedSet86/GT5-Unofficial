@@ -7,10 +7,10 @@ import javax.annotation.Nonnull;
 import gregtech.api.recipe.check.CheckRecipeResult;
 
 /**
- * One run of a recipe, from {@link ResolvedRecipe#calculate}.
+ * {@link ResolvedRecipe#calculate} returns a {@code ProcessingRun} for one run of a recipe.
  *
- * @param result    Unsuccessful means every number is 0. {@code getDisplayString()} then returns the reason printed
- *                  in the machine GUI, such as the coil heat the recipe requires
+ * @param result    Unsuccessful means every number is 0. {@code getDisplayString()} then returns the reason printed in
+ *                  the machine GUI, such as the coil heat the recipe requires
  * @param parallel  After the energy limit
  * @param euPerTick For all parallels together
  */
@@ -18,7 +18,7 @@ public record ProcessingRun(@Nonnull CheckRecipeResult result, int parallel, int
     @Nonnull RunEu eu) {
 
     /**
-     * EU that a run takes in one amount, not every tick like {@code euPerTick}.
+     * EU that a run takes in one amount. {@code euPerTick} is the EU per tick.
      *
      * @param startup Taken once when the machine starts from idle
      */

@@ -103,7 +103,7 @@ public abstract class MTESteamMultiBlockBase<T extends MTESteamMultiBlockBase<T>
     /**
      * High Pressure runs twice as fast for twice the steam.
      *
-     * @param tierRecipes The voltage tier of the recipes the machine can run, from {@link #getTierRecipes()}
+     * @param tierRecipes The voltage tier of the recipes the machine can run. Pass {@link #getTierRecipes()}
      */
     @Nonnull
     protected static ProcessingSpec.Builder steamSpec(int tierRecipes) {

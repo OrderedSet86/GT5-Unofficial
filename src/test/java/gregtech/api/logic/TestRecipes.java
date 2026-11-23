@@ -10,7 +10,7 @@ final class TestRecipes {
 
     private TestRecipes() {}
 
-    /** A mock: a GTRecipe cannot be constructed without the game loaded. */
+    /** A mock. A GTRecipe can't be constructed without the game loaded. */
     static GTRecipe recipe(int eut, int duration, int heat) {
         GTRecipe recipe = mock(GTRecipe.class);
         recipe.mEUt = eut;
