@@ -91,8 +91,9 @@ public class ProcessingSpecConformanceTests {
 
     /**
      * The first difference between the machine's run and the spec's, or null. The machine is a copy with every modifier
-     * at the top of the modifier's range, run in every mode outside {@link ProcessingSpec.Builder#notCalculatedIn},
-     * over sampled recipes and energy hatches. Machines without processing logic are only checked to evaluate.
+     * at the top of the modifier's range. The test runs the copy over sampled recipes and energy hatches in every mode
+     * outside {@link ProcessingSpec.Builder#notCalculatedIn}. For a machine without processing logic, the test only
+     * checks that the spec evaluates.
      */
     @Nullable
     private static String findRunDifference(Entry entry) {

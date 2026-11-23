@@ -23,8 +23,8 @@ import gregtech.api.util.ParallelHelper;
  *                     copy at that cost
  * @param duration     In ticks before overclocks
  * @param check        The first requirement the recipe fails, else success
- * @param checkToStart The first requirement to start from idle that the recipe fails, else success.
- *                     {@link #calculate} checks both this and {@code check}.
+ * @param checkToStart The first requirement to start from idle that the recipe fails, else success. {@link #calculate}
+ *                     checks both this and {@code check}.
  */
 public record ResolvedRecipe(@Nonnull GTRecipe recipe, int duration, @Nonnull ProcessingSpec.Power power,
     int maxParallel, double durationMultiplier, double euModifier, double euModifierNotLimitingParallel,

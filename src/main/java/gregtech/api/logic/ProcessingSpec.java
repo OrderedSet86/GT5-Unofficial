@@ -113,7 +113,9 @@ public final class ProcessingSpec {
         DURATION(true),
         EU_MODIFIER(true),
         EU_MODIFIER_NOT_LIMITING_PARALLEL(true),
-        /** Multiplies the recipe's EU/t, before overclocks and before the recipe's voltage check. */
+        /**
+         * Multiplies the recipe's EU/t. The multiplier applies before overclocks and before the recipe's voltage check.
+         */
         RECIPE_EU_MULTIPLIER(true),
         OVERCLOCK(true),
         TIER_SKIPS(false),
@@ -168,7 +170,9 @@ public final class ProcessingSpec {
     private record Described(List<Consumer<MultiblockTooltipBuilder>> lines, boolean complete) {}
 
     private final List<ParallelTerm> parallel;
-    /** The quantities with a single formula. These are the speed, the two EU modifiers and the recipe EU/t multiplier. */
+    /**
+     * The quantities with a single formula. These are the speed, the two EU modifiers and the recipe EU/t multiplier.
+     */
     private final EnumMap<Quantity, Term> scalars;
     @Nullable
     private final OverclockRule overclock;
@@ -332,8 +336,8 @@ public final class ProcessingSpec {
     }
 
     /**
-     * @throws IllegalArgumentException if {@link #canCalculate} is false for the mode, or if the inputs lack a kind
-     *                                  the spec reads
+     * @throws IllegalArgumentException if {@link #canCalculate} is false for the mode, or if the inputs lack a kind the
+     *                                  spec reads
      */
     @Nonnull
     public ResolvedRecipe resolve(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
@@ -349,7 +353,8 @@ public final class ProcessingSpec {
     }
 
     /**
-     * {@link #resolve}, in every mode, including the modes set with {@link Builder#notCalculatedIn}.
+     * Resolves the recipe as {@link #resolve} does. This method also resolves the recipe in the modes set with
+     * {@link Builder#notCalculatedIn}.
      *
      * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
@@ -686,11 +691,6 @@ public final class ProcessingSpec {
 
         private Builder() {}
 
-        /** Adds kinds the spec reads, for terms and requirements without a {@code reads} argument. */
-        public Builder reads(@Nonnull ModifierKind... kinds) {
-            return reads(List.of(kinds));
-        }
-
         /**
          * Reads a kind ranged per machine. The kind's values run from {@code min} to {@code max}.
          *
@@ -770,6 +770,11 @@ public final class ProcessingSpec {
         private Formula addReadsOf(Formula formula) {
             reads(formula.reads());
             return formula;
+        }
+
+        /** Adds kinds the spec reads. Terms and requirements without a {@code reads} argument need this call. */
+        public Builder reads(@Nonnull ModifierKind... kinds) {
+            return reads(List.of(kinds));
         }
 
         private Builder reads(@Nonnull Iterable<ModifierKind> kinds) {

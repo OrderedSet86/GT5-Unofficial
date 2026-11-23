@@ -124,7 +124,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
     private static final int BLAST_MODE_POWER_MULTIPLIER = 16;
     private static final double ARC_SURGE_DAMAGE_THRESHOLD = 1d - (ARC_SURGE_DURABILITY_THRESHOLD_PERCENT / 100d);
     private static final List<ArcFurnaceElectrode> ELECTRODES = List.of(ArcFurnaceElectrode.values());
-    /** Not ordered: no electrode is best at everything. */
+    /** Not ordered. An electrode that is best at one number is worse at another. */
     private static final ModifierKind.IntKind ELECTRODE = ModifierKind.ofInt("kubatech:electrode")
         .name("GT5U.MBTT.Tiers.Electrode")
         .source(ModifierKind.Source.ITEM)
@@ -134,7 +134,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                 : ELECTRODES.get((int) index)
                     .getUnlocalizedName() + ".name")
         .register();
-    /** The Infinity electrode's parallel. The parallel doubles after every run, from 1. */
+    /** The Infinity electrode's parallel. The parallel starts at 1 and doubles after every run. */
     private static final ModifierKind.IntKind INFINITY_PARALLEL = ModifierKind.ofInt("kubatech:infinity_parallel")
         .name("GT5U.MBTT.Tiers.InfinityParallel")
         .source(ModifierKind.Source.RUNTIME)
@@ -174,7 +174,7 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
                 (inputs, recipe) -> (int) GTUtility.log4(inputs.averageVoltage() / Math.max((long) recipe.mEUt, 32)))
             .maxTierSkips(0)
             .inMode(BLAST, mode -> mode.recipeEuMultiplier(BLAST_MODE_POWER_MULTIPLIER))
-            // ore mode smelts ore by ore in runMachine, not as recipes
+            // runMachine() smelts ore mode ore by ore. Ore mode doesn't run recipes
             .notCalculatedIn(ORE)
             .allAmps()
             .unlimitedEnergy(inputs -> getElectrode(inputs) == ArcFurnaceElectrode.InfinityElectrode)
@@ -1038,18 +1038,18 @@ public class MTEIndustrialArcFurnace extends KubaTechGTMultiBlockBase<MTEIndustr
         return index < 0 ? null : ELECTRODES.get(index);
     }
 
-    private static int getElectrodeParallel(ProcessingInputs inputs) {
-        ArcFurnaceElectrode electrode = getElectrode(inputs);
-        if (electrode == null) return 1;
-        return electrode == ArcFurnaceElectrode.InfinityElectrode ? inputs.value(INFINITY_PARALLEL)
-            : electrode.parallelLimit;
-    }
-
     private static long computeIgnitionEuPerTick(ProcessingInputs inputs) {
         ArcFurnaceElectrode electrode = getElectrode(inputs);
         if (electrode == null) return 0;
         long use = (long) electrode.computeStartupEuPerTick(inputs.averageVoltage(), getElectrodeParallel(inputs));
         return Math.min(use, Integer.MAX_VALUE);
+    }
+
+    private static int getElectrodeParallel(ProcessingInputs inputs) {
+        ArcFurnaceElectrode electrode = getElectrode(inputs);
+        if (electrode == null) return 1;
+        return electrode == ArcFurnaceElectrode.InfinityElectrode ? inputs.value(INFINITY_PARALLEL)
+            : electrode.parallelLimit;
     }
 
     enum ArcFurnaceHatches implements IHatchElement<MTEIndustrialArcFurnace> {
