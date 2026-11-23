@@ -64,7 +64,7 @@ public class ProcessingLogic {
     protected ProcessingInputs specInputs;
     /** The power panel's cap on the spec's parallels. */
     protected int parallelLimit = Integer.MAX_VALUE;
-    /** The spec's numbers for the recipe being checked. Null without a spec, or between checks. */
+    /** The spec's numbers for the recipe being checked. Null when the logic doesn't have a spec, and between checks. */
     @Nullable
     private ResolvedRecipe specResolved;
 
@@ -303,8 +303,9 @@ public class ProcessingLogic {
     }
 
     /**
-     * Runs every recipe through the spec at these inputs, in place of the power, parallel, speed, EU and overclock
-     * setters. Call this at every recipe check. The setters, and fields the hooks change, are then ignored.
+     * Runs every recipe through the spec at these inputs. The spec replaces the power, parallel, speed, EU and
+     * overclock setters. Call this at every recipe check. The setters and the fields that the hooks change then don't
+     * change the run.
      */
     public ProcessingLogic setSpec(@Nonnull ProcessingSpec spec, @Nonnull ProcessingInputs inputs) {
         this.spec = spec;
@@ -592,8 +593,8 @@ public class ProcessingLogic {
     }
 
     /**
-     * The numbers the hooks work from: the spec's numbers for the recipe being checked, else the setters' current
-     * values. A hook such as {@link #validateRecipe} may have just changed those values.
+     * Returns the numbers the hooks work from. These are the spec's numbers for the recipe being checked, or else the
+     * setters' current values. A hook such as {@link #validateRecipe} may have just changed those values.
      */
     @Nonnull
     protected final ResolvedRecipe getResolvedRecipe(@Nonnull GTRecipe recipe) {
@@ -641,11 +642,12 @@ public class ProcessingLogic {
     }
 
     /**
-     * The run of {@code found} through the spec and this logic's requirement, parallel, overclock and duration hooks,
-     * with unlimited inputs and output space. This method calls neither {@link #validateRecipe} nor
-     * {@link #applyRecipe}: both may act on the world. With a spec, both can only reject a recipe.
+     * Returns the run of {@code found} through the spec and this logic's requirement, parallel, overclock and duration
+     * hooks. The run has unlimited inputs and output space. This method calls neither {@link #validateRecipe} nor
+     * {@link #applyRecipe}. Both methods may change the world. When the logic has a spec, both methods can only reject
+     * a recipe.
      *
-     * @throws IllegalStateException without {@link #setSpec}
+     * @throws IllegalStateException if {@link #setSpec} wasn't called
      */
     @Nonnull
     public final ProcessingRun inspect(@Nonnull GTRecipe found) {

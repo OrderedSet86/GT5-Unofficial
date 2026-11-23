@@ -83,8 +83,8 @@ class ModifierTest {
     }
 
     /**
-     * No default arm: after a new {@link ModifierKind}, this test compiles only once the switch has a case for the new
-     * kind.
+     * The switch doesn't have a default arm. After a new {@link ModifierKind} is added, this test compiles only when
+     * the switch has a case for the new kind.
      */
     @Test
     void aPlannerHandlesEachKindOfValue() {

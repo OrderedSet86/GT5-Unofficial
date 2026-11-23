@@ -8,7 +8,10 @@ import javax.annotation.Nonnull;
 
 import gregtech.api.util.GTUtility;
 
-/** One number of a {@link ProcessingSpec}, with the kinds the formula reads and a shape for the tooltip line. */
+/**
+ * A {@code Formula} computes one number of a {@link ProcessingSpec}. {@link #reads} returns the kinds the formula
+ * reads, and each record type has one shape of tooltip line.
+ */
 public sealed interface Formula {
 
     double apply(@Nonnull ProcessingInputs inputs);
@@ -136,7 +139,7 @@ public sealed interface Formula {
     }
 
     /**
-     * Plain code, with no shape for a tooltip line. Describe the formula with
+     * Plain code. The tooltip line doesn't have a shape for this formula. Describe the formula with
      * {@link ProcessingSpec.Builder#customTooltip}.
      */
     record Custom(@Nonnull ToDoubleFunction<ProcessingInputs> function, @Nonnull Set<ModifierKind> reads)

@@ -990,7 +990,10 @@ public class GTStructureUtility {
         return meta + 1;
     }
 
-    /** @param tier From 1 to {@link #PIPE_CASING_TIERS} */
+    /**
+     * @param tier From 1 to {@link #PIPE_CASING_TIERS}
+     * @throws IllegalArgumentException for a tier outside that range
+     */
     @Nonnull
     public static ItemList pipeCasing(int tier) {
         return switch (tier) {

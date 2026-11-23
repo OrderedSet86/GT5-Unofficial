@@ -92,8 +92,8 @@ public class MTEIntegratedOreFactory extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Z = 1;
 
     /**
-     * One mode per {@link ProcessingMode}, in the same order. The factory chains the recipe maps of several machines in
-     * each mode, so no mode has a recipe map.
+     * The modes follow the order of the {@link ProcessingMode} constants. The factory chains the recipe maps of several
+     * machines in each mode, so the recipe map of each mode is null.
      */
     public static final List<MachineMode> MODES = List.of(
         createOreFactoryMode(0, GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_IOF_MACERATOR),
