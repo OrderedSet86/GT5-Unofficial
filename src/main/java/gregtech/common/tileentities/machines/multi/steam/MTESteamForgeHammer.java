@@ -26,7 +26,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -45,23 +44,24 @@ import gregtech.api.enums.Textures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.Modifier;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEHatch;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.structure.error.StructureError;
 import gregtech.api.structure.error.StructureErrorRegistry;
-import gregtech.api.util.GTRecipe;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.api.util.OverclockCalculator;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
 
 @IMetaTileEntity.SkipGenerateDescription
 public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHammer> implements ISurvivalConstructable {
+
+    private static final int TIER_RECIPES = 1;
+    private static final ProcessingSpec SPEC = steamSpec(TIER_RECIPES).build();
 
     public MTESteamForgeHammer(String aName) {
         super(aName);
@@ -271,8 +271,14 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return 8;
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
+    }
+
+    @Override
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        return List.of(Modifier.of(PRESSURE, () -> tierMachine, value -> tierMachine = value));
     }
 
     @Override
@@ -288,31 +294,12 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Nonnull
-            @Override
-            protected CheckRecipeResult validateRecipe(@Nonnull GTRecipe recipe) {
-                if (availableVoltage < recipe.mEUt) {
-                    return CheckRecipeResultRegistry.insufficientPower(recipe.mEUt);
-                }
-                return CheckRecipeResultRegistry.SUCCESSFUL;
-            }
-
-            @Override
-            @Nonnull
-            protected OverclockCalculator createOverclockCalculator(@NotNull GTRecipe recipe) {
-                return OverclockCalculator.ofNoOverclock(recipe)
-                    .setEUtDiscount(1.25 * tierMachine)
-                    .setDurationModifier(1.6 / tierMachine);
-            }
-        }.noRecipeCaching()
-            .setMaxParallelSupplier(this::getTrueParallel);
+        return new ProcessingLogic().noRecipeCaching();
     }
 
     @Override
     public int getTierRecipes() {
-        return 1;
+        return TIER_RECIPES;
     }
 
     @Override
@@ -320,7 +307,7 @@ public class MTESteamForgeHammer extends MTESteamMultiBlockBase<MTESteamForgeHam
         String anyNormalCasing = StatCollector.translateToLocal("gt.mbtt.structure.any_normal_casing");
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(getMachineType())
-            .addSteamBulkMachineInfo(8, 1.25f, 0.625f)
+            .addProcessingSpecInfo(SPEC)
             .addInfo(StatCollector.translateToLocal("GT5U.MBTT.Steam.HighPressure"))
             .beginStructureBlock(5, 7, 5, false)
             .addController(StatCollector.translateToLocal("gt.mbtt.structure.front_center_2nd_layer"))

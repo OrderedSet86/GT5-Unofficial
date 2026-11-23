@@ -425,10 +425,15 @@ public class ParallelHelper {
         }
 
         final ItemStack[] truncatedItemOutputs = recipe.mOutputs != null
-            ? Arrays.copyOfRange(recipe.mOutputs, 0, Math.min(machine.getItemOutputLimit(), recipe.mOutputs.length))
+            ? Arrays.copyOfRange(
+                recipe.mOutputs,
+                0,
+                Math.min(machine == null ? Integer.MAX_VALUE : machine.getItemOutputLimit(), recipe.mOutputs.length))
             : GTValues.emptyItemStackArray;
-        final FluidStack[] truncatedFluidOutputs = recipe.mFluidOutputs != null ? Arrays
-            .copyOfRange(recipe.mFluidOutputs, 0, Math.min(machine.getFluidOutputLimit(), recipe.mFluidOutputs.length))
+        final FluidStack[] truncatedFluidOutputs = recipe.mFluidOutputs != null ? Arrays.copyOfRange(
+            recipe.mFluidOutputs,
+            0,
+            Math.min(machine == null ? Integer.MAX_VALUE : machine.getFluidOutputLimit(), recipe.mFluidOutputs.length))
             : GTValues.emptyFluidStackArray;
 
         SingleRecipeCheck recipeLock = null;

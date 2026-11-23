@@ -84,6 +84,9 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
 public class GTStructureUtility {
 
+    public static final int ITEM_PIPE_CASING_TIERS = 8;
+    public static final int PIPE_CASING_TIERS = 4;
+
     // private static final Map<Class<?>, String> customNames = new HashMap<>();
     private GTStructureUtility() {
         throw new AssertionError("Not instantiable");

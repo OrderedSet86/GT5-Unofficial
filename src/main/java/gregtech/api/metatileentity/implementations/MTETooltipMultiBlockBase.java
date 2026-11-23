@@ -63,6 +63,11 @@ public abstract class MTETooltipMultiBlockBase extends MTEMultiBlockBase impleme
     }
 
     @Override
+    public boolean isStructureDeprecated() {
+        return getTooltip().isStructureDeprecated();
+    }
+
+    @Override
     public final boolean isDeprecated() {
         return getTooltip().isDeprecated();
     }

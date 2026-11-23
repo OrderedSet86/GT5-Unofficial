@@ -107,7 +107,12 @@ import gregtech.api.interfaces.modularui.IBindPlayerInventoryUI;
 import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.logic.MachineMode;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
+import gregtech.api.logic.ProcessingInputs;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingRun;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.check.CheckRecipeResult;
@@ -1163,6 +1168,11 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         logic.setBatchSize(isBatchModeEnabled() ? getMaxBatchSize() : 1);
         logic.setRecipeLocking(this, isRecipeLockingEnabled());
         setProcessingLogicPower(logic);
+        ProcessingSpec spec = getProcessingSpec();
+        if (spec != null) {
+            logic.setSpec(spec, getProcessingInputs())
+                .setParallelLimit(getPowerPanelParallelLimit());
+        }
     }
 
     /**
@@ -2174,12 +2184,14 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     /**
      * Returns the machine's modes in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode
-     * count and the mode button icons come from this list. Return a static constant. A machine's modes don't change
-     * while the game runs.
+     * count and the mode button icons come from this list. When the machine has a {@link ProcessingSpec}, this method
+     * returns the spec's modes. Otherwise, override this method to return a static constant. A machine's modes don't
+     * change while the game runs.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
-        return Collections.emptyList();
+        ProcessingSpec spec = getProcessingSpec();
+        return spec == null ? Collections.emptyList() : spec.getModes();
     }
 
     @Nonnull
@@ -2202,6 +2214,89 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @ApiStatus.OverrideOnly
     protected ProcessingLogic createProcessingLogic() {
         return null;
+    }
+
+    /**
+     * The prototype must return the same spec as every placed machine.
+     *
+     * @return null if the machine computes the recipe numbers in code
+     */
+    @Nullable
+    public ProcessingSpec getProcessingSpec() {
+        return null;
+    }
+
+    /** @throws IllegalStateException if {@link #getSpecModifiers} returns other kinds than the spec reads */
+    @Nonnull
+    public ProcessingInputs getProcessingInputs() {
+        List<Modifier> modifiers = getSpecModifiers();
+        ProcessingSpec spec = getProcessingSpec();
+        if (spec != null) {
+            boolean same = modifiers.size() == spec.getModifiers()
+                .size();
+            for (Modifier modifier : modifiers) same &= spec.getModifiers()
+                .containsKey(modifier.kind);
+            if (!same) throw rejectModifiers(spec, modifiers);
+        }
+        return ProcessingInputs.builder()
+            .energyHatches(getSpecEnergyHatches())
+            .mode(getMachineMode())
+            .modifiers(modifiers)
+            .build();
+    }
+
+    private IllegalStateException rejectModifiers(ProcessingSpec spec, List<Modifier> modifiers) {
+        List<ModifierKind> kept = new ArrayList<>();
+        for (Modifier modifier : modifiers) kept.add(modifier.kind);
+        return new IllegalStateException(
+            getClass().getSimpleName() + " keeps modifiers "
+                + kept
+                + " but its spec reads "
+                + spec.getModifiers()
+                    .keySet());
+    }
+
+    private List<ProcessingInputs.EnergyHatch> getSpecEnergyHatches() {
+        List<ProcessingInputs.EnergyHatch> hatches = new ArrayList<>();
+        for (MTEHatch hatch : getPowerHatches()) {
+            boolean exotic = !(hatch instanceof MTEHatchEnergy) || hatch instanceof MTEHatchEnergyDebug;
+            if (hatch.isValid()) {
+                long voltage = hatch.getBaseMetaTileEntity()
+                    .getInputVoltage();
+                hatches.add(new ProcessingInputs.EnergyHatch(voltage, hatch.maxWorkingAmperesIn(), exotic));
+            } else {
+                hatches.add(ProcessingInputs.EnergyHatch.disconnected(exotic));
+            }
+        }
+        return hatches;
+    }
+
+    /** The hatches {@link #getAverageInputVoltage()} and the other power getters read. */
+    @Nonnull
+    protected List<? extends MTEHatch> getPowerHatches() {
+        return mEnergyHatches;
+    }
+
+    /**
+     * ONLY FOR THE CONFORMANCE GAME TEST. The run of {@code recipe} through the machine's processing logic at
+     * {@code inputs}. Call this on a {@link #newMetaEntity} copy. The method sets up the processing logic with the
+     * spec.
+     *
+     * @return null if the machine doesn't have a spec or processing logic
+     */
+    @Nullable
+    public final ProcessingRun calculateForTesting(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
+        ProcessingSpec spec = getProcessingSpec();
+        if (processingLogic == null || spec == null) return null;
+        setupProcessingLogic(processingLogic);
+        processingLogic.setSpec(spec, inputs);
+        return processingLogic.inspectForTesting(recipe);
+    }
+
+    /** One {@link Modifier} per kind the machine's spec reads. */
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        return Collections.emptyList();
     }
 
     public void updateSlots() {
@@ -3315,7 +3410,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      * @return The absolute maximum number of parallels possible right now.
      */
     public int getMaxParallelRecipes() {
-        return 1;
+        ProcessingSpec spec = getProcessingSpec();
+        return spec == null ? 1 : spec.getMaxParallel(getProcessingInputs());
     }
 
     /**
@@ -3325,9 +3421,11 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
      *         least 1.
      */
     public final int getTrueParallel() {
-        return Math.max(
-            1,
-            alwaysMaxParallel ? getMaxParallelRecipes() : Math.min(getMaxParallelRecipes(), powerPanelMaxParallel));
+        return Math.max(1, Math.min(getMaxParallelRecipes(), getPowerPanelParallelLimit()));
+    }
+
+    private int getPowerPanelParallelLimit() {
+        return alwaysMaxParallel ? Integer.MAX_VALUE : powerPanelMaxParallel;
     }
 
     public int getmStartUpCheck() {
@@ -3372,6 +3470,11 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     @Override
     public int getMachineMode() {
         return machineMode;
+    }
+
+    /** Whether this is a superseded structure, kept registered so existing worlds load, but not buildable. */
+    public boolean isStructureDeprecated() {
+        return false;
     }
 
     @Override

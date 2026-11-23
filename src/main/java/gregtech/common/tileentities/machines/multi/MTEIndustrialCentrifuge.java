@@ -21,6 +21,8 @@ import static gregtech.api.util.GTStructureUtility.ofFrame;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -29,8 +31,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
-
-import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.gtnewhorizon.structurelib.alignment.constructable.ISurvivalConstructable;
@@ -47,17 +47,16 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechDeviceInformation;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.Modifier;
+import gregtech.api.logic.ModifierKind;
 import gregtech.api.logic.ProcessingLogic;
+import gregtech.api.logic.ProcessingSpec;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.recipe.check.CheckRecipeResult;
-import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.metadata.CentrifugeRecipeKey;
 import gregtech.api.render.RenderOverlay;
 import gregtech.api.structure.error.StructureError;
-import gregtech.api.util.GTRecipe;
-import gregtech.api.util.GTUtility;
 import gregtech.api.util.GTUtilityClient;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.common.pollution.PollutionConfig;
@@ -78,12 +77,20 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     private static final int OFFSET_Y = 2;
     private static final int OFFSET_Z = 1;
 
-    private static final int BASE_PARALLEL_PER_TIER = 4;
-    private static final double SPEED = 2.0D;
-    private static final double EXTRA_SPEED = 1.0D;
-    private static final double EU_EFFICIENCY = 0.9D;
-
-    private static final double MOMENTUM_MAX = 100D;
+    private static final int MOMENTUM_MAX = 100;
+    private static final ModifierKind.IntKind MOMENTUM = ModifierKind.ofInt("gregtech:centrifuge_momentum")
+        .name("GT5U.MBTT.Tiers.Momentum")
+        .source(ModifierKind.Source.RUNTIME)
+        .ordered()
+        .range(0, MOMENTUM_MAX)
+        .register();
+    private static final ProcessingSpec SPEC = ProcessingSpec.builder()
+        .parallelPerVoltageTierRising(4, 8, MOMENTUM)
+        .speedRising(2, 3, MOMENTUM)
+        .euModifier(0.9)
+        // heavy mode recipes are for the heavy centrifuge
+        .refusesRecipesFlagged(CentrifugeRecipeKey.INSTANCE)
+        .build();
 
     private static final int TICKS_FOR_MOMENTUM_DECAY = 5;
     private static final int MOMENTUM_DECAY_AMOUNT = 2;
@@ -190,14 +197,10 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
     protected MultiblockTooltipBuilder createTooltip() {
         MultiblockTooltipBuilder tt = new MultiblockTooltipBuilder();
         tt.addMachineType(StatCollector.translateToLocal("gt.mbtt.machine_type.centrifuge"))
+            .addProcessingSpecInfo(SPEC)
             .addMarkdown(
                 new ResourceLocation("gregtech", "industrial-centrifuge"),
                 ImmutableMap.<String, Object>builder()
-                    .put("base_parallels", (int) getParallelsPerTier(0))
-                    .put("max_parallels", (int) getParallelsPerTier((int) MOMENTUM_MAX))
-                    .put("min_speed", (1.0D / getSpeedWithMomentum(0)) * 100)
-                    .put("max_speed", (1.0D / getSpeedWithMomentum((int) MOMENTUM_MAX)) * 100)
-                    .put("eu_eff", EU_EFFICIENCY * 100)
                     .put("momentum_max", MOMENTUM_MAX)
                     .put("momentum_gain", MOMENTUM_GAIN_PER_SEC)
                     .put("momentum_decay", MOMENTUM_DECAY_PER_SEC)
@@ -219,35 +222,18 @@ public class MTEIndustrialCentrifuge extends MTEExtendedPowerMultiBlockBase<MTEI
 
     @Override
     protected ProcessingLogic createProcessingLogic() {
-        return new ProcessingLogic() {
-
-            @Override
-            protected @NotNull CheckRecipeResult validateRecipe(@NotNull GTRecipe recipe) {
-                // ensures heavy mode recipes cannot run
-                if (recipe.getMetadataOrDefault(CentrifugeRecipeKey.INSTANCE, Boolean.FALSE))
-                    return CheckRecipeResultRegistry.NO_RECIPE;
-                return super.validateRecipe(recipe);
-            }
-        }.setEuModifier(EU_EFFICIENCY)
-            .setSpeedBonusSupplier(this::getSpeedWithMomentum)
-            .setMaxParallelSupplier(this::getTrueParallel);
-    }
-
-    private double getSpeedWithMomentum() {
-        return getSpeedWithMomentum(momentum);
-    }
-
-    private static double getSpeedWithMomentum(int momentum) {
-        return 1.0D / (SPEED + EXTRA_SPEED * momentum / MOMENTUM_MAX);
+        return new ProcessingLogic();
     }
 
     @Override
-    public int getMaxParallelRecipes() {
-        return (int) (getParallelsPerTier(momentum) * GTUtility.getTier(this.getMaxInputVoltage()));
+    public ProcessingSpec getProcessingSpec() {
+        return SPEC;
     }
 
-    public static double getParallelsPerTier(int momentum) {
-        return BASE_PARALLEL_PER_TIER + BASE_PARALLEL_PER_TIER * momentum / MOMENTUM_MAX;
+    @Override
+    @Nonnull
+    public List<Modifier> getSpecModifiers() {
+        return List.of(Modifier.of(MOMENTUM, () -> momentum, value -> momentum = value));
     }
 
     private int casingAmount;

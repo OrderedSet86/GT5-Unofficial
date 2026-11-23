@@ -57,6 +57,15 @@ public class ProcessingLogic {
     protected double overClockPowerIncrease = 4.0;
     protected boolean amperageOC = true;
     protected boolean recipeCaching = true;
+    @Nullable
+    protected ProcessingSpec spec;
+    @Nullable
+    protected ProcessingInputs specInputs;
+    /** The power panel's cap on the spec's parallels. */
+    protected int parallelLimit = Integer.MAX_VALUE;
+    /** The spec's numbers for the recipe being checked. Null when the logic doesn't have a spec, and between checks. */
+    @Nullable
+    private ResolvedRecipe specResolved;
 
     // Calculated results
     protected ItemStack[] outputItems;
@@ -293,6 +302,22 @@ public class ProcessingLogic {
     }
 
     /**
+     * Runs every recipe through the spec at these inputs. The spec replaces the power, parallel, speed, EU and
+     * overclock setters. Call this at every recipe check. The setters and the fields that the hooks change then don't
+     * change the run.
+     */
+    public ProcessingLogic setSpec(@Nonnull ProcessingSpec spec, @Nonnull ProcessingInputs inputs) {
+        this.spec = spec;
+        this.specInputs = inputs;
+        return this;
+    }
+
+    public ProcessingLogic setParallelLimit(int parallelLimit) {
+        this.parallelLimit = parallelLimit;
+        return this;
+    }
+
+    /**
      * Disable caching of matched recipes.
      */
     public ProcessingLogic noRecipeCaching() {
@@ -351,6 +376,7 @@ public class ProcessingLogic {
         this.duration = 0;
         this.calculatedParallels = 0;
         this.activeDualInv = null;
+        this.specResolved = null;
         return this;
     }
 
@@ -454,10 +480,17 @@ public class ProcessingLogic {
      * Checks if supplied recipe is valid for process. This involves voltage check, output full check. If successful,
      * additionally performs input consumption, output calculation with parallel, and overclock calculation.
      *
-     * @param recipe The recipe which will be checked and processed
+     * @param found The recipe which will be checked and processed
      */
     @Nonnull
-    private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe recipe) {
+    private CalculationResult validateAndCalculateRecipe(@Nonnull GTRecipe found) {
+        GTRecipe recipe = found;
+        if (spec != null) {
+            specResolved = resolveSpec(found);
+            CheckRecipeResult specResult = checkSpecRequirements(specResolved);
+            if (!specResult.wasSuccessful()) return CalculationResult.ofFailure(specResult);
+            recipe = specResolved.recipe();
+        }
         CheckRecipeResult result = validateRecipe(recipe);
         if (!result.wasSuccessful()) {
             return CalculationResult.ofFailure(result);
@@ -490,20 +523,14 @@ public class ProcessingLogic {
         }
         calculatedParallels = helper.getCurrentParallel();
 
-        if (calculator.getConsumption() == Long.MAX_VALUE) {
-            return CheckRecipeResultRegistry.POWER_OVERFLOW;
+        ProcessingRun run = getResolvedRecipe(recipe)
+            .toRun(helper, calculator, () -> calculateDuration(recipe, helper, calculator));
+        if (!run.result()
+            .wasSuccessful()) {
+            return run.result();
         }
-        if (calculator.getDuration() == Integer.MAX_VALUE) {
-            return CheckRecipeResultRegistry.DURATION_OVERFLOW;
-        }
-
-        calculatedEut = calculator.getConsumption();
-
-        double finalDuration = calculateDuration(recipe, helper, calculator);
-        if (finalDuration >= Integer.MAX_VALUE) {
-            return CheckRecipeResultRegistry.DURATION_OVERFLOW;
-        }
-        duration = (int) finalDuration;
+        calculatedEut = run.euPerTick();
+        duration = run.ticks();
 
         CheckRecipeResult hookResult = onRecipeStart(recipe);
         if (!hookResult.wasSuccessful()) {
@@ -521,7 +548,7 @@ public class ProcessingLogic {
      */
     protected double calculateDuration(@Nonnull GTRecipe recipe, @Nonnull ParallelHelper helper,
         @Nonnull OverclockCalculator calculator) {
-        return calculator.getDuration() * helper.getDurationMultiplierDouble();
+        return ResolvedRecipe.calculateDuration(helper, calculator);
     }
 
     /**
@@ -553,19 +580,49 @@ public class ProcessingLogic {
         return CheckRecipeResultRegistry.SUCCESSFUL;
     }
 
+    /** Override to skip the spec's requirements, such as when resuming a recipe after loading. */
+    @Nonnull
+    protected CheckRecipeResult checkSpecRequirements(@Nonnull ResolvedRecipe resolved) {
+        return resolved.check();
+    }
+
+    private ResolvedRecipe resolveSpec(GTRecipe recipe) {
+        return spec.resolve(recipe, specInputs)
+            .capParallel(parallelLimit);
+    }
+
+    /**
+     * Returns the numbers the hooks work from. These are the spec's numbers for the recipe being checked, or else the
+     * setters' current values. A hook such as {@link #validateRecipe} may have just changed those values.
+     */
+    @Nonnull
+    protected final ResolvedRecipe getResolvedRecipe(@Nonnull GTRecipe recipe) {
+        if (specResolved != null) return specResolved;
+        return new ResolvedRecipe(
+            recipe,
+            recipe.mDuration,
+            new ProcessingSpec.Power(availableVoltage, availableAmperage, amperageOC),
+            maxParallel,
+            speedBoost,
+            euModifier,
+            1,
+            new ResolvedRecipe.Overclock(
+                new ProcessingSpec.OverclockRule.Ratio(overClockTimeReduction, overClockPowerIncrease),
+                maxTierSkips,
+                null),
+            CheckRecipeResultRegistry.SUCCESSFUL);
+    }
+
     /**
      * Override to tweak parallel logic if needed.
      */
     @Nonnull
     protected ParallelHelper createParallelHelper(@Nonnull GTRecipe recipe) {
-        return new ParallelHelper().setRecipe(recipe)
+        return getResolvedRecipe(recipe).createParallelHelper(recipe)
             .setItemInputs(inputItems)
             .setFluidInputs(inputFluids)
-            .setAvailableEUt(availableVoltage * availableAmperage)
             .setMachine(machine, protectItems, protectFluids)
             .setRecipeLocked(recipeLockableMachine, isRecipeLocked)
-            .setMaxParallel(maxParallel)
-            .setEUtModifier(euModifier)
             .enableBatchMode(batchSize)
             .setConsumption(true)
             .setOutputCalculation(true);
@@ -576,16 +633,32 @@ public class ProcessingLogic {
      */
     @Nonnull
     protected OverclockCalculator createOverclockCalculator(@Nonnull GTRecipe recipe) {
-        return new OverclockCalculator().setRecipeEUt(recipe.mEUt)
-            .setAmperage(availableAmperage)
-            .setEUt(availableVoltage)
-            .setMaxTierSkips(maxTierSkips)
-            .setDuration(recipe.mDuration)
-            .setDurationModifier(speedBoost)
-            .setEUtDiscount(euModifier)
-            .setAmperageOC(amperageOC)
-            .setDurationDecreasePerOC(overClockTimeReduction)
-            .setEUtIncreasePerOC(overClockPowerIncrease);
+        ResolvedRecipe resolved = getResolvedRecipe(recipe);
+        return recipe == resolved.recipe() ? resolved.toCalculator()
+            : resolved.toCalculator(recipe.mEUt, recipe.mDuration);
+    }
+
+    /**
+     * ONLY FOR THE CONFORMANCE GAME TEST AND THE UNIT TESTS. Returns the run of {@code found} through the spec and this
+     * logic's requirement, parallel, overclock and duration hooks. The run has unlimited inputs and output space. This
+     * method calls neither {@link #validateRecipe} nor {@link #applyRecipe}. Both methods may change the world. When
+     * the logic has a spec, both methods can only reject a recipe.
+     *
+     * @throws IllegalStateException if {@link #setSpec} wasn't called
+     */
+    @Nonnull
+    public final ProcessingRun inspectForTesting(@Nonnull GTRecipe found) {
+        if (spec == null) throw new IllegalStateException("inspectForTesting needs a spec");
+        specResolved = resolveSpec(found);
+        CheckRecipeResult specResult = checkSpecRequirements(specResolved);
+        if (!specResult.wasSuccessful()) return ProcessingRun.failed(specResult);
+
+        GTRecipe recipe = specResolved.recipe();
+        ParallelHelper helper = ResolvedRecipe.configureForPlanning(createParallelHelper(recipe));
+        OverclockCalculator calculator = createOverclockCalculator(recipe);
+        helper.setCalculator(calculator)
+            .build();
+        return specResolved.toRun(helper, calculator, () -> calculateDuration(recipe, helper, calculator));
     }
 
     /**
@@ -632,6 +705,12 @@ public class ProcessingLogic {
     }
 
     public long getMaxAllowedRecipeEUt() {
+        if (spec != null) {
+            return OverclockCalculator.getMaxAllowedRecipeEUt(
+                spec.getPower(specInputs)
+                    .voltage(),
+                spec.getMaxTierSkips());
+        }
         return OverclockCalculator.getMaxAllowedRecipeEUt(availableVoltage, maxTierSkips);
     }
 
