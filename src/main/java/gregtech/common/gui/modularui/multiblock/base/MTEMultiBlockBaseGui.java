@@ -105,8 +105,7 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
         this.baseMetaTileEntity = multiblock.getBaseMetaTileEntity();
         if (multiblock.supportsMachineModeSwitch()) {
             for (MachineMode mode : multiblock.getMachineModes()) {
-                // the mode button has one state per machineModeIcons entry, in mode order.
-                // Keep a null entry for a mode with no icon
+                // the mode button uses machineModeIcons entry N for mode N. Add null for a mode without an icon
                 this.machineModeIcons.add(mode.guiIcon());
             }
         }
@@ -1339,7 +1338,7 @@ public class MTEMultiBlockBaseGui<T extends MTEMultiBlockBase> {
 
     private void selectMachineMode(int index) {
         multiblock.setMachineMode(index);
-        // the client adds one to the index on each mode button press, without calling isMachineModeAvailable().
+        // the client adds one to the index on each mode button press and doesn't call isMachineModeAvailable().
         // setMachineMode() ignores an unavailable mode. Go on to the next available mode
         if (multiblock.getMachineMode() != index) multiblock.setMachineMode(multiblock.nextMachineMode());
     }

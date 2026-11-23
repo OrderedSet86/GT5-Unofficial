@@ -2158,8 +2158,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The mode the machine is in, or null if {@link #getMachineModes} is empty. For a {@code machineMode} out of
-     * range, this method returns the first mode.
+     * Returns the mode the machine is in, or null if {@link #getMachineModes} is empty. When {@code machineMode} is out
+     * of range, this method returns the first mode.
      */
     @Nullable
     public final MachineMode getCurrentMachineMode() {
@@ -2169,7 +2169,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return modes.get(index >= 0 && index < modes.size() ? index : 0);
     }
 
-    /** The index of the mode with {@code recipeMap}, or -1 if no mode or several modes have {@code recipeMap}. */
+    /** Returns the index of the mode with {@code recipeMap}, or -1 unless exactly one mode has {@code recipeMap}. */
     public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
         List<MachineMode> modes = getMachineModes();
         int found = -1;
@@ -2183,9 +2183,10 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * The machine's modes, in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode count and
-     * the mode button icons come from this list. With a {@link ProcessingSpec}, the modes are the spec's modes. Without
-     * a spec, override this method to return a static constant: a machine's modes don't change while the game runs.
+     * Returns the machine's modes in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode
+     * count and the mode button icons come from this list. When the machine has a {@link ProcessingSpec}, this method
+     * returns the spec's modes. Otherwise, override this method to return a static constant. A machine's modes don't
+     * change while the game runs.
      */
     @Nonnull
     public List<MachineMode> getMachineModes() {
@@ -3457,8 +3458,8 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Whether the machine's GUI has a mode button and a mode line, and the machine saves {@code machineMode}. The base
-     * method returns true for two or more {@link #getMachineModes}.
+     * Returns true when the machine's GUI has a mode button and a mode line, and the machine saves {@code machineMode}.
+     * The base method returns true for two or more {@link #getMachineModes}.
      */
     @Override
     public boolean supportsMachineModeSwitch() {
@@ -3489,8 +3490,7 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public void setMachineMode(int index) {
-        // MTEMultiBlockBaseGui passes the mode index a client sends to setMachineMode(), unchecked.
-        // Ignore an index out of range or of an unavailable mode
+        // the index can come from a client. Ignore an index out of range or of an unavailable mode
         List<MachineMode> modes = getMachineModes();
         if (!modes.isEmpty() && (index < 0 || index >= modes.size() || !isMachineModeAvailable(index))) return;
         machineMode = index;
@@ -3515,9 +3515,9 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Whether mode {@code index} of {@link #getMachineModes} can be selected now. {@code index} is always in range.
-     * {@link #nextMachineMode} and {@link #setMachineMode} never select an unavailable mode. When the current mode
-     * becomes unavailable, the machine stays in the current mode.
+     * Returns true when mode {@code index} of {@link #getMachineModes} can be selected now. {@code index} is in range.
+     * When this method returns false, {@link #nextMachineMode} and {@link #setMachineMode} don't select the mode. When
+     * the current mode becomes unavailable, the machine stays in the current mode.
      */
     public boolean isMachineModeAvailable(int index) {
         return true;
