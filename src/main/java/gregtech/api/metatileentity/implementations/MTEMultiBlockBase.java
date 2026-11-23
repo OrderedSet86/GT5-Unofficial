@@ -2256,12 +2256,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                     .keySet());
     }
 
-    /** The hatches {@link #getAverageInputVoltage()} and the other power getters read. */
-    @Nonnull
-    protected List<? extends MTEHatch> getPowerHatches() {
-        return mEnergyHatches;
-    }
-
     private List<ProcessingInputs.EnergyHatch> getSpecEnergyHatches() {
         List<ProcessingInputs.EnergyHatch> hatches = new ArrayList<>();
         for (MTEHatch hatch : getPowerHatches()) {
@@ -2277,11 +2271,17 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return hatches;
     }
 
+    /** The hatches {@link #getAverageInputVoltage()} and the other power getters read. */
+    @Nonnull
+    protected List<? extends MTEHatch> getPowerHatches() {
+        return mEnergyHatches;
+    }
+
     /**
      * The run of {@code recipe} through the machine's processing logic at {@code inputs}. Call this on a
-     * {@link #newMetaEntity} copy: the method sets up the processing logic with the spec.
+     * {@link #newMetaEntity} copy. The method sets up the processing logic with the spec.
      *
-     * @return null if the machine has no spec or no processing logic
+     * @return null if the machine doesn't have a spec or processing logic
      */
     @Nullable
     public final ProcessingRun calculateForInspection(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {

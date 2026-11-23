@@ -73,18 +73,15 @@ public class MultiblockTooltipBuilder {
     private final String TT_DynamicSpeedBonus = StatCollector.translateToLocal("GT5U.MBTT.Speed.Additional");
     private final String TT_DynamicSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Absolute");
     private final String TT_DynamicEuEff = StatCollector.translateToLocal("GT5U.MBTT.EuDiscount.Additional");
-    // noqa: NAR130
     private final String TT_SpeedBasePerTier = StatCollector.translateToLocal("GT5U.MBTT.Speed.BasePerTier");
-    private final String TT_HeatCoils = StatCollector.translateToLocal("GT5U.MBTT.Heat.Coils"); // noqa: NAR130
-    // noqa: NAR130
+    private final String TT_HeatCoils = StatCollector.translateToLocal("GT5U.MBTT.Heat.Coils");
     private final String TT_HeatPerVoltageTier = StatCollector.translateToLocal("GT5U.MBTT.Heat.PerVoltageTier");
-    private final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount"); // noqa: NAR130
-    private final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock"); // noqa: NAR130
-    private final String TT_RecipeOverride = StatCollector.translateToLocal("GT5U.MBTT.RecipeOverride"); // noqa: NAR130
-    private final String TT_RisingParallelPerVoltageTier = StatCollector // noqa: NAR130
+    private final String TT_HeatDiscount = StatCollector.translateToLocal("GT5U.MBTT.Heat.Discount");
+    private final String TT_HeatOverclock = StatCollector.translateToLocal("GT5U.MBTT.Heat.Overclock");
+    private final String TT_RecipeOverride = StatCollector.translateToLocal("GT5U.MBTT.RecipeOverride");
+    private final String TT_RisingParallelPerVoltageTier = StatCollector
         .translateToLocal("GT5U.MBTT.Parallel.RisingPerVoltageTier");
-    private final String TT_RisingSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Rising"); // noqa: NAR130
-    // noqa: NAR130
+    private final String TT_RisingSpeed = StatCollector.translateToLocal("GT5U.MBTT.Speed.Rising");
     private final String TT_ParallelFormula = StatCollector.translateToLocal("GT5U.MBTT.Parallel.Formula");
     private final String TT_Steam_StaticSteamEff = StatCollector.translateToLocal("GT5U.MBTT.SteamDiscount.Base");
 
@@ -196,7 +193,6 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** Whether {@link #addStructureDeprecatedLine()} was called. */
     public boolean isStructureDeprecated() {
         return structureDeprecated;
     }
@@ -224,10 +220,6 @@ public class MultiblockTooltipBuilder {
         return addDynamicParallelLine(parallels, tier.getValue());
     }
 
-    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
-        return addDynamicParallelLine(parallels, kind.getTierText());
-    }
-
     private MultiblockTooltipBuilder addDynamicParallelLine(int parallels, String tierText) {
         iLines.add(
             String.format(
@@ -246,6 +238,10 @@ public class MultiblockTooltipBuilder {
      */
     public MultiblockTooltipBuilder addVoltageParallelInfo(int parallels) {
         return addDynamicParallelInfo(parallels, TooltipTier.VOLTAGE);
+    }
+
+    public MultiblockTooltipBuilder addDynamicParallelInfo(int parallels, ModifierKind kind) {
+        return addDynamicParallelLine(parallels, kind.getTierText());
     }
 
     /**
@@ -397,7 +393,7 @@ public class MultiblockTooltipBuilder {
         return this;
     }
 
-    /** The info lines written so far, before {@link #toolTipFinisher()}. */
+    /** Returns the info lines added before {@link #toolTipFinisher()}. */
     public List<String> getInfoLines() {
         return Collections.unmodifiableList(iLines);
     }

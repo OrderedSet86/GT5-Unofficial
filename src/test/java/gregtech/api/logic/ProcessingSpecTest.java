@@ -340,7 +340,7 @@ class ProcessingSpecTest {
         assertEquals(16 * 2.5 * 8, planned.getConsumption());
     }
 
-    /** Modelled on PlanNH's manual rows: a planner changes one calculator setting and keeps the rest of the spec. */
+    /** Modelled on PlanNH's manual rows. A planner changes one calculator setting and keeps the rest of the spec. */
     @Test
     void aPlannerCanChangeOneCalculatorSetting() {
         ResolvedRecipe resolved = ProcessingSpec.builder()
@@ -730,7 +730,10 @@ class ProcessingSpecTest {
                 .inMode(DISTILLERY, mode -> mode.maxTierSkips(2)));
     }
 
-    /** Modelled on the steam multiblocks: no overclocks and no tier skips, and no tooltip line for either. */
+    /**
+     * Modelled on the steam multiblocks. The spec doesn't overclock or skip tiers, and the tooltip doesn't have a line
+     * for either.
+     */
     @Test
     void defaultsNeedNoTooltip() {
         ProcessingSpec spec = ProcessingSpec.builder()

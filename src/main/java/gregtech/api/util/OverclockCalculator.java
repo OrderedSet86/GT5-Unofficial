@@ -82,7 +82,7 @@ public class OverclockCalculator {
     public static final int DEFAULT_MAX_TIER_SKIPS = 1;
     /** Per {@link #HEAT_DISCOUNT_THRESHOLD} of heat headroom. */
     public static final double DEFAULT_HEAT_DISCOUNT_MULTIPLIER = 0.95;
-    /** The EU/t that each heat discount saves, in percent, for tooltips. */
+    /** The percentage of EU/t that each heat discount saves. The tooltip lines use this constant. */
     public static final double DEFAULT_HEAT_DISCOUNT_PERCENT_FOR_TOOLTIPS = (1.0D - DEFAULT_HEAT_DISCOUNT_MULTIPLIER)
         * 100;
 
@@ -340,7 +340,7 @@ public class OverclockCalculator {
         return durationUnderOneTickSupplier.get();
     }
 
-    // Planners read these settings, and change them with the setters above, without reflection
+    // getters of the calculator settings
 
     /** @return The recipe's duration before overclocking. {@link #getDuration()} is the result after. */
     public int getRecipeDuration() {

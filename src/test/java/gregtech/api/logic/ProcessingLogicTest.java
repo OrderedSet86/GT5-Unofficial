@@ -75,7 +75,10 @@ class ProcessingLogicTest {
         assertEquals(5, capped.parallel());
     }
 
-    /** A machine without a spec runs on its setters, through the same calculator a spec gives. */
+    /**
+     * A machine without a spec runs on the setters of {@link ProcessingLogic}. The calculator is the same as with a
+     * spec.
+     */
     @Test
     void theSettersReachTheCalculator() {
         OverclockCalculator calculator = new ProcessingLogic().setAvailableVoltage(512)
