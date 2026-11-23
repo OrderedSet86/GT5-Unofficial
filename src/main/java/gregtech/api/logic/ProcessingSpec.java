@@ -134,7 +134,7 @@ public final class ProcessingSpec {
     /** {@code lines} is null for a {@link Formula.Custom} formula. */
     private record Term(Formula formula, @Nullable Consumer<MultiblockTooltipBuilder> lines) {}
 
-    /** A term of the inputs, with the term's tooltip lines, or a term that reads the recipe. */
+    /** Either a term of the inputs and the term's tooltip lines, or a term that reads the recipe. */
     private sealed interface ParallelTerm {
 
         record OfInputs(Term term) implements ParallelTerm {}
@@ -312,7 +312,7 @@ public final class ProcessingSpec {
     }
 
     /**
-     * The run with unlimited inputs and output space.
+     * Returns the run from idle. The run has unlimited inputs and output space.
      *
      * @throws IllegalArgumentException if the inputs lack a kind the spec reads
      */
@@ -896,7 +896,10 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** One block of lines for several quantities, written once where the first of them would be. */
+        /**
+         * Writes one block of lines for several quantities. The block goes where the line of the first quantity would
+         * be.
+         */
         public Builder customTooltip(@Nonnull Set<Quantity> quantities,
             @Nonnull Consumer<MultiblockTooltipBuilder> lines) {
             for (Quantity quantity : quantities) this.customTooltips.put(quantity, lines);
