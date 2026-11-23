@@ -10,7 +10,6 @@ import static net.minecraft.util.StatCollector.translateToLocalFormatted;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -48,15 +47,12 @@ import gregtech.api.casing.Casings;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
-import gregtech.api.gui.modularui.GTUITextures;
 import gregtech.api.interfaces.IIconContainer;
 import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.implementations.MTEHatch;
-import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
-import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
 import gregtech.api.recipe.check.SimpleCheckRecipeResult;
@@ -66,9 +62,8 @@ import gregtech.api.util.GTRecipe;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.MultiblockTooltipBuilder;
 import gregtech.api.util.OverclockCalculator;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
-import gregtech.common.gui.modularui.multiblock.base.MTESteamMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
+import gregtech.common.tileentities.machines.multi.MTEOreWashingPlant;
 import gtPlusPlus.xmod.gregtech.api.metatileentity.implementations.base.MTESteamMultiBlockBase;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -110,8 +105,7 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     private static final int VERTICAL_OFF_SET = 4;
     private static final int DEPTH_OFF_SET = 1;
 
-    private static final int MACHINEMODE_OREWASH = 0;
-    private static final int MACHINEMODE_SIMPLEWASH = 1;
+    private static final List<MachineMode> MODES = List.of(MTEOreWashingPlant.ORE_WASH, MTEOreWashingPlant.SIMPLE_WASH);
 
     private boolean isBroken = true;
 
@@ -293,18 +287,10 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
         return 8;
     }
 
+    @Nonnull
     @Override
-    public RecipeMap<?> getRecipeMap() {
-        if (machineMode == MACHINEMODE_SIMPLEWASH) {
-            return RecipeMaps.simpleWasherRecipes;
-        }
-        return RecipeMaps.oreWasherRecipes;
-    }
-
-    @NotNull
-    @Override
-    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
-        return Arrays.asList(RecipeMaps.simpleWasherRecipes, RecipeMaps.oreWasherRecipes);
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -414,7 +400,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
         aNBT.setInteger("tierMachine", tierMachine);
-        aNBT.setInteger("mMode", machineMode);
         aNBT.setInteger("tierMachineCasing", tierMachineCasing);
     }
 
@@ -422,7 +407,8 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     public void loadNBTData(final NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
         tierMachine = aNBT.getInteger("tierMachine");
-        machineMode = aNBT.getInteger("mMode");
+        // older saves have the mode index in "mMode"
+        if (aNBT.hasKey("mMode")) machineMode = aNBT.getInteger("mMode");
         tierMachineCasing = aNBT.getInteger("tierMachineCasing");
     }
 
@@ -445,28 +431,6 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
     @Override
     protected SoundResource getActivitySoundLoop() {
         return SoundResource.GT_MACHINES_STEAM_WASHER_LOOP;
-    }
-
-    @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public int nextMachineMode() {
-        if (machineMode == MACHINEMODE_OREWASH) return MACHINEMODE_SIMPLEWASH;
-        else return MACHINEMODE_OREWASH;
-    }
-
-    @Override
-    public void setMachineModeIcons() {
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT);
-        machineModeIcons.add(GTUITextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER);
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return "GT5U.GTPP_MULTI_WASH_PLANT.mode." + machineMode;
     }
 
     @Override
@@ -546,12 +510,4 @@ public class MTESteamWasher extends MTESteamMultiBlockBase<MTESteamWasher> imple
         }
         return false;
     }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return new MTESteamMultiBlockBaseGui(this).withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_WASHPLANT,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_SIMPLEWASHER);
-    }
-
 }

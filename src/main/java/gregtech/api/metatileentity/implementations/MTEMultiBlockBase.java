@@ -25,9 +25,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -68,7 +70,6 @@ import com.gtnewhorizon.structurelib.structure.IStructureElement;
 import com.gtnewhorizons.modularui.api.NumberFormatMUI;
 import com.gtnewhorizons.modularui.api.drawable.FluidDrawable;
 import com.gtnewhorizons.modularui.api.drawable.ItemDrawable;
-import com.gtnewhorizons.modularui.api.drawable.UITexture;
 import com.gtnewhorizons.modularui.api.math.Alignment;
 import com.gtnewhorizons.modularui.api.math.Color;
 import com.gtnewhorizons.modularui.api.math.Pos2d;
@@ -105,6 +106,7 @@ import gregtech.api.interfaces.modularui.IAddUIWidgets;
 import gregtech.api.interfaces.modularui.IBindPlayerInventoryUI;
 import gregtech.api.interfaces.modularui.IControllerWithOptionalFeatures;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.logic.ProcessingLogic;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.recipe.RecipeMap;
@@ -194,7 +196,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     public int damageFactorLow = 5;
     public float damageFactorHigh = 0.6f;
     public int machineMode = 0;
-    protected List<UITexture> machineModeIcons;
 
     public boolean mLockedToSingleRecipe = getDefaultRecipeLockingMode();
     protected boolean inputSeparation = getDefaultInputSeparationMode();
@@ -2142,7 +2143,55 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public RecipeMap<?> getRecipeMap() {
-        return null;
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? null : mode.recipeMap();
+    }
+
+    /**
+     * Returns the mode the machine is in, or null if {@link #getMachineModes} is empty. When {@code machineMode} is out
+     * of range, this method returns the first mode.
+     */
+    @Nullable
+    public final MachineMode getCurrentMachineMode() {
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return null;
+        int index = getMachineMode();
+        return modes.get(index >= 0 && index < modes.size() ? index : 0);
+    }
+
+    /** Returns the index of the mode with {@code recipeMap}, or -1 unless exactly one mode has {@code recipeMap}. */
+    public int getMachineModeFor(@Nonnull RecipeMap<?> recipeMap) {
+        List<MachineMode> modes = getMachineModes();
+        int found = -1;
+        for (int index = 0; index < modes.size(); index++) {
+            if (modes.get(index)
+                .recipeMap() != recipeMap) continue;
+            if (found != -1) return -1;
+            found = index;
+        }
+        return found;
+    }
+
+    /**
+     * Returns the machine's modes in mode button order. {@link #getRecipeMap}, {@link #getMachineModeKey}, the mode
+     * count and the mode button icons come from this list. Return a static constant. A machine's modes don't change
+     * while the game runs.
+     */
+    @Nonnull
+    public List<MachineMode> getMachineModes() {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public Collection<RecipeMap<?>> getAvailableRecipeMaps() {
+        List<MachineMode> modes = getMachineModes();
+        if (modes.isEmpty()) return IControllerWithOptionalFeatures.super.getAvailableRecipeMaps();
+        Set<RecipeMap<?>> maps = new LinkedHashSet<>();
+        for (MachineMode mode : modes) {
+            if (mode.recipeMap() != null) maps.add(mode.recipeMap());
+        }
+        return new ArrayList<>(maps);
     }
 
     /**
@@ -3312,19 +3361,12 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     /**
-     * Creates the icon list for this machine. Override this and add the overlays to machineModeIcons in order.
-     */
-    public void setMachineModeIcons() {
-
-    }
-
-    /**
-     * Override this if you are a multi-machine and want a GUI button. You will also want to override
-     * setMachineModeIcons(). Override nextMachineMode() if you have more than 2 modes.
+     * Returns true when the machine's GUI has a mode button and a mode line, and the machine saves {@code machineMode}.
+     * The base method returns true for two or more {@link #getMachineModes}.
      */
     @Override
     public boolean supportsMachineModeSwitch() {
-        return false;
+        return getMachineModes().size() > 1;
     }
 
     @Override
@@ -3333,13 +3375,16 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     }
 
     @Override
-    public UITexture getMachineModeIcon(int index) {
-        if (index > machineModeIcons.size() - 1) return null;
-        return machineModeIcons.get(index);
+    public String getMachineModeKey() {
+        MachineMode mode = getCurrentMachineMode();
+        return mode == null ? IControllerWithOptionalFeatures.super.getMachineModeKey() : mode.nameKey();
     }
 
     @Override
     public void setMachineMode(int index) {
+        // the index can come from a client. Ignore an index out of range or of an unavailable mode
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty() && (index < 0 || index >= modes.size() || !isMachineModeAvailable(index))) return;
         machineMode = index;
         // The machine is likely using a different recipemap now
         // Clear the cached recipe
@@ -3349,13 +3394,25 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
 
     @Override
     public int nextMachineMode() {
+        List<MachineMode> modes = getMachineModes();
+        if (!modes.isEmpty()) {
+            for (int step = 1; step < modes.size(); step++) {
+                int index = (getMachineMode() + step) % modes.size();
+                if (isMachineModeAvailable(index)) return index;
+            }
+            return getMachineMode();
+        }
         if (machineMode == 0) return 1;
         else return 0;
     }
 
-    @Override
-    public Pos2d getMachineModeSwitchButtonPos() {
-        return new Pos2d(80, 91);
+    /**
+     * Returns true when mode {@code index} of {@link #getMachineModes} can be selected now. {@code index} is in range.
+     * When this method returns false, {@link #nextMachineMode} and {@link #setMachineMode} don't select the mode. When
+     * the current mode becomes unavailable, the machine stays in the current mode.
+     */
+    public boolean isMachineModeAvailable(int index) {
+        return true;
     }
 
     @Override
@@ -3464,15 +3521,10 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
                 .setPos(10, 7)
                 .setSize(182, 79));
 
-        if (supportsMachineModeSwitch() && machineModeIcons == null) {
-            machineModeIcons = new ArrayList<>(4);
-            setMachineModeIcons();
-        }
         builder.widget(createPowerSwitchButton(builder))
             .widget(createVoidExcessButton(builder))
             .widget(createMuffleButton(builder, this.canBeMuffled()))
             .widget(createInputSeparationButton(builder))
-            .widget(createModeSwitchButton(builder))
             .widget(createBatchModeButton(builder))
             .widget(createLockToSingleRecipeButton(builder))
             .widget(createStructureUpdateButton(builder));
