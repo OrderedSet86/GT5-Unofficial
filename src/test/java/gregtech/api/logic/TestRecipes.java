@@ -3,6 +3,9 @@ package gregtech.api.logic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
+import java.util.List;
+
 import gregtech.api.util.GTRecipe;
 
 /** Recipes for the logic tests. */
@@ -18,5 +21,9 @@ final class TestRecipes {
         recipe.mSpecialValue = heat;
         when(recipe.copy()).thenAnswer(invocation -> recipe(recipe.mEUt, recipe.mDuration, recipe.mSpecialValue));
         return recipe;
+    }
+
+    static List<ProcessingInputs.EnergyHatch> regularHatches(int tier, int count) {
+        return Collections.nCopies(count, ProcessingInputs.EnergyHatch.regular(tier));
     }
 }

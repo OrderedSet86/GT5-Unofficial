@@ -64,7 +64,6 @@ import bartworks.system.material.Werkstoff;
 import cpw.mods.fml.relauncher.FMLLaunchHandler;
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.HeatingCoilLevel;
-import gregtech.api.enums.ItemList;
 import gregtech.api.enums.Materials;
 import gregtech.api.enums.OrePrefixes;
 import gregtech.api.interfaces.IHatchElement;
@@ -988,21 +987,6 @@ public class GTStructureUtility {
         if (block != GregTechAPI.sBlockCasings11) return null;
         if (meta < 0 || meta > 7) return null;
         return meta + 1;
-    }
-
-    /**
-     * @param tier From 1 to {@link #PIPE_CASING_TIERS}
-     * @throws IllegalArgumentException for a tier outside that range
-     */
-    @Nonnull
-    public static ItemList pipeCasing(int tier) {
-        return switch (tier) {
-            case 1 -> ItemList.Casing_Pipe_Bronze;
-            case 2 -> ItemList.Casing_Pipe_Steel;
-            case 3 -> ItemList.Casing_Pipe_Titanium;
-            case 4 -> ItemList.Casing_Pipe_TungstenSteel;
-            default -> throw new IllegalArgumentException("no pipe casing tier " + tier);
-        };
     }
 
     public static <T> IStructureElement<T> chainItemPipeCasings() {

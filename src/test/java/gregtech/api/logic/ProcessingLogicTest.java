@@ -1,6 +1,7 @@
 package gregtech.api.logic;
 
 import static gregtech.api.logic.TestRecipes.recipe;
+import static gregtech.api.logic.TestRecipes.regularHatches;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -23,7 +24,7 @@ class ProcessingLogicTest {
         .euModifier(0.75)
         .build();
     private static final ProcessingInputs LUV = ProcessingInputs.builder()
-        .energyHatches(VoltageIndex.LuV, 2)
+        .energyHatches(regularHatches(VoltageIndex.LuV, 2))
         .build();
 
     @Test
@@ -31,7 +32,7 @@ class ProcessingLogicTest {
         GTRecipe recipe = recipe(30, 200, 0);
 
         ProcessingRun machine = new ProcessingLogic().setSpec(SPEC, LUV)
-            .inspect(recipe);
+            .inspectForTesting(recipe);
 
         assertEquals(SPEC.calculate(recipe, LUV), machine);
     }
@@ -54,7 +55,7 @@ class ProcessingLogicTest {
         assertNotEquals(
             SPEC.calculate(recipe, LUV),
             halved.setSpec(SPEC, LUV)
-                .inspect(recipe));
+                .inspectForTesting(recipe));
     }
 
     /** insufficientStartupPower() returns a new result on each call. */
@@ -81,7 +82,7 @@ class ProcessingLogicTest {
     void thePowerPanelCapsTheSpecsParallels() {
         ProcessingRun capped = new ProcessingLogic().setSpec(SPEC, LUV)
             .setParallelLimit(5)
-            .inspect(recipe(30, 200, 0));
+            .inspectForTesting(recipe(30, 200, 0));
 
         assertEquals(5, capped.parallel());
     }
@@ -100,7 +101,6 @@ class ProcessingLogicTest {
             .setAmperageOC(false)
             .setUnlimitedTierSkips()
             .createOverclockCalculator(recipe(30, 200, 0));
-
         assertEquals(4, calculator.getMachineAmperage());
         assertEquals(0.5, calculator.getDurationModifier());
         assertEquals(0.75, calculator.getEUtDiscount());

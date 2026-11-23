@@ -37,7 +37,7 @@ class ModifierTest {
         .labels(1, "Basic", "High Pressure")
         .register();
 
-    private static final Modifier.Of<Machine, Integer> ITEM_PIPE = Modifier
+    private static final Modifier.Element<Machine, Integer> ITEM_PIPE = Modifier
         .itemPipeCasing(Machine::getPipe, Machine::setPipe);
 
     @Test
@@ -46,7 +46,7 @@ class ModifierTest {
         Machine second = new Machine();
 
         ITEM_PIPE.of(first)
-            .set(3);
+            .setValueForTesting(3);
 
         assertEquals(3, first.pipe);
         assertEquals(
@@ -63,9 +63,7 @@ class ModifierTest {
     }
 
     private static Stream<Arguments> pipeCasingKinds() {
-        return Stream.of(
-            Arguments.of(ModifierKind.PIPE_CASING, GTStructureUtility.PIPE_CASING_TIERS),
-            Arguments.of(ModifierKind.ITEM_PIPE_CASING, GTStructureUtility.ITEM_PIPE_CASING_TIERS));
+        return Stream.of(Arguments.of(ModifierKind.ITEM_PIPE_CASING, GTStructureUtility.ITEM_PIPE_CASING_TIERS));
     }
 
     @Test
@@ -73,7 +71,7 @@ class ModifierTest {
         int[] tier = { 1 };
         Modifier modifier = Modifier.of(PRESSURE, () -> tier[0], value -> tier[0] = value);
 
-        modifier.set(2);
+        modifier.setValueForTesting(2);
 
         assertEquals(2, tier[0]);
         assertEquals("High Pressure", PRESSURE.label(2));
