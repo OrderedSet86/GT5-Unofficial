@@ -3480,12 +3480,6 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
         return false;
     }
 
-    public int getMachineModeCount() {
-        List<MachineMode> modes = getMachineModes();
-        if (!modes.isEmpty()) return modes.size();
-        return supportsMachineModeSwitch() ? 2 : 1;
-    }
-
     @Override
     public String getMachineModeKey() {
         MachineMode mode = getCurrentMachineMode();
