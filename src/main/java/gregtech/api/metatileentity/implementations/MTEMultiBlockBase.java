@@ -2288,10 +2288,14 @@ public abstract class MTEMultiBlockBase extends MetaTileEntity
     public final ProcessingRun calculateForTesting(@Nonnull GTRecipe recipe, @Nonnull ProcessingInputs inputs) {
         ProcessingSpec spec = getProcessingSpec();
         if (processingLogic == null || spec == null) return null;
+        prepareForTesting();
         setupProcessingLogic(processingLogic);
         processingLogic.setSpec(spec, inputs);
         return processingLogic.inspectForTesting(recipe);
     }
+
+    /** ONLY FOR THE CONFORMANCE GAME TEST. Moves the machine past any start-up phase. */
+    protected void prepareForTesting() {}
 
     /** One {@link Modifier} per kind the machine's spec reads. */
     @Nonnull

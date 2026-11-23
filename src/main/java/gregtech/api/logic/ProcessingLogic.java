@@ -588,7 +588,7 @@ public class ProcessingLogic {
     }
 
     private ResolvedRecipe resolveSpec(GTRecipe recipe) {
-        return spec.resolve(recipe, specInputs)
+        return spec.resolveInAnyMode(recipe, specInputs)
             .capParallel(parallelLimit);
     }
 
@@ -612,6 +612,7 @@ public class ProcessingLogic {
                 OptionalInt.empty(),
                 maxTierSkips,
                 null),
+            CheckRecipeResultRegistry.SUCCESSFUL,
             CheckRecipeResultRegistry.SUCCESSFUL,
             ProcessingRun.RunEu.NONE);
     }
@@ -655,6 +656,8 @@ public class ProcessingLogic {
         specResolved = resolveSpec(found);
         CheckRecipeResult specResult = checkSpecRequirements(specResolved);
         if (!specResult.wasSuccessful()) return ProcessingRun.failed(specResult);
+        if (!specResolved.checkToStart()
+            .wasSuccessful()) return ProcessingRun.failed(specResolved.checkToStart());
 
         GTRecipe recipe = specResolved.recipe();
         ParallelHelper helper = ResolvedRecipe.configureForPlanning(createParallelHelper(recipe));
