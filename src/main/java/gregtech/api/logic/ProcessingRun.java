@@ -30,7 +30,7 @@ public record ProcessingRun(@Nonnull CheckRecipeResult result, int parallel, int
     }
 
     /**
-     * @param successChance Of each parallel, 0 to 1
+     * @param successChance The chance of each parallel as a fraction of 1
      * @param yield         Multiplies the outputs of each parallel that succeeds
      */
     public record Output(double successChance, double yield) {

@@ -1029,7 +1029,7 @@ public final class ProcessingSpec {
             return this;
         }
 
-        /** The chance, 0 to 1, that each parallel succeeds. */
+        /** Sets the chance that each parallel succeeds. The chance is a fraction of 1. */
         public Builder successChancePerRecipe(@Nonnull ToDoubleBiFunction<ProcessingInputs, GTRecipe> chance) {
             this.successChance = chance;
             return this;

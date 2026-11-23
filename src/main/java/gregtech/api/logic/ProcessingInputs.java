@@ -57,7 +57,7 @@ public record ProcessingInputs(@Nonnull List<EnergyHatch> energyHatches, int mod
         return (int) rawValue(kind);
     }
 
-    /** @throws IllegalArgumentException if no value was given for the kind */
+    /** @throws IllegalArgumentException if the inputs don't have a value for the kind */
     public long value(@Nonnull ModifierKind.LongKind kind) {
         return rawValue(kind);
     }

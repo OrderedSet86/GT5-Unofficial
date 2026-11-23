@@ -153,7 +153,10 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         .ordered()
         .range(0, ASTRAL_ARRAY_LIMIT)
         .register();
-    /** The programmed circuit. With each step, the time is halved and the EU per run is multiplied by 4. */
+    /**
+     * The programmed circuit. When the circuit goes up one step, the recipe time is halved and the EU per run is
+     * multiplied by 4.
+     */
     private static final ModifierKind.IntKind CIRCUIT = ModifierKind.ofInt("tectech:eoh_circuit")
         .name("GT5U.MBTT.Tiers.EohCircuit")
         .source(ModifierKind.Source.ITEM)
@@ -171,14 +174,17 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
     private static final ModifierKind.LongKind EXCESS_STAR_MATTER = registerExcessKind(
         "tectech:eoh_excess_star_matter",
         "GT5U.MBTT.Tiers.ExcessStarMatter");
-    /** 1 when a single run succeeds for certain after repeated failures, before fluid overflow. */
+    /**
+     * 1 when a single run succeeds for certain after repeated failures. {@link #computeSuccessChance} then subtracts
+     * the fluid overflow penalty from the certain chance.
+     */
     private static final ModifierKind.IntKind PITY = ModifierKind.ofInt("tectech:eoh_pity")
         .name("GT5U.MBTT.Tiers.EohPity")
         .source(ModifierKind.Source.RUNTIME)
         .ordered()
         .range(0, 1)
         .register();
-    // No ProcessingLogic: processRecipe runs the recipe through the spec
+    // the machine doesn't have a ProcessingLogic. processRecipe() runs the recipe through the spec
     private static final ProcessingSpec SPEC = ProcessingSpec.builder()
         .reads(
             SPACETIME_COMPRESSION_FIELD,
@@ -249,7 +255,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return EOH_DEBUG_MODE ? stored >= 100 : stored >= required;
     }
 
-    /** The litres stored, given the litres beyond the requirement. */
+    /** Returns the litres stored from the litres beyond the requirement. */
     private static long computeStored(ProcessingInputs inputs, ModifierKind.LongKind excess, double required) {
         return inputs.value(excess) + (long) Math.ceil(required);
     }
@@ -295,7 +301,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
         return MathHelper.clamp_double(yield - computeOverflowPenalty(inputs, getEohRecipe(recipe)), 0.0, 1.0);
     }
 
-    /** The start cost, taken from the wireless network. */
+    /** Returns the start cost. The machine takes the start cost from the wireless network. */
     private static BigInteger computeEuPerRun(ProcessingInputs inputs, GTRecipe recipe) {
         BigInteger eu = BigInteger.valueOf(getEohRecipe(recipe).getEUStartCost())
             .multiply(BigInteger.valueOf((long) GTUtility.powInt(4, inputs.value(CIRCUIT))));
@@ -1056,7 +1062,7 @@ public class MTEEyeOfHarmony extends TTMultiblockBase implements ISurvivalConstr
             Modifier.of(PITY, () -> pityGuaranteed ? 1 : 0, value -> pityGuaranteed = value == 1));
     }
 
-    /** The excess counts from {@link #currentRecipe}'s requirement, or from 0 while there is no current recipe. */
+    /** The excess counts from {@link #currentRecipe}'s requirement, or from 0 while {@link #currentRecipe} is null. */
     private Modifier createExcessModifier(ModifierKind.LongKind kind, Fluid fluid,
         ToDoubleFunction<EyeOfHarmonyRecipe> required) {
         return Modifier.of(
