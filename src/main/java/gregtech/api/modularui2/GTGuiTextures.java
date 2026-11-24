@@ -1652,6 +1652,10 @@ public final class GTGuiTextures {
         .fullImage("goodgenerator", "gui/overlay_button/assembler_mode");
     public static final UITexture OVERLAY_BUTTON_PRECISE_MODE = UITexture
         .fullImage("goodgenerator", "gui/overlay_button/precise_mode");
+    public static final UITexture OVERLAY_BUTTON_CIRCUIT_ASSEMBLY_LINE_MODE = UITexture
+        .fullImage(MainMod.MOD_ID, "GUI/overlay_button/line_mode");
+    public static final UITexture OVERLAY_BUTTON_CIRCUIT_ASSEMBLER_MODE = UITexture
+        .fullImage(MainMod.MOD_ID, "GUI/overlay_button/assembler_mode");
     public static final UITexture OVERLAY_BUTTON_AUTOOUTPUT_ITEM = UITexture.builder()
         .nonOpaque()
         .canApplyTheme()

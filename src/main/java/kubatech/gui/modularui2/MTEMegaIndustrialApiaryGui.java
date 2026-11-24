@@ -97,7 +97,6 @@ public class MTEMegaIndustrialApiaryGui extends MTEMultiBlockBaseGui<MTEMegaIndu
     public ModularPanel build(PosGuiData guiData, PanelSyncManager syncManager, UISettings uiSettings) {
         isInInventory = multiblock.getBaseMetaTileEntity()
             .isActive();
-        setMachineModeIcons();
         registerSyncValues(syncManager);
         registerApiarySyncValues(syncManager);
         ModularPanel panel = getBasePanel(guiData, syncManager, uiSettings);

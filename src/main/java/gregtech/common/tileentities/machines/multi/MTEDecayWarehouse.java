@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
@@ -52,9 +54,9 @@ import gregtech.api.interfaces.metatileentity.IMetaTileEntity;
 import gregtech.api.interfaces.tileentity.ICasingTextureProvider;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.items.MetaGeneratedTool;
+import gregtech.api.logic.MachineMode;
 import gregtech.api.metatileentity.implementations.MTEExtendedPowerMultiBlockBase;
 import gregtech.api.modularui2.GTGuiTextures;
-import gregtech.api.recipe.RecipeMap;
 import gregtech.api.recipe.RecipeMaps;
 import gregtech.api.recipe.check.CheckRecipeResult;
 import gregtech.api.recipe.check.CheckRecipeResultRegistry;
@@ -70,7 +72,6 @@ import gregtech.api.util.GTStructureUtility;
 import gregtech.api.util.GTUtility;
 import gregtech.api.util.ItemEjectionHelper;
 import gregtech.api.util.MultiblockTooltipBuilder;
-import gregtech.common.gui.modularui.multiblock.base.MTEMultiBlockBaseGui;
 import gregtech.common.misc.GTStructureChannels;
 import gregtech.common.tileentities.storage.MTEDigitalChestBase;
 
@@ -78,7 +79,15 @@ import gregtech.common.tileentities.storage.MTEDigitalChestBase;
 public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWarehouse> implements
     ISurvivalConstructable, IStructureProvider<MTEDecayWarehouse>, ISuperChestAcceptor, ICasingTextureProvider {
 
-    private static final int MODE_NORMAL = 0, MODE_EXPORT = 1;
+    private static final MachineMode NORMAL = new MachineMode(
+        RecipeMaps.isotopeDecay,
+        "GT5U.DECAY_WAREHOUSE.mode.normal",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PACKAGER);
+    private static final MachineMode EXPORT = new MachineMode(
+        RecipeMaps.isotopeDecay,
+        "GT5U.DECAY_WAREHOUSE.mode.exporting",
+        GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
+    private static final List<MachineMode> MODES = List.of(NORMAL, EXPORT);
     public static final double EPSILON = 0.00001;
     public static final long EU_PER_IO = 512L;
     public static final int CAPACITY_DIVISOR = 400;
@@ -274,19 +283,10 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
         return RadiationProofMachineCasing.getCasingTexture();
     }
 
+    @Nonnull
     @Override
-    public boolean supportsMachineModeSwitch() {
-        return true;
-    }
-
-    @Override
-    public String getMachineModeKey() {
-        return machineMode == MODE_NORMAL ? "GT5U.DECAY_WAREHOUSE.mode.normal" : "GT5U.DECAY_WAREHOUSE.mode.exporting";
-    }
-
-    @Override
-    public RecipeMap<?> getRecipeMap() {
-        return RecipeMaps.isotopeDecay;
+    public List<MachineMode> getMachineModes() {
+        return MODES;
     }
 
     @Override
@@ -325,7 +325,7 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
 
         decayRate = 0;
 
-        if (machineMode == MODE_NORMAL && currentRecipe != null) {
+        if (getCurrentMachineMode() == NORMAL && currentRecipe != null) {
             double halfLife = currentRecipe.getMetadataOrDefault(GTRecipeConstants.HALF_LIFE, 0d);
 
             double ratio = Math.exp(-Math.log(2) / halfLife);
@@ -337,7 +337,7 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
             storedProduct += consumed;
         }
 
-        if (machineMode == MODE_EXPORT) {
+        if (getCurrentMachineMode() == EXPORT) {
             if (storedIsotope < EPSILON) {
                 isotope = null;
                 storedIsotope = 0;
@@ -446,7 +446,7 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
         }
 
         // eject any isotope dusts if we're in export mode
-        if (machineMode == MODE_EXPORT && remainingIOQuota > 0 && isotope != null) {
+        if (getCurrentMachineMode() == EXPORT && remainingIOQuota > 0 && isotope != null) {
             int isotopeAmount = MathHelper.floor_double(storedIsotope + EPSILON);
 
             if (isotopeAmount > 0) {
@@ -466,7 +466,7 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
 
         mOutputItems = outputs.toArray(new ItemStack[0]);
 
-        if (machineMode == MODE_NORMAL && Math.min(getAvailableCapacity(), remainingIOQuota) > 0) {
+        if (getCurrentMachineMode() == NORMAL && Math.min(getAvailableCapacity(), remainingIOQuota) > 0) {
             ArrayList<ItemStack> inputs = getStoredInputs();
 
             if (isotope == null) {
@@ -625,12 +625,5 @@ public class MTEDecayWarehouse extends MTEExtendedPowerMultiBlockBase<MTEDecayWa
         info.add("Capacity: " + BLUE + getWarehouseCapacity());
 
         return info.toArray(new String[0]);
-    }
-
-    @Override
-    protected @NotNull MTEMultiBlockBaseGui<?> getGui() {
-        return super.getGui().withMachineModeIcons(
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_PACKAGER,
-            GTGuiTextures.OVERLAY_BUTTON_MACHINEMODE_UNPACKAGER);
     }
 }
